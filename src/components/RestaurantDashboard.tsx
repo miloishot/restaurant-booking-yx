@@ -3,14 +3,15 @@ import { useRestaurantData } from '../hooks/useRestaurantData';
 import { TableGrid } from './TableGrid';
 import { BookingForm } from './BookingForm';
 import { BookingList } from './BookingList';
+import { OperatingHoursManager } from './OperatingHoursManager';
 import { RestaurantTable } from '../types/database';
-import { Settings, Users, Calendar, Clock, RefreshCw } from 'lucide-react';
+import { Settings, Users, Calendar, Clock, RefreshCw, Building } from 'lucide-react';
 
 export function RestaurantDashboard() {
-  const { restaurant, tables, bookings, loading, error, updateTableStatus, updateBookingStatus, refetch } = useRestaurantData();
+  const { restaurant, tables, bookings, operatingHours, loading, error, updateTableStatus, updateBookingStatus, assignTableToBooking, refetch } = useRestaurantData();
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'tables' | 'bookings'>('tables');
+  const [activeTab, setActiveTab] = useState<'tables' | 'bookings' | 'hours'>('bookings');
   const [refreshing, setRefreshing] = useState(false);
 
   const handleManualRefresh = async () => {
@@ -94,11 +95,15 @@ export function RestaurantDashboard() {
     return booking.booking_date === today;
   });
 
+  const pendingBookings = todaysBookings.filter(b => b.status === 'pending');
+  const unassignedBookings = todaysBookings.filter(b => !b.table_id && ['pending', 'confirmed'].includes(b.status));
+
   const stats = {
     totalTables: tables.length,
     availableTables: tables.filter(t => t.status === 'available').length,
     occupiedTables: tables.filter(t => t.status === 'occupied').length,
-    pendingBookings: bookings.filter(b => b.status === 'pending').length
+    pendingBookings: pendingBookings.length,
+    unassignedBookings: unassignedBookings.length
   };
 
   return (
@@ -130,7 +135,7 @@ export function RestaurantDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <Users className="w-8 h-8 text-blue-600" />
@@ -174,11 +179,33 @@ export function RestaurantDashboard() {
               </div>
             </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 font-bold">!</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Unassigned</p>
+                <p className="text-2xl font-bold text-orange-600">{stats.unassignedBookings}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Navigation Tabs */}
         <div className="mb-6">
           <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('bookings')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'bookings'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Today's Bookings ({todaysBookings.length})
+            </button>
             <button
               onClick={() => setActiveTab('tables')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -190,29 +217,44 @@ export function RestaurantDashboard() {
               Table Management
             </button>
             <button
-              onClick={() => setActiveTab('bookings')}
+              onClick={() => setActiveTab('hours')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'bookings'
+                activeTab === 'hours'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Today's Bookings ({todaysBookings.length})
+              Operating Hours
             </button>
           </nav>
         </div>
 
         {/* Content */}
-        {activeTab === 'tables' ? (
+        {activeTab === 'bookings' && (
+          <BookingList 
+            bookings={todaysBookings} 
+            tables={tables}
+            onUpdateBooking={handleBookingStatusUpdate}
+            onAssignTable={assignTableToBooking}
+          />
+        )}
+        
+        {activeTab === 'tables' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-2">Table Layout</h2>
-              <p className="text-gray-600">Click on any table to create a booking or change status</p>
+              <p className="text-gray-600">Click on any table to create a walk-in booking or change status</p>
             </div>
             <TableGrid tables={tables} onTableClick={handleTableClick} />
           </div>
-        ) : (
-          <BookingList bookings={todaysBookings} onUpdateBooking={handleBookingStatusUpdate} />
+        )}
+
+        {activeTab === 'hours' && (
+          <OperatingHoursManager 
+            restaurant={restaurant}
+            operatingHours={operatingHours}
+            onUpdate={refetch}
+          />
         )}
       </div>
 

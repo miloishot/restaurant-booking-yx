@@ -1,11 +1,13 @@
-import React from 'react';
-import { BookingWithDetails } from '../types/database';
+import React, { useState } from 'react';
+import { BookingWithDetails, RestaurantTable } from '../types/database';
 import { format } from 'date-fns';
-import { Clock, User, Phone, Mail } from 'lucide-react';
+import { Clock, User, Phone, Mail, MapPin, AlertCircle } from 'lucide-react';
 
 interface BookingListProps {
   bookings: BookingWithDetails[];
+  tables: RestaurantTable[];
   onUpdateBooking: (bookingId: string, status: BookingWithDetails['status']) => void;
+  onAssignTable: (bookingId: string, tableId: string) => void;
 }
 
 const statusColors = {
@@ -17,7 +19,9 @@ const statusColors = {
   no_show: 'bg-orange-100 text-orange-800 border-orange-300'
 };
 
-export function BookingList({ bookings, onUpdateBooking }: BookingListProps) {
+export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }: BookingListProps) {
+  const [assigningTable, setAssigningTable] = useState<string | null>(null);
+
   const groupedBookings = bookings.reduce((acc, booking) => {
     const status = booking.status;
     if (!acc[status]) acc[status] = [];
@@ -33,10 +37,10 @@ export function BookingList({ bookings, onUpdateBooking }: BookingListProps) {
       let message = '';
       switch (status) {
         case 'confirmed':
-          message = 'Booking confirmed! Table is now reserved.';
+          message = 'Booking confirmed!';
           break;
         case 'seated':
-          message = 'Customer seated! Table is now occupied.';
+          message = 'Customer seated!';
           break;
         case 'completed':
           message = 'Booking completed! Table is now available.';
@@ -66,6 +70,32 @@ export function BookingList({ bookings, onUpdateBooking }: BookingListProps) {
     }
   };
 
+  const handleTableAssignment = async (bookingId: string, tableId: string) => {
+    try {
+      await onAssignTable(bookingId, tableId);
+      setAssigningTable(null);
+      
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Table assigned successfully!';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
+    } catch (error) {
+      console.error('Error assigning table:', error);
+      alert('Failed to assign table. Please try again.');
+    }
+  };
+
+  const getAvailableTablesForBooking = (booking: BookingWithDetails) => {
+    return tables.filter(table => 
+      table.status === 'available' && 
+      table.capacity >= booking.party_size
+    );
+  };
+
   return (
     <div className="space-y-6">
       {Object.entries(groupedBookings).map(([status, statusBookings]) => (
@@ -84,7 +114,14 @@ export function BookingList({ bookings, onUpdateBooking }: BookingListProps) {
                   <div>
                     <h4 className="font-semibold text-lg">{booking.customer.name}</h4>
                     <p className="text-sm opacity-75">
-                      Table {booking.restaurant_table.table_number} • {booking.party_size} people
+                      {booking.restaurant_table ? (
+                        <>Table {booking.restaurant_table.table_number} • {booking.party_size} people</>
+                      ) : (
+                        <span className="flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          No table assigned • {booking.party_size} people
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="text-right">
@@ -119,6 +156,47 @@ export function BookingList({ bookings, onUpdateBooking }: BookingListProps) {
                   </p>
                 )}
 
+                {/* Table Assignment Section */}
+                {!booking.table_id && ['pending', 'confirmed'].includes(booking.status) && (
+                  <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-orange-800">
+                        Table assignment required
+                      </span>
+                      <button
+                        onClick={() => setAssigningTable(assigningTable === booking.id ? null : booking.id)}
+                        className="text-sm bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700 transition-colors"
+                      >
+                        {assigningTable === booking.id ? 'Cancel' : 'Assign Table'}
+                      </button>
+                    </div>
+                    
+                    {assigningTable === booking.id && (
+                      <div className="mt-3">
+                        <p className="text-sm text-orange-700 mb-2">
+                          Available tables for {booking.party_size} people:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {getAvailableTablesForBooking(booking).map(table => (
+                            <button
+                              key={table.id}
+                              onClick={() => handleTableAssignment(booking.id, table.id)}
+                              className="px-3 py-1 bg-white border border-orange-300 rounded text-sm hover:bg-orange-50 transition-colors"
+                            >
+                              Table {table.table_number} (Cap: {table.capacity})
+                            </button>
+                          ))}
+                        </div>
+                        {getAvailableTablesForBooking(booking).length === 0 && (
+                          <p className="text-sm text-orange-600">
+                            No suitable tables available. Consider adjusting table statuses.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   {booking.status === 'pending' && (
                     <>
@@ -137,7 +215,7 @@ export function BookingList({ bookings, onUpdateBooking }: BookingListProps) {
                     </>
                   )}
                   
-                  {booking.status === 'confirmed' && (
+                  {booking.status === 'confirmed' && booking.table_id && (
                     <>
                       <button
                         onClick={() => handleStatusUpdate(booking.id, 'seated')}

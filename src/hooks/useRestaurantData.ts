@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Restaurant, RestaurantTable, BookingWithDetails } from '../types/database';
+import { Restaurant, RestaurantTable, BookingWithDetails, RestaurantOperatingHours } from '../types/database';
 
 export function useRestaurantData() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
+  const [operatingHours, setOperatingHours] = useState<RestaurantOperatingHours[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +38,16 @@ export function useRestaurantData() {
 
       if (tablesError) throw tablesError;
       setTables(tablesData);
+
+      // Fetch operating hours
+      const { data: hoursData, error: hoursError } = await supabase
+        .from('restaurant_operating_hours')
+        .select('*')
+        .eq('restaurant_id', restaurantData.id)
+        .order('day_of_week');
+
+      if (hoursError) throw hoursError;
+      setOperatingHours(hoursData);
 
       // Fetch today's bookings with customer and table details
       const today = new Date().toISOString().split('T')[0];
@@ -112,24 +123,26 @@ export function useRestaurantData() {
 
       if (bookingError) throw bookingError;
 
-      // Update table status based on booking status
-      let tableStatus: RestaurantTable['status'] = 'available';
-      
-      if (status === 'confirmed') {
-        tableStatus = 'reserved';
-      } else if (status === 'seated') {
-        tableStatus = 'occupied';
-      } else if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
-        tableStatus = 'available';
+      // Update table status based on booking status (only if table is assigned)
+      if (booking.table_id) {
+        let tableStatus: RestaurantTable['status'] = 'available';
+        
+        if (status === 'confirmed') {
+          tableStatus = 'reserved';
+        } else if (status === 'seated') {
+          tableStatus = 'occupied';
+        } else if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
+          tableStatus = 'available';
+        }
+
+        // Update the table status
+        const { error: tableError } = await supabase
+          .from('restaurant_tables')
+          .update({ status: tableStatus })
+          .eq('id', booking.table_id);
+
+        if (tableError) throw tableError;
       }
-
-      // Update the table status
-      const { error: tableError } = await supabase
-        .from('restaurant_tables')
-        .update({ status: tableStatus })
-        .eq('id', booking.table_id);
-
-      if (tableError) throw tableError;
 
       // Force refresh after updates
       await fetchRestaurantData();
@@ -140,14 +153,41 @@ export function useRestaurantData() {
     }
   };
 
+  const assignTableToBooking = async (bookingId: string, tableId: string) => {
+    try {
+      // Update booking with table assignment
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .update({ table_id: tableId })
+        .eq('id', bookingId);
+
+      if (bookingError) throw bookingError;
+
+      // Update table status to reserved
+      const { error: tableError } = await supabase
+        .from('restaurant_tables')
+        .update({ status: 'reserved' })
+        .eq('id', tableId);
+
+      if (tableError) throw tableError;
+
+      await fetchRestaurantData();
+    } catch (error) {
+      console.error('Error assigning table:', error);
+      throw error;
+    }
+  };
+
   return {
     restaurant,
     tables,
     bookings,
+    operatingHours,
     loading,
     error,
     updateTableStatus,
     updateBookingStatus,
+    assignTableToBooking,
     refetch: fetchRestaurantData
   };
 }

@@ -7,6 +7,7 @@ export interface Restaurant {
   address: string | null;
   phone: string | null;
   email: string | null;
+  time_slot_duration_minutes: number;
   created_at: string;
   updated_at: string;
 }
@@ -34,7 +35,7 @@ export interface Customer {
 export interface Booking {
   id: string;
   restaurant_id: string;
-  table_id: string;
+  table_id: string | null; // Now nullable for auto-assignment
   customer_id: string;
   booking_date: string;
   booking_time: string;
@@ -50,5 +51,23 @@ export interface Booking {
 
 export interface BookingWithDetails extends Booking {
   customer: Customer;
-  restaurant_table: RestaurantTable;
+  restaurant_table?: RestaurantTable; // Optional since table might not be assigned yet
+}
+
+export interface RestaurantOperatingHours {
+  id: string;
+  restaurant_id: string;
+  day_of_week: number; // 0 = Sunday, 6 = Saturday
+  opening_time: string;
+  closing_time: string;
+  is_closed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimeSlot {
+  time: string;
+  available: boolean;
+  totalCapacity: number;
+  bookedCapacity: number;
 }
