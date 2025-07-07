@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Restaurant } from '../types/database';
+import { Restaurant, AvailableTable } from '../types/database';
 import { format } from 'date-fns';
-import { Calendar, Clock, Users, Phone, Mail, User } from 'lucide-react';
+import { Calendar, Clock, Users, Phone, Mail, User, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface TimeSlotBookingFormProps {
   restaurant: Restaurant;
@@ -29,6 +29,7 @@ export function TimeSlotBookingForm({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bookingResult, setBookingResult] = useState<'confirmed' | 'waitlist' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,29 +73,84 @@ export function TimeSlotBookingForm({
         customerId = newCustomer.id;
       }
 
-      // Create booking without table assignment (will be assigned by staff)
-      const { error: bookingError } = await supabase
-        .from('bookings')
-        .insert({
-          restaurant_id: restaurant.id,
-          table_id: null, // No table assignment for customer bookings
-          customer_id: customerId,
-          booking_date: selectedDate,
-          booking_time: selectedTime,
-          party_size: partySize,
-          notes: formData.notes || null,
-          is_walk_in: false,
-          status: 'pending'
-        });
+      // Check for available tables using the RPC function
+      const { data: availableTables, error: tablesError } = await supabase
+        .rpc('get_available_tables', {
+          p_restaurant_id: restaurant.id,
+          p_date: selectedDate,
+          p_time: selectedTime,
+          p_party_size: partySize
+        }) as { data: AvailableTable[] | null, error: any };
 
-      if (bookingError) throw bookingError;
+      if (tablesError) throw tablesError;
 
-      // Show success message
-      alert('Booking request submitted successfully! We will confirm your reservation shortly.');
+      if (availableTables && availableTables.length > 0) {
+        // Table available - create confirmed booking with auto-assigned table
+        const assignedTable = availableTables[0]; // Get the smallest suitable table
+
+        const { error: bookingError } = await supabase
+          .from('bookings')
+          .insert({
+            restaurant_id: restaurant.id,
+            table_id: assignedTable.table_id,
+            customer_id: customerId,
+            booking_date: selectedDate,
+            booking_time: selectedTime,
+            party_size: partySize,
+            notes: formData.notes || null,
+            is_walk_in: false,
+            status: 'confirmed',
+            assignment_method: 'auto',
+            was_on_waitlist: false
+          });
+
+        if (bookingError) throw bookingError;
+
+        // Update table status to reserved
+        const { error: tableError } = await supabase
+          .from('restaurant_tables')
+          .update({ status: 'reserved' })
+          .eq('id', assignedTable.table_id);
+
+        if (tableError) throw tableError;
+
+        setBookingResult('confirmed');
+      } else {
+        // No tables available - add to waiting list
+        // Get next priority order
+        const { data: lastPriority } = await supabase
+          .from('waiting_list')
+          .select('priority_order')
+          .eq('restaurant_id', restaurant.id)
+          .eq('requested_date', selectedDate)
+          .eq('requested_time', selectedTime)
+          .eq('status', 'waiting')
+          .order('priority_order', { ascending: false })
+          .limit(1)
+          .single();
+
+        const nextPriority = (lastPriority?.priority_order || 0) + 1;
+
+        const { error: waitingError } = await supabase
+          .from('waiting_list')
+          .insert({
+            restaurant_id: restaurant.id,
+            customer_id: customerId,
+            requested_date: selectedDate,
+            requested_time: selectedTime,
+            party_size: partySize,
+            notes: formData.notes || null,
+            status: 'waiting',
+            priority_order: nextPriority
+          });
+
+        if (waitingError) throw waitingError;
+
+        setBookingResult('waitlist');
+      }
       
-      onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create booking');
+      setError(err instanceof Error ? err.message : 'Failed to process booking');
     } finally {
       setLoading(false);
     }
@@ -110,6 +166,77 @@ export function TimeSlotBookingForm({
   const formatDate = (date: string) => {
     return format(new Date(date), 'EEEE, MMMM d, yyyy');
   };
+
+  if (bookingResult) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="p-6 text-center">
+            {bookingResult === 'confirmed' ? (
+              <>
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Booking Confirmed!</h2>
+                <div className="bg-green-50 rounded-lg p-4 mb-6 border border-green-200">
+                  <div className="space-y-2 text-sm text-green-800">
+                    <div className="flex items-center justify-center">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      {formatDate(selectedDate)}
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <Clock className="w-4 h-4 mr-2" />
+                      {formatTime(selectedTime)}
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <Users className="w-4 h-4 mr-2" />
+                      {partySize} {partySize === 1 ? 'Guest' : 'Guests'}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  Your table has been automatically assigned. We look forward to seeing you!
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-8 h-8 text-orange-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Added to Waiting List</h2>
+                <div className="bg-orange-50 rounded-lg p-4 mb-6 border border-orange-200">
+                  <div className="space-y-2 text-sm text-orange-800">
+                    <div className="flex items-center justify-center">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      {formatDate(selectedDate)}
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <Clock className="w-4 h-4 mr-2" />
+                      {formatTime(selectedTime)}
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <Users className="w-4 h-4 mr-2" />
+                      {partySize} {partySize === 1 ? 'Guest' : 'Guests'}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-600 mb-6">
+                  All tables are currently booked for this time. You've been added to our waiting list and we'll call you if a table becomes available.
+                </p>
+              </>
+            )}
+            
+            <button
+              onClick={onSuccess}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -202,7 +329,7 @@ export function TimeSlotBookingForm({
 
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Your table will be automatically assigned by our staff based on availability and your party size. We'll confirm your reservation shortly.
+                <strong>Automatic Assignment:</strong> If tables are available, we'll confirm your booking immediately and assign the best table for your party. If fully booked, you'll be added to our waiting list and notified if a table becomes available.
               </p>
             </div>
 
@@ -219,7 +346,7 @@ export function TimeSlotBookingForm({
                 disabled={loading}
                 className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50"
               >
-                {loading ? 'Submitting...' : 'Submit Reservation'}
+                {loading ? 'Processing...' : 'Submit Request'}
               </button>
             </div>
           </form>

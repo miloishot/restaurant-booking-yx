@@ -1,5 +1,7 @@
 export type TableStatus = 'available' | 'occupied' | 'reserved' | 'maintenance';
 export type BookingStatus = 'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
+export type WaitingListStatus = 'waiting' | 'notified' | 'confirmed' | 'expired' | 'cancelled';
+export type AssignmentMethod = 'auto' | 'manual' | 'waitlist';
 
 export interface Restaurant {
   id: string;
@@ -35,7 +37,7 @@ export interface Customer {
 export interface Booking {
   id: string;
   restaurant_id: string;
-  table_id: string | null; // Now nullable for auto-assignment
+  table_id: string | null;
   customer_id: string;
   booking_date: string;
   booking_time: string;
@@ -43,6 +45,8 @@ export interface Booking {
   status: BookingStatus;
   notes: string | null;
   is_walk_in: boolean;
+  assignment_method: AssignmentMethod;
+  was_on_waitlist: boolean;
   created_at: string;
   updated_at: string;
   customer?: Customer;
@@ -51,7 +55,26 @@ export interface Booking {
 
 export interface BookingWithDetails extends Booking {
   customer: Customer;
-  restaurant_table?: RestaurantTable; // Optional since table might not be assigned yet
+  restaurant_table?: RestaurantTable;
+}
+
+export interface WaitingListEntry {
+  id: string;
+  restaurant_id: string;
+  customer_id: string;
+  requested_date: string;
+  requested_time: string;
+  party_size: number;
+  status: WaitingListStatus;
+  priority_order: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  customer?: Customer;
+}
+
+export interface WaitingListWithDetails extends WaitingListEntry {
+  customer: Customer;
 }
 
 export interface RestaurantOperatingHours {
@@ -70,4 +93,12 @@ export interface TimeSlot {
   available: boolean;
   totalCapacity: number;
   bookedCapacity: number;
+  availableCapacity: number;
+  waitingCount: number;
+}
+
+export interface AvailableTable {
+  table_id: string;
+  table_number: string;
+  capacity: number;
 }

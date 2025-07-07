@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Restaurant, RestaurantTable, BookingWithDetails, RestaurantOperatingHours } from '../types/database';
+import { Restaurant, RestaurantTable, BookingWithDetails, RestaurantOperatingHours, WaitingListWithDetails } from '../types/database';
 
 export function useRestaurantData() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
+  const [waitingList, setWaitingList] = useState<WaitingListWithDetails[]>([]);
   const [operatingHours, setOperatingHours] = useState<RestaurantOperatingHours[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +65,21 @@ export function useRestaurantData() {
 
       if (bookingsError) throw bookingsError;
       setBookings(bookingsData);
+
+      // Fetch waiting list
+      const { data: waitingData, error: waitingError } = await supabase
+        .from('waiting_list')
+        .select(`
+          *,
+          customer:customers(*)
+        `)
+        .eq('restaurant_id', restaurantData.id)
+        .eq('requested_date', today)
+        .eq('status', 'waiting')
+        .order('priority_order', { ascending: true });
+
+      if (waitingError) throw waitingError;
+      setWaitingList(waitingData);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -91,9 +107,19 @@ export function useRestaurantData() {
         })
       .subscribe();
 
+    const waitingChannel = supabase
+      .channel('waiting_list_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'waiting_list' }, 
+        () => {
+          console.log('Waiting list changed, refreshing data...');
+          fetchRestaurantData();
+        })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(tablesChannel);
       supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(waitingChannel);
     };
   };
 
@@ -133,6 +159,9 @@ export function useRestaurantData() {
           tableStatus = 'occupied';
         } else if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
           tableStatus = 'available';
+          
+          // When a table becomes available, check waiting list
+          await processWaitingList(booking.restaurant_id, booking.booking_date, booking.booking_time);
         }
 
         // Update the table status
@@ -158,7 +187,10 @@ export function useRestaurantData() {
       // Update booking with table assignment
       const { error: bookingError } = await supabase
         .from('bookings')
-        .update({ table_id: tableId })
+        .update({ 
+          table_id: tableId,
+          assignment_method: 'manual'
+        })
         .eq('id', bookingId);
 
       if (bookingError) throw bookingError;
@@ -178,16 +210,151 @@ export function useRestaurantData() {
     }
   };
 
+  const processWaitingList = async (restaurantId: string, date: string, time: string) => {
+    try {
+      // Get next person on waiting list for this time slot
+      const { data: nextWaiting, error: waitingError } = await supabase
+        .from('waiting_list')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .eq('requested_date', date)
+        .eq('requested_time', time)
+        .eq('status', 'waiting')
+        .order('priority_order', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (waitingError || !nextWaiting) return;
+
+      // Check if there's an available table for their party size
+      const { data: availableTables } = await supabase
+        .rpc('get_available_tables', {
+          p_restaurant_id: restaurantId,
+          p_date: date,
+          p_time: time,
+          p_party_size: nextWaiting.party_size
+        });
+
+      if (availableTables && availableTables.length > 0) {
+        // Assign the first available table
+        const assignedTable = availableTables[0];
+
+        // Create booking from waiting list
+        const { error: bookingError } = await supabase
+          .from('bookings')
+          .insert({
+            restaurant_id: restaurantId,
+            table_id: assignedTable.table_id,
+            customer_id: nextWaiting.customer_id,
+            booking_date: date,
+            booking_time: time,
+            party_size: nextWaiting.party_size,
+            notes: nextWaiting.notes,
+            status: 'confirmed',
+            assignment_method: 'waitlist',
+            was_on_waitlist: true,
+            is_walk_in: false
+          });
+
+        if (bookingError) throw bookingError;
+
+        // Update waiting list status
+        const { error: waitingUpdateError } = await supabase
+          .from('waiting_list')
+          .update({ status: 'notified' })
+          .eq('id', nextWaiting.id);
+
+        if (waitingUpdateError) throw waitingUpdateError;
+
+        // Update table status
+        const { error: tableError } = await supabase
+          .from('restaurant_tables')
+          .update({ status: 'reserved' })
+          .eq('id', assignedTable.table_id);
+
+        if (tableError) throw tableError;
+
+        console.log('Waiting list customer notified and table assigned');
+      }
+    } catch (error) {
+      console.error('Error processing waiting list:', error);
+    }
+  };
+
+  const promoteFromWaitingList = async (waitingListId: string) => {
+    try {
+      const waitingEntry = waitingList.find(w => w.id === waitingListId);
+      if (!waitingEntry) throw new Error('Waiting list entry not found');
+
+      // Get available tables
+      const { data: availableTables } = await supabase
+        .rpc('get_available_tables', {
+          p_restaurant_id: waitingEntry.restaurant_id,
+          p_date: waitingEntry.requested_date,
+          p_time: waitingEntry.requested_time,
+          p_party_size: waitingEntry.party_size
+        });
+
+      if (!availableTables || availableTables.length === 0) {
+        throw new Error('No available tables for this party size');
+      }
+
+      const assignedTable = availableTables[0];
+
+      // Create booking
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          restaurant_id: waitingEntry.restaurant_id,
+          table_id: assignedTable.table_id,
+          customer_id: waitingEntry.customer_id,
+          booking_date: waitingEntry.requested_date,
+          booking_time: waitingEntry.requested_time,
+          party_size: waitingEntry.party_size,
+          notes: waitingEntry.notes,
+          status: 'confirmed',
+          assignment_method: 'waitlist',
+          was_on_waitlist: true,
+          is_walk_in: false
+        });
+
+      if (bookingError) throw bookingError;
+
+      // Update waiting list status
+      const { error: waitingUpdateError } = await supabase
+        .from('waiting_list')
+        .update({ status: 'confirmed' })
+        .eq('id', waitingListId);
+
+      if (waitingUpdateError) throw waitingUpdateError;
+
+      // Update table status
+      const { error: tableError } = await supabase
+        .from('restaurant_tables')
+        .update({ status: 'reserved' })
+        .eq('id', assignedTable.table_id);
+
+      if (tableError) throw tableError;
+
+      await fetchRestaurantData();
+    } catch (error) {
+      console.error('Error promoting from waiting list:', error);
+      throw error;
+    }
+  };
+
   return {
     restaurant,
     tables,
     bookings,
+    waitingList,
     operatingHours,
     loading,
     error,
     updateTableStatus,
     updateBookingStatus,
     assignTableToBooking,
+    promoteFromWaitingList,
     refetch: fetchRestaurantData
   };
 }
