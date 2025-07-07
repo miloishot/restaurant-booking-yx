@@ -213,7 +213,7 @@ export function useRestaurantData() {
   const processWaitingList = async (restaurantId: string, date: string, time: string) => {
     try {
       // Get next person on waiting list for this time slot
-      const { data: nextWaiting, error: waitingError } = await supabase
+      const { data: nextWaitingData, error: waitingError } = await supabase
         .from('waiting_list')
         .select('*')
         .eq('restaurant_id', restaurantId)
@@ -221,10 +221,16 @@ export function useRestaurantData() {
         .eq('requested_time', time)
         .eq('status', 'waiting')
         .order('priority_order', { ascending: true })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (waitingError || !nextWaiting) return;
+      if (waitingError) throw waitingError;
+      
+      // Check if there are any customers on the waiting list
+      if (!nextWaitingData || nextWaitingData.length === 0) {
+        return; // No customers waiting, exit early
+      }
+
+      const nextWaiting = nextWaitingData[0];
 
       // Check if there's an available table for their party size
       const { data: availableTables } = await supabase
