@@ -104,3 +104,108 @@ export interface AvailableTable {
   table_number: string;
   capacity: number;
 }
+
+// QR Ordering System Types
+export interface MenuCategory {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MenuItem {
+  id: string;
+  restaurant_id: string;
+  category_id: string;
+  name: string;
+  description: string | null;
+  price_sgd: number;
+  image_url: string | null;
+  is_available: boolean;
+  display_order: number;
+  allergens: string[] | null;
+  dietary_info: string[] | null;
+  created_at: string;
+  updated_at: string;
+  category?: MenuCategory;
+}
+
+export interface LoyaltyUser {
+  id: string;
+  restaurant_id: string;
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  total_spent_sgd: number;
+  order_count: number;
+  discount_eligible: boolean;
+  last_order_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderSession {
+  id: string;
+  restaurant_id: string;
+  table_id: string;
+  booking_id: string | null;
+  session_token: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  table?: RestaurantTable;
+  booking?: Booking;
+}
+
+export interface Order {
+  id: string;
+  restaurant_id: string;
+  session_id: string;
+  order_number: string;
+  loyalty_user_ids: string[] | null;
+  subtotal_sgd: number;
+  discount_sgd: number;
+  total_sgd: number;
+  discount_applied: boolean;
+  triggering_user_id: string | null;
+  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  session?: OrderSession;
+  items?: OrderItem[];
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  menu_item_id: string;
+  quantity: number;
+  unit_price_sgd: number;
+  total_price_sgd: number;
+  special_instructions: string | null;
+  created_at: string;
+  menu_item?: MenuItem;
+}
+
+export interface OrderWithDetails extends Order {
+  session: OrderSession;
+  items: (OrderItem & { menu_item: MenuItem })[];
+}
+
+export interface CartItem {
+  menu_item: MenuItem;
+  quantity: number;
+  special_instructions?: string;
+}
+
+export interface LoyaltyDiscount {
+  discount_eligible: boolean;
+  discount_amount: number;
+  triggering_user_id: string | null;
+}

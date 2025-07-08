@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
 import { RestaurantTable, Restaurant } from '../types/database';
+import { useRestaurantData } from '../hooks/useRestaurantData';
 import { Users, Clock, CheckCircle, XCircle } from 'lucide-react';
 
 interface WalkInLoggerProps {
@@ -14,6 +14,7 @@ export function WalkInLogger({ restaurant, table, onSuccess, onCancel }: WalkInL
   const [partySize, setPartySize] = useState(2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { markTableOccupiedWithSession } = useRestaurantData();
 
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const notification = document.createElement('div');
@@ -36,51 +37,7 @@ export function WalkInLogger({ restaurant, table, onSuccess, onCancel }: WalkInL
     setError(null);
 
     try {
-      const now = new Date();
-      const currentDate = now.toISOString().split('T')[0];
-      const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
-
-      // Create anonymous customer record for analytics
-      const { data: anonymousCustomer, error: customerError } = await supabase
-        .from('customers')
-        .insert({
-          name: `Walk-in ${now.getTime()}`, // Unique anonymous identifier
-          phone: `walkin-${now.getTime()}`, // Unique phone for system requirements
-          email: null
-        })
-        .select('id')
-        .single();
-
-      if (customerError) throw customerError;
-
-      // Create walk-in booking record for analytics
-      const { error: bookingError } = await supabase
-        .from('bookings')
-        .insert({
-          restaurant_id: restaurant.id,
-          table_id: table.id,
-          customer_id: anonymousCustomer.id,
-          booking_date: currentDate,
-          booking_time: currentTime,
-          party_size: partySize,
-          notes: 'Anonymous walk-in - no personal data stored',
-          is_walk_in: true,
-          status: 'seated',
-          assignment_method: 'manual'
-        });
-
-      if (bookingError) throw bookingError;
-
-      // Update table status to occupied
-      const { error: tableError } = await supabase
-        .from('restaurant_tables')
-        .update({ 
-          status: 'occupied',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', table.id);
-
-      if (tableError) throw tableError;
+      await markTableOccupiedWithSession(table, partySize);
 
       showNotification(`Table ${table.table_number} marked as occupied for walk-in party of ${partySize}`, 'success');
       onSuccess();
@@ -151,11 +108,11 @@ export function WalkInLogger({ restaurant, table, onSuccess, onCancel }: WalkInL
             <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
               <div className="flex items-center text-orange-800 mb-2">
                 <Clock className="w-4 h-4 mr-2" />
-                <span className="font-medium">Instant Table Update</span>
+                <span className="font-medium">Instant Table Update + QR Ordering</span>
               </div>
               <p className="text-sm text-orange-700">
-                Table {table.table_number} will be immediately marked as occupied and excluded from 
-                automatic booking assignments until manually freed.
+                Table {table.table_number} will be marked as occupied, excluded from auto-assignment, 
+                and enabled for QR code ordering. Customers can scan the QR code to order food and drinks.
               </p>
             </div>
 

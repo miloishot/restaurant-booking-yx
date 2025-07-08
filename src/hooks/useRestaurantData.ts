@@ -476,6 +476,8 @@ export function useRestaurantData(restaurantSlug?: string) {
     assignTableToBooking,
     promoteFromWaitingList,
     cancelWaitingListEntry,
+    createOrderSession,
+    markTableOccupiedWithSession,
     refetch: () => fetchRestaurantData(restaurantSlug)
   };
 }
