@@ -352,7 +352,6 @@ export function TableGridWithOrders({
                           {order.status}
                         </span>
                       </div>
-                      </div>
 
                       {/* Order Items */}
                       <div className="space-y-2 mb-3">
