@@ -33,6 +33,9 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
+    // Debug logging for production
+    console.log('Attempting signup with Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
+
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -46,6 +49,7 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
 
       onSuccess();
     } catch (err) {
+      console.error('Signup error details:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during signup');
     } finally {
       setLoading(false);
@@ -63,6 +67,16 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-700 text-sm">{error}</p>
+            {error.includes('fetch') && (
+              <div className="mt-2 text-xs text-red-600">
+                <p>This might be a network or configuration issue. Please check:</p>
+                <ul className="list-disc list-inside mt-1">
+                  <li>Your internet connection</li>
+                  <li>Supabase environment variables are set correctly</li>
+                  <li>Supabase project is active and accessible</li>
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
