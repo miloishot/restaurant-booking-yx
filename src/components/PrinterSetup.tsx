@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant } from '../types/database';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, Settings, Wifi, Check, X, RefreshCw, QrCode, Save, Plus, Edit2, Trash2, Search } from 'lucide-react';
-import { NetworkPrinterDiscovery } from './NetworkPrinterDiscovery';
+import { Printer, Settings, Wifi, Check, X, RefreshCw, QrCode, Save, Plus, Edit2, Trash2, Search, Network } from 'lucide-react';
+import { NetworkPrinterDiscovery } from './NetworkPrinterDiscovery'; 
 
 interface PrinterSetupProps {
   restaurant: Restaurant;
@@ -277,7 +277,7 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
         <div>
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
             <Printer className="w-5 h-5 mr-2" />
-            Network Printer Management
+            Printer Management
           </h2>
           <p className="text-gray-600">Configure and manage your receipt printers for QR code printing</p>
         </div>
@@ -285,15 +285,15 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
         <div className="flex space-x-3">
           <button
             onClick={() => setShowDiscovery(true)}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
           >
-            <Search className="w-4 h-4 mr-2" />
-            Find Printers
+            <Network className="w-4 h-4 mr-2" />
+            Discover Printers
           </button>
           
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Manually
@@ -307,10 +307,10 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
           <p className="text-gray-600 mb-4">No printers configured yet</p>
           <button
             onClick={() => setShowDiscovery(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
-            <Search className="w-4 h-4 inline mr-2" />
-            Find Network Printers
+            <Network className="w-4 h-4 inline mr-2" />
+            Discover Network Printers
           </button>
         </div>
       ) : (
@@ -420,10 +420,10 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
       {/* Network Printer Discovery Modal */}
       {showDiscovery && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-90vh overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Network Printer Discovery</h3>
+                <h3 className="text-xl font-semibold text-gray-800">Network Printer Discovery</h3>
                 <button
                   onClick={() => setShowDiscovery(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -435,7 +435,7 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
               <NetworkPrinterDiscovery onPrinterSelected={handlePrinterSelected} />
               
               <div className="flex justify-end mt-6">
-                <button
+                <button 
                   onClick={() => setShowDiscovery(false)}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
