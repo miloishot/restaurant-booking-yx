@@ -1,18 +1,10 @@
 [build]
   publish = "dist"
-  command = "npm run build"
+  command = "npm run build:check"
 
 [build.environment]
   NODE_VERSION = "18"
 
-# Environment variables for build
-[context.production.environment]
-  VITE_SUPABASE_URL = ""
-  VITE_SUPABASE_ANON_KEY = ""
-
-[context.deploy-preview.environment]
-  VITE_SUPABASE_URL = ""
-  VITE_SUPABASE_ANON_KEY = ""
 [[redirects]]
   from = "/*"
   to = "/index.html"

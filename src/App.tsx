@@ -52,11 +52,22 @@ function App() {
   if (authLoading || (user && restaurantLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md mx-auto p-6">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">
             {authLoading ? 'Loading...' : 'Loading restaurant data...'}
           </p>
+          
+          {/* Debug info for production */}
+          <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
+            <p className="font-medium text-gray-700 mb-1">Environment Status:</p>
+            <p className="text-gray-600">
+              Supabase URL: {import.meta.env.VITE_SUPABASE_URL ? '✓ Configured' : '✗ Missing'}
+            </p>
+            <p className="text-gray-600">
+              Supabase Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ Configured' : '✗ Missing'}
+            </p>
+          </div>
         </div>
       </div>
     );

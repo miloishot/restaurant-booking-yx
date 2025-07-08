@@ -75,16 +75,33 @@ export function RestaurantDashboard() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md mx-auto">
           <div className="bg-red-100 border border-red-300 rounded-lg p-6 max-w-md">
             <h2 className="text-red-800 font-semibold mb-2">Error Loading Data</h2>
             <p className="text-red-600 text-sm">{error}</p>
-            <p className="text-red-600 text-sm mt-2">
-              Please make sure your Supabase connection is configured properly.
-            </p>
+            
+            {error.includes('environment variables') && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <h3 className="text-yellow-800 font-medium text-sm mb-2">Configuration Issue</h3>
+                <p className="text-yellow-700 text-xs mb-2">
+                  Supabase environment variables are not configured in Netlify.
+                </p>
+                <div className="text-left text-xs text-yellow-700">
+                  <p className="font-medium mb-1">To fix this:</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Go to your Netlify dashboard</li>
+                    <li>Navigate to Site settings → Environment variables</li>
+                    <li>Add VITE_SUPABASE_URL with your Supabase project URL</li>
+                    <li>Add VITE_SUPABASE_ANON_KEY with your Supabase anon key</li>
+                    <li>Redeploy your site</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+            
             <button
               onClick={handleManualRefresh}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
             >
               Retry
             </button>

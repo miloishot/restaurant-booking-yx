@@ -20,7 +20,12 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setError(null);
 
     // Debug logging for production
-    console.log('Attempting login with Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
+    console.log('Login attempt - Environment check:', {
+      hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
+      hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+      urlPreview: import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...'
+    });
+    
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
