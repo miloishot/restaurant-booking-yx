@@ -29,7 +29,7 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
             <div className="text-sm text-blue-700 space-y-1">
               <p><strong>Email:</strong> test@restaurant.com</p>
               <p><strong>Password:</strong> testpass123</p>
-              <p><strong>Restaurant URL:</strong> <a href="/test-restaurant" className=\"underline hover:text-blue-900">/test-restaurant</a></p>
+              <p><strong>Restaurant URL:</strong> <a href="/test-restaurant" className="underline hover:text-blue-900">/test-restaurant</a></p>
             </div>
             <p className="text-xs text-blue-600 mt-2">
               This test account has full premium access and sample data for demonstration.
