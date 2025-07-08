@@ -27,24 +27,26 @@ export function RestaurantSetup() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // First check if user has a restaurant through user_restaurant_view
+      const { data: userRestaurantData, error: userRestaurantError } = await supabase
         .from('user_restaurant_view')
         .select('*')
+        .eq('user_id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
+      if (userRestaurantError && userRestaurantError.code !== 'PGRST116') {
+        throw userRestaurantError;
       }
 
-      if (data) {
-        setRestaurant(data);
+      if (userRestaurantData) {
+        setRestaurant(userRestaurantData);
         setFormData({
-          name: data.name,
-          slug: data.slug || '',
-          address: data.address || '',
-          phone: data.phone || '',
-          email: data.email || '',
-          time_slot_duration_minutes: data.time_slot_duration_minutes
+          name: userRestaurantData.name || '',
+          slug: userRestaurantData.slug || '',
+          address: userRestaurantData.address || '',
+          phone: userRestaurantData.phone || '',
+          email: userRestaurantData.email || '',
+          time_slot_duration_minutes: userRestaurantData.time_slot_duration_minutes || 15
         });
       }
     } catch (error) {
@@ -93,7 +95,7 @@ export function RestaurantSetup() {
         if (error) throw error;
       } else {
         // Create new restaurant
-        const { data, error } = await supabase
+        const { data: newRestaurant, error: restaurantError } = await supabase
           .from('restaurants')
           .insert({
             name: formData.name,
@@ -101,24 +103,25 @@ export function RestaurantSetup() {
             address: formData.address,
             phone: formData.phone,
             email: formData.email,
-            time_slot_duration_minutes: formData.time_slot_duration_minutes
+            time_slot_duration_minutes: formData.time_slot_duration_minutes,
+            owner_id: user?.id
           })
           .select()
           .single();
 
-        if (error) throw error;
+        if (restaurantError) throw restaurantError;
         
         // Create user profile linking user to restaurant
         const { error: profileError } = await supabase
           .from('user_profiles')
           .insert({
             id: user?.id,
-            restaurant_id: data.id,
+            restaurant_id: newRestaurant.id,
             role: 'owner'
           });
 
         if (profileError) throw profileError;
-        setRestaurant(data);
+        setRestaurant(newRestaurant);
       }
 
       // Show success message
@@ -130,6 +133,9 @@ export function RestaurantSetup() {
       setTimeout(() => {
         document.body.removeChild(notification);
       }, 3000);
+
+      // Refresh data
+      await fetchRestaurant();
 
     } catch (error) {
       console.error('Error saving restaurant:', error);
@@ -363,7 +369,7 @@ export function RestaurantSetup() {
                     Add a "Book Now" button that links to your booking URL:
                   </p>
                   <code className="block p-2 bg-gray-100 text-xs rounded">
-                    &lt;a href="{bookingUrl}" target="_blank"&gt;Book Now&lt;/a&gt;
+                    <a href="{bookingUrl}" target="_blank">Book Now</a>
                   </code>
                 </div>
 
