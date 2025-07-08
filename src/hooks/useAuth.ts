@@ -5,53 +5,32 @@ import { supabase } from '../lib/supabase';
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        // Get initial session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.warn('Auth session error:', sessionError);
-          setError('Authentication service unavailable');
-        } else {
-          setUser(session?.user ?? null);
-        }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-        // Listen for auth changes
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user ?? null);
-          setError(null);
-        });
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-        setLoading(false);
-        return () => subscription.unsubscribe();
-      } catch (err) {
-        console.warn('Auth initialization error:', err);
-        setError('Authentication service unavailable');
-        setLoading(false);
-      }
-    };
-
-    initAuth();
+    return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn('Sign out error:', err);
-    }
+    await supabase.auth.signOut();
   };
 
   return {
     user,
     loading,
-    error,
     signOut,
   };
 }

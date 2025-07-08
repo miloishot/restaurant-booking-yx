@@ -19,106 +19,21 @@ export function useRestaurantData(restaurantSlug?: string) {
   const fetchRestaurantData = async (slug?: string) => {
     try {
       setLoading(true);
-      setError(null);
       
-      // Check if Supabase is configured
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl || supabaseUrl === 'https://placeholder.supabase.co') {
-        setError('Database not configured. This is a demo version.');
-        setLoading(false);
-        return;
-      }
+      // Fetch restaurant
+      let restaurantQuery = supabase.from('restaurants').select('*');
       
-      let restaurantData: Restaurant | null = null;
-
       if (slug) {
         // Public booking page - fetch by slug
-        const { data, error: restaurantError } = await supabase
-          .from('restaurants')
-          .select('*')
-          .eq('slug', slug)
-          .single();
-        
-        if (restaurantError) {
-          if (restaurantError.code === 'PGRST116') {
-            setError('Restaurant not found');
-          } else {
-            throw restaurantError;
-          }
-          return;
-        }
-        restaurantData = data;
+        restaurantQuery = restaurantQuery.eq('slug', slug);
       } else {
-        // Staff dashboard - fetch user's assigned restaurant
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          // For development, allow unauthenticated access to test restaurant
-          const { data, error: restaurantError } = await supabase
-            .from('restaurants')
-            .select('*')
-            .eq('slug', 'test-restaurant')
-            .single();
-          
-          if (restaurantError || !data) {
-            setError('Please sign in to access the dashboard');
-            return;
-          }
-          
-          restaurantData = data;
-        } else {
-          const { data, error: restaurantError } = await supabase
-            .from('user_restaurant_view')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
-          
-          if (restaurantError) {
-            if (restaurantError.code === 'PGRST116') {
-              // User doesn't have a restaurant yet
-              setRestaurant(null);
-              setTables([]);
-              setBookings([]);
-              setWaitingList([]);
-              setOperatingHours([]);
-              setLoading(false);
-              return;
-            } else {
-              throw restaurantError;
-            }
-          }
-          
-          if (!data) {
-            setRestaurant(null);
-            setTables([]);
-            setBookings([]);
-            setWaitingList([]);
-            setOperatingHours([]);
-            setLoading(false);
-            return;
-          }
-          
-          // Convert user_restaurant_view data to Restaurant format
-          restaurantData = {
-            id: data.id,
-            name: data.name,
-            slug: data.slug,
-            address: data.address,
-            phone: data.phone,
-            email: data.email,
-            owner_id: data.owner_id,
-            time_slot_duration_minutes: data.time_slot_duration_minutes,
-            created_at: data.created_at,
-            updated_at: data.updated_at
-          };
-        }
+        // Staff dashboard - fetch first restaurant (for demo)
+        restaurantQuery = restaurantQuery.limit(1);
       }
+      
+      const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
 
-      if (!restaurantData) {
-        setError('Restaurant not found');
-        return;
-      }
-
+      if (restaurantError) throw restaurantError;
       setRestaurant(restaurantData);
 
       // Fetch tables
@@ -129,7 +44,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         .order('table_number');
 
       if (tablesError) throw tablesError;
-      setTables(tablesData || []);
+      setTables(tablesData);
 
       // Fetch operating hours
       const { data: hoursData, error: hoursError } = await supabase
@@ -139,7 +54,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         .order('day_of_week');
 
       if (hoursError) throw hoursError;
-      setOperatingHours(hoursData || []);
+      setOperatingHours(hoursData);
 
       // Fetch today's bookings with customer and table details
       const today = new Date().toISOString().split('T')[0];
@@ -155,7 +70,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         .order('booking_time');
 
       if (bookingsError) throw bookingsError;
-      setBookings(bookingsData || []);
+      setBookings(bookingsData);
 
       // Fetch waiting list
       const { data: waitingData, error: waitingError } = await supabase
@@ -170,11 +85,10 @@ export function useRestaurantData(restaurantSlug?: string) {
         .order('priority_order', { ascending: true });
 
       if (waitingError) throw waitingError;
-      setWaitingList(waitingData || []);
+      setWaitingList(waitingData);
       
     } catch (err) {
-      console.error('Error fetching restaurant data:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred while loading restaurant data');
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -453,6 +367,7 @@ export function useRestaurantData(restaurantSlug?: string) {
     updateBookingStatus,
     assignTableToBooking,
     promoteFromWaitingList,
+    refetch: fetchRestaurantData
     refetch: () => fetchRestaurantData(restaurantSlug)
   };
 }

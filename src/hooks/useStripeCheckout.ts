@@ -23,12 +23,7 @@ export function useStripeCheckout() {
         throw new Error('You must be logged in to make a purchase');
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL is not configured');
-      }
-      
-      const apiUrl = `${supabaseUrl}/functions/v1/stripe-checkout`;
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`;
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -45,14 +40,8 @@ export function useStripeCheckout() {
       });
 
       if (!response.ok) {
-        let errorMessage = 'Failed to create checkout session';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
       const { url } = await response.json();
@@ -65,7 +54,6 @@ export function useStripeCheckout() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(errorMessage);
-      console.error('Stripe checkout error:', err);
       throw err;
     } finally {
       setLoading(false);

@@ -27,26 +27,25 @@ export function RestaurantSetup() {
     if (!user) return;
 
     try {
-      // First check if user has a restaurant through user_restaurant_view
-      const { data: userRestaurantData, error: userRestaurantError } = await supabase
-        .from('user_restaurant_view')
+      const { data, error } = await supabase
+        .from('restaurants')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('owner_id', user.id)
         .single();
 
-      if (userRestaurantError && userRestaurantError.code !== 'PGRST116') {
-        throw userRestaurantError;
+      if (error && error.code !== 'PGRST116') {
+        throw error;
       }
 
-      if (userRestaurantData) {
-        setRestaurant(userRestaurantData);
+      if (data) {
+        setRestaurant(data);
         setFormData({
-          name: userRestaurantData.name || '',
-          slug: userRestaurantData.slug || '',
-          address: userRestaurantData.address || '',
-          phone: userRestaurantData.phone || '',
-          email: userRestaurantData.email || '',
-          time_slot_duration_minutes: userRestaurantData.time_slot_duration_minutes || 15
+          name: data.name,
+          slug: data.slug || '',
+          address: data.address || '',
+          phone: data.phone || '',
+          email: data.email || '',
+          time_slot_duration_minutes: data.time_slot_duration_minutes
         });
       }
     } catch (error) {
@@ -78,11 +77,6 @@ export function RestaurantSetup() {
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
       if (restaurant) {
         // Update existing restaurant
         const { error } = await supabase
@@ -100,7 +94,7 @@ export function RestaurantSetup() {
         if (error) throw error;
       } else {
         // Create new restaurant
-        const { data: newRestaurant, error: restaurantError } = await supabase
+        const { data, error } = await supabase
           .from('restaurants')
           .insert({
             name: formData.name,
@@ -114,21 +108,8 @@ export function RestaurantSetup() {
           .select()
           .single();
 
-        if (restaurantError) throw restaurantError;
-        
-        // Create user profile linking user to restaurant
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .upsert({
-            id: user.id,
-            restaurant_id: newRestaurant.id,
-            role: 'owner'
-          }, {
-            onConflict: 'id'
-          });
-
-        if (profileError) throw profileError;
-        setRestaurant(newRestaurant);
+        if (error) throw error;
+        setRestaurant(data);
       }
 
       // Show success message
@@ -140,9 +121,6 @@ export function RestaurantSetup() {
       setTimeout(() => {
         document.body.removeChild(notification);
       }, 3000);
-
-      // Refresh data
-      await fetchRestaurant();
 
     } catch (error) {
       console.error('Error saving restaurant:', error);
@@ -376,7 +354,7 @@ export function RestaurantSetup() {
                     Add a "Book Now" button that links to your booking URL:
                   </p>
                   <code className="block p-2 bg-gray-100 text-xs rounded">
-                    <a href="{bookingUrl}" target="_blank">Book Now</a>
+                    &lt;a href="{bookingUrl}" target="_blank"&gt;Book Now&lt;/a&gt;
                   </code>
                 </div>
 

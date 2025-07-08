@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useSubscription } from './hooks/useSubscription';
-import { DemoNotice } from './components/DemoNotice';
 import { AuthPage } from './components/auth/AuthPage';
 import { SubscriptionPlans } from './components/subscription/SubscriptionPlans';
 import { SubscriptionSuccess } from './components/subscription/SubscriptionSuccess';
@@ -53,18 +52,13 @@ function App() {
 
   // Staff login required for admin interface
   if (!user) {
-    // Allow access to test restaurant without authentication for demo purposes
-    if (!restaurantSlug) {
-      return <AuthPage onAuthSuccess={() => window.location.reload()} />;
-    }
+    return <AuthPage onAuthSuccess={() => window.location.reload()} />;
   }
 
   const currentPlan = getCurrentPlan();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <DemoNotice />
-      
       {/* Staff Navigation */}
       <div className="fixed top-4 right-4 z-50">
         <div className="bg-white rounded-lg shadow-lg p-2 flex flex-wrap gap-2">
