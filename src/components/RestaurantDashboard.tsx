@@ -13,7 +13,7 @@ import { LoyaltyManagement } from './LoyaltyManagement';
 import { RestaurantTable } from '../types/database';
 import { PrinterSetup } from './PrinterSetup';
 import { QRCodePrinting } from './QRCodePrinting';
-import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown } from 'lucide-react';
+import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown, Printer } from 'lucide-react';
 import { PrinterDocumentation } from './PrinterDocumentation';
 
 export function RestaurantDashboard() {
