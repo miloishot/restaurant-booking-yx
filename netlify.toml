@@ -5,6 +5,14 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# Environment variables for build
+[context.production.environment]
+  VITE_SUPABASE_URL = ""
+  VITE_SUPABASE_ANON_KEY = ""
+
+[context.deploy-preview.environment]
+  VITE_SUPABASE_URL = ""
+  VITE_SUPABASE_ANON_KEY = ""
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -24,3 +32,11 @@
   for = "/*.css"
   [headers.values]
     Cache-Control = "max-age=31536000"
+
+# CORS headers for API requests
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
