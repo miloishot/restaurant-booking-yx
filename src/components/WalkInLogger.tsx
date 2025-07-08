@@ -39,7 +39,7 @@ export function WalkInLogger({ restaurant, table, onSuccess, onCancel }: WalkInL
     try {
       await markTableOccupiedWithSession(table, partySize);
 
-      showNotification(`Table ${table.table_number} marked as occupied for walk-in party of ${partySize}`, 'success');
+      showNotification(`Table ${table.table_number} marked as occupied with QR ordering enabled for party of ${partySize}`, 'success');
       onSuccess();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to log walk-in';

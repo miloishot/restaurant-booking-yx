@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useRestaurantData } from '../hooks/useRestaurantData';
-import { TableGrid } from './TableGrid';
+import { TableGridWithOrders } from './TableGridWithOrders';
 import { WalkInLogger } from './WalkInLogger';
 import { BookingList } from './BookingList';
 import { WaitingListManager } from './WaitingListManager';
@@ -362,12 +362,13 @@ export function RestaurantDashboard() {
         {activeTab === 'tables' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">Table Layout & Walk-In Management</h2>
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">Table Layout, Walk-In Management & QR Ordering</h2>
               <p className="text-gray-600">
-                Click "Mark Occupied" on available tables to instantly log walk-ins without collecting personal data
+                Click "Mark Occupied" on available tables to instantly log walk-ins and enable QR ordering. View active orders and manage table sessions.
               </p>
             </div>
-            <TableGrid 
+            <TableGridWithOrders 
+              restaurant={restaurant}
               tables={tables} 
               onMarkOccupied={handleMarkOccupied}
               showOccupiedButton={true}
@@ -375,12 +376,13 @@ export function RestaurantDashboard() {
             
             {/* Walk-in Instructions */}
             <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-              <h4 className="font-semibold text-orange-800 mb-2">Walk-In Management</h4>
+              <h4 className="font-semibold text-orange-800 mb-2">Walk-In Management & QR Ordering</h4>
               <ul className="text-sm text-orange-700 space-y-1">
                 <li>• Click "Mark Occupied" on available tables for walk-in customers</li>
-                <li>• No personal customer data is collected or stored</li>
-                <li>• Tables are instantly marked as occupied and excluded from auto-assignment</li>
-                <li>• Anonymous analytics data is logged for operational insights</li>
+                <li>• QR ordering is automatically enabled for occupied tables</li>
+                <li>• View real-time order information directly on table cards</li>
+                <li>• Click QR icon or "Details" to access ordering interface</li>
+                <li>• Tables are excluded from auto-assignment when occupied</li>
                 <li>• Use "Complete" action in bookings to free up tables when customers leave</li>
               </ul>
             </div>

@@ -489,10 +489,10 @@ export function useRestaurantData(restaurantSlug?: string) {
     }
   };
 
-  const markTableOccupiedWithSession = async (tableId: string, bookingId?: string | null) => {
+  const markTableOccupiedWithSession = async (table: RestaurantTable, partySize?: number) => {
     try {
       // Create order session first
-      const sessionResult = await createOrderSession(tableId, bookingId);
+      const sessionResult = await createOrderSession(table.id, null);
       
       // Update table status to occupied
       const { error: tableError } = await supabase
@@ -501,21 +501,49 @@ export function useRestaurantData(restaurantSlug?: string) {
           status: 'occupied',
           updated_at: new Date().toISOString()
         })
-        .eq('id', tableId);
+        .eq('id', table.id);
 
       if (tableError) throw tableError;
 
-      // If there's a booking, update its status to seated
-      if (bookingId) {
-        const { error: bookingError } = await supabase
-          .from('bookings')
-          .update({ 
-            status: 'seated',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', bookingId);
+      // Create anonymous walk-in booking for analytics
+      const { data: anonymousCustomer, error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          name: 'Walk-in Customer',
+          phone: `walkin-${Date.now()}`, // Unique identifier for analytics
+        })
+        .select()
+        .single();
 
-        if (bookingError) throw bookingError;
+      if (customerError) throw customerError;
+
+      const { error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          restaurant_id: restaurant!.id,
+          table_id: table.id,
+          customer_id: anonymousCustomer.id,
+          booking_date: new Date().toISOString().split('T')[0],
+          booking_time: new Date().toTimeString().split(' ')[0],
+          party_size: partySize || 2,
+          status: 'seated',
+          is_walk_in: true,
+          assignment_method: 'manual',
+          was_on_waitlist: false
+        });
+
+      if (bookingError) throw bookingError;
+
+      // Update the order session with the booking ID
+      if (sessionResult.session) {
+        const { error: sessionUpdateError } = await supabase
+          .from('order_sessions')
+          .update({ booking_id: anonymousCustomer.id })
+          .eq('id', sessionResult.session.id);
+
+        if (sessionUpdateError) {
+          console.warn('Could not update session with booking ID:', sessionUpdateError);
+        }
       }
 
       // Force immediate refresh to ensure UI consistency
