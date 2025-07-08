@@ -223,7 +223,6 @@ export function TableGridWithOrders({
                     </span>
                   )}
                 </div>
-                </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
