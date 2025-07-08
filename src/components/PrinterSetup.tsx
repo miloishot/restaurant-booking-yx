@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant } from '../types/database';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, Settings, Wifi, Check, X, RefreshCw, QrCode, Save, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Printer, Settings, Wifi, Check, X, RefreshCw, QrCode, Save, Plus, Edit2, Trash2, Search } from 'lucide-react';
+import { NetworkPrinterDiscovery } from './NetworkPrinterDiscovery';
 
 interface PrinterSetupProps {
   restaurant: Restaurant;
@@ -27,6 +28,7 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
   const [loading, setLoading] = useState(true);
   const [testingPrinter, setTestingPrinter] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showDiscovery, setShowDiscovery] = useState(false);
   const [editingPrinter, setEditingPrinter] = useState<PrinterConfig | null>(null);
   const [formData, setFormData] = useState<Omit<PrinterConfig, 'id' | 'created_at' | 'updated_at'>>({
     restaurant_id: restaurant.id,
@@ -242,6 +244,18 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
     }
   };
 
+  const handlePrinterSelected = (printerInfo: { name: string; ip: string; port: number }) => {
+    setFormData({
+      ...formData,
+      printer_name: printerInfo.name,
+      printer_type: 'network',
+      ip_address: printerInfo.ip,
+      port: printerInfo.port
+    });
+    setShowDiscovery(false);
+    setShowForm(true);
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -263,18 +277,28 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
         <div>
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
             <Printer className="w-5 h-5 mr-2" />
-            Printer Management
+            Network Printer Management
           </h2>
           <p className="text-gray-600">Configure and manage your receipt printers for QR code printing</p>
         </div>
         
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Printer
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowDiscovery(true)}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+          >
+            <Search className="w-4 h-4 mr-2" />
+            Find Printers
+          </button>
+          
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Manually
+          </button>
+        </div>
       </div>
 
       {printers.length === 0 ? (
@@ -282,11 +306,11 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
           <Printer className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 mb-4">No printers configured yet</p>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => setShowDiscovery(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
-            <Plus className="w-4 h-4 inline mr-2" />
-            Add Your First Printer
+            <Search className="w-4 h-4 inline mr-2" />
+            Find Network Printers
           </button>
         </div>
       ) : (
@@ -390,6 +414,36 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Network Printer Discovery Modal */}
+      {showDiscovery && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Network Printer Discovery</h3>
+                <button
+                  onClick={() => setShowDiscovery(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <NetworkPrinterDiscovery onPrinterSelected={handlePrinterSelected} />
+              
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowDiscovery(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -523,11 +577,12 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
         <div className="space-y-4">
           <div>
             <h4 className="font-medium text-gray-700 mb-2">Network Printer Requirements</h4>
-            <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+            <ul className="list-disc pl-5 text-sm text-gray-600 space-y-2">
               <li>Printer must be connected to the same network as your device</li>
               <li>Printer must have a static IP address</li>
               <li>Printer must support ESC/POS commands</li>
               <li>Default port is usually 9100 for most network printers</li>
+              <li>Use the "Find Printers" button to automatically discover network printers</li>
             </ul>
           </div>
           
@@ -545,7 +600,7 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
             <h4 className="font-medium text-gray-700 mb-2">Troubleshooting</h4>
             <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
               <li>Ensure printer is powered on and connected to the network</li>
-              <li>Verify IP address is correct and printer is reachable</li>
+              <li>Verify IP address is correct and printer is reachable (try pinging the IP address)</li>
               <li>Check firewall settings to ensure port 9100 is open</li>
               <li>Try restarting the printer if issues persist</li>
               <li>Contact support if you need further assistance</li>
