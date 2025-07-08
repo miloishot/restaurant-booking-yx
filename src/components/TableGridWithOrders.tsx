@@ -363,7 +363,6 @@ export function TableGridWithOrders({
                           </div>
                         ))}
                       </div>
-
                       {/* Order Total */}
                       <div className="border-t pt-2">
                         <div className="flex justify-between text-sm">
