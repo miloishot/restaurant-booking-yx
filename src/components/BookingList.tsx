@@ -112,7 +112,7 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
               >
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h4 className="font-semibold text-lg">{booking.customer.name}</h4>
+                    <h4 className="font-semibold text-lg">{booking.customer?.name || 'Unknown Customer'}</h4>
                     <p className="text-sm opacity-75">
                       {booking.restaurant_table ? (
                         <>Table {booking.restaurant_table.table_number} • {booking.party_size} people</>
@@ -140,9 +140,9 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                 <div className="flex items-center gap-4 text-sm mb-3">
                   <div className="flex items-center">
                     <Phone className="w-4 h-4 mr-1" />
-                    {booking.customer.phone}
+                    {booking.customer?.phone || 'N/A'}
                   </div>
-                  {booking.customer.email && (
+                  {booking.customer?.email && (
                     <div className="flex items-center">
                       <Mail className="w-4 h-4 mr-1" />
                       {booking.customer.email}
