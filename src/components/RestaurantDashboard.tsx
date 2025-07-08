@@ -11,6 +11,8 @@ import { MenuManagement } from './MenuManagement';
 import { QRCodeGenerator } from './QRCodeGenerator';
 import { LoyaltyManagement } from './LoyaltyManagement';
 import { RestaurantTable } from '../types/database';
+import { PrinterSetup } from './PrinterSetup';
+import { QRCodePrinting } from './QRCodePrinting';
 import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown } from 'lucide-react';
 
 export function RestaurantDashboard() {
@@ -33,6 +35,7 @@ export function RestaurantDashboard() {
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
   const [showWalkInLogger, setShowWalkInLogger] = useState(false);
   const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics' | 'orders' | 'menu' | 'loyalty'>('bookings');
+  const [showPrinterSetup, setShowPrinterSetup] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleManualRefresh = async () => {
@@ -327,7 +330,18 @@ export function RestaurantDashboard() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Menu & QR Codes
+              Menu & QR
+            </button>
+            <button
+              onClick={() => setActiveTab('qr-printing')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'qr-printing'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Printer className="w-4 h-4 inline mr-1" />
+              QR Printing
             </button>
             <button
               onClick={() => setActiveTab('loyalty')}
@@ -400,6 +414,34 @@ export function RestaurantDashboard() {
           <div className="space-y-6">
             <MenuManagement restaurant={restaurant} />
             <QRCodeGenerator restaurant={restaurant} tables={tables} />
+          </div>
+        )}
+        
+        {activeTab === 'qr-printing' && (
+          <div className="space-y-6">
+            <QRCodePrinting 
+              restaurant={restaurant} 
+              tables={tables} 
+              onOpenPrinterSetup={() => setShowPrinterSetup(true)} 
+            />
+            {showPrinterSetup && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-90vh overflow-y-auto">
+                  <div className="p-6">
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-800">Printer Configuration</h2>
+                      <button
+                        onClick={() => setShowPrinterSetup(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <PrinterSetup restaurant={restaurant} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         
