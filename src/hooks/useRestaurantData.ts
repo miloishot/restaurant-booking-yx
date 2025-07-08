@@ -21,6 +21,14 @@ export function useRestaurantData(restaurantSlug?: string) {
       setLoading(true);
       setError(null);
       
+      // Check if Supabase is configured
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl === 'https://placeholder.supabase.co') {
+        setError('Database not configured. This is a demo version.');
+        setLoading(false);
+        return;
+      }
+      
       let restaurantData: Restaurant | null = null;
 
       if (slug) {
