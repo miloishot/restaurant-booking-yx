@@ -530,7 +530,7 @@ export function useRestaurantData(restaurantSlug?: string) {
           is_walk_in: true,
           assignment_method: 'manual',
           was_on_waitlist: false
-        });
+        })
         .select('id')
         .single();
 
