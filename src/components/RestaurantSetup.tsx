@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { Restaurant } from '../types/database';
-import { Building, Globe, Copy, Check, ExternalLink, QrCode, Share2, Settings } from 'lucide-react';
+import { Restaurant, RestaurantTable } from '../types/database';
+import { TableManager } from './TableManager';
+import { Building, Globe, Copy, Check, ExternalLink, Settings, Users } from 'lucide-react';
 
 export function RestaurantSetup() {
   const { user } = useAuth();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'tables'>('details');
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -47,11 +50,29 @@ export function RestaurantSetup() {
           email: data.email || '',
           time_slot_duration_minutes: data.time_slot_duration_minutes
         });
+        
+        // Fetch tables for this restaurant
+        await fetchTables(data.id);
       }
     } catch (error) {
       console.error('Error fetching restaurant:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTables = async (restaurantId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('restaurant_tables')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .order('table_number');
+
+      if (error) throw error;
+      setTables(data || []);
+    } catch (error) {
+      console.error('Error fetching tables:', error);
     }
   };
 
@@ -119,7 +140,9 @@ export function RestaurantSetup() {
       document.body.appendChild(notification);
       
       setTimeout(() => {
-        document.body.removeChild(notification);
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
       }, 3000);
 
     } catch (error) {
@@ -161,220 +184,285 @@ export function RestaurantSetup() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Restaurant Setup</h1>
           <p className="text-gray-600">
-            Configure your restaurant details and get your unique booking URL
+            Configure your restaurant details and manage your tables
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Restaurant Details Form */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-              <Building className="w-5 h-5 mr-2" />
+        {/* Navigation Tabs */}
+        <div className="mb-6">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('details')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'details'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Building className="w-4 h-4 inline mr-1" />
               Restaurant Details
-            </h2>
+            </button>
+            <button
+              onClick={() => setActiveTab('tables')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'tables'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Users className="w-4 h-4 inline mr-1" />
+              Table Management ({tables.length})
+            </button>
+          </nav>
+        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Restaurant Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter restaurant name"
-                />
-              </div>
+        {activeTab === 'details' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Restaurant Details Form */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                <Building className="w-5 h-5 mr-2" />
+                Restaurant Details
+              </h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Booking URL Slug *
-                </label>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-md">
-                    {window.location.origin}/
-                  </span>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Restaurant Name *
+                  </label>
                   <input
                     type="text"
                     required
-                    value={formData.slug}
-                    onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="restaurant-name"
-                    pattern="[a-z0-9-]+"
-                    title="Only lowercase letters, numbers, and hyphens allowed"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  This will be your unique booking URL that customers use to make reservations
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Restaurant address"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    value={formData.name}
+                    onChange={(e) => handleNameChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Phone number"
+                    placeholder="Enter restaurant name"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
+                    Booking URL Slug *
+                  </label>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-md">
+                      {window.location.origin}/
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={formData.slug}
+                      onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="restaurant-name"
+                      pattern="[a-z0-9-]+"
+                      title="Only lowercase letters, numbers, and hyphens allowed"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This will be your unique booking URL that customers use to make reservations
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Address
                   </label>
                   <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Restaurant email"
+                    placeholder="Restaurant address"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Time Slot Duration (minutes)
-                </label>
-                <select
-                  value={formData.time_slot_duration_minutes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, time_slot_duration_minutes: parseInt(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Phone number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Restaurant email"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Time Slot Duration (minutes)
+                  </label>
+                  <select
+                    value={formData.time_slot_duration_minutes}
+                    onChange={(e) => setFormData(prev => ({ ...prev, time_slot_duration_minutes: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={15}>15 minutes</option>
+                    <option value={30}>30 minutes</option>
+                    <option value={60}>60 minutes</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  <option value={15}>15 minutes</option>
-                  <option value={30}>30 minutes</option>
-                  <option value={60}>60 minutes</option>
-                </select>
-              </div>
+                  <Settings className="w-4 h-4 mr-2" />
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
+              </form>
+            </div>
 
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Settings'}
-              </button>
-            </form>
-          </div>
+            {/* Booking URL & Sharing */}
+            <div className="space-y-6">
+              {/* Booking URL */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                  <Globe className="w-5 h-5 mr-2" />
+                  Customer Booking URL
+                </h2>
 
-          {/* Booking URL & Sharing */}
-          <div className="space-y-6">
-            {/* Booking URL */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                <Globe className="w-5 h-5 mr-2" />
-                Customer Booking URL
-              </h2>
+                {formData.slug ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800 mb-2">Your booking URL:</p>
+                      <div className="flex items-center space-x-2">
+                        <code className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded text-sm font-mono">
+                          {bookingUrl}
+                        </code>
+                        <button
+                          onClick={copyBookingUrl}
+                          className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          title="Copy URL"
+                        >
+                          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
 
-              {formData.slug ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800 mb-2">Your booking URL:</p>
-                    <div className="flex items-center space-x-2">
-                      <code className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded text-sm font-mono">
-                        {bookingUrl}
-                      </code>
+                    <div className="flex space-x-3">
                       <button
-                        onClick={copyBookingUrl}
-                        className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                        title="Copy URL"
+                        onClick={openBookingPage}
+                        className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                       >
-                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Preview Booking Page
                       </button>
                     </div>
+
+                    <div className="text-sm text-gray-600">
+                      <h4 className="font-medium mb-2">How to use:</h4>
+                      <ul className="space-y-1">
+                        <li>• Share this URL on your website</li>
+                        <li>• Add it to your Google Business listing</li>
+                        <li>• Include it in social media profiles</li>
+                        <li>• Print it on business cards and menus</li>
+                      </ul>
+                    </div>
                   </div>
-
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={openBookingPage}
-                      className="flex-1 flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Preview Booking Page
-                    </button>
+                ) : (
+                  <div className="text-center py-8">
+                    <Globe className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">
+                      Enter a restaurant name and slug to generate your booking URL
+                    </p>
                   </div>
+                )}
+              </div>
 
-                  <div className="text-sm text-gray-600">
-                    <h4 className="font-medium mb-2">How to use:</h4>
-                    <ul className="space-y-1">
-                      <li>• Share this URL on your website</li>
-                      <li>• Add it to your Google Business listing</li>
-                      <li>• Include it in social media profiles</li>
-                      <li>• Print it on business cards and menus</li>
-                    </ul>
+              {/* Setup Progress */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-6">Setup Progress</h2>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 ${
+                      restaurant ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                    }`}>
+                      {restaurant ? <Check className="w-4 h-4" /> : '1'}
+                    </div>
+                    <span className={restaurant ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                      Restaurant Details
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 ${
+                      tables.length > 0 ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                    }`}>
+                      {tables.length > 0 ? <Check className="w-4 h-4" /> : '2'}
+                    </div>
+                    <span className={tables.length > 0 ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                      Table Setup ({tables.length} tables)
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center mr-3 bg-gray-300 text-gray-600">
+                      3
+                    </div>
+                    <span className="text-gray-600">Operating Hours (Optional)</span>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Globe className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">
-                    Enter a restaurant name and slug to generate your booking URL
-                  </p>
-                </div>
-              )}
-            </div>
 
-            {/* Integration Guide */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-                <Share2 className="w-5 h-5 mr-2" />
-                Integration Guide
-              </h2>
-
-              <div className="space-y-4">
-                <div className="p-4 border border-gray-200 rounded-lg">
-                  <h4 className="font-medium text-gray-800 mb-2">Website Integration</h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    Add a "Book Now" button that links to your booking URL:
-                  </p>
-                  <code className="block p-2 bg-gray-100 text-xs rounded">
-                    &lt;a href="{bookingUrl}" target="_blank"&gt;Book Now&lt;/a&gt;
-                  </code>
-                </div>
-
-                <div className="p-4 border border-gray-200 rounded-lg">
-                  <h4 className="font-medium text-gray-800 mb-2">Social Media</h4>
-                  <p className="text-sm text-gray-600">
-                    Add your booking URL to your Instagram bio, Facebook page info, and Twitter profile.
-                  </p>
-                </div>
-
-                <div className="p-4 border border-gray-200 rounded-lg">
-                  <h4 className="font-medium text-gray-800 mb-2">Google Business</h4>
-                  <p className="text-sm text-gray-600">
-                    Add your booking URL as a "Reservations" link in your Google Business Profile.
-                  </p>
-                </div>
+                {restaurant && tables.length > 0 && (
+                  <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-800 font-medium">🎉 Setup Complete!</p>
+                    <p className="text-green-700 text-sm mt-1">
+                      Your restaurant is ready to accept bookings. Share your booking URL to start receiving reservations.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div>
+            {restaurant ? (
+              <TableManager 
+                restaurant={restaurant} 
+                tables={tables} 
+                onUpdate={() => fetchTables(restaurant.id)} 
+              />
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Restaurant Details Required</h3>
+                <p className="text-gray-600 mb-4">
+                  Please complete your restaurant details first before managing tables.
+                </p>
+                <button
+                  onClick={() => setActiveTab('details')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  Complete Restaurant Details
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
