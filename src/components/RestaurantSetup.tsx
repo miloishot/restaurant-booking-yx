@@ -138,40 +138,6 @@ export function RestaurantSetup() {
       setSaving(false);
     }
   };
-          .from('restaurants')
-          .insert({
-            name: formData.name,
-            slug: formData.slug,
-            address: formData.address,
-            phone: formData.phone,
-            email: formData.email,
-            time_slot_duration_minutes: formData.time_slot_duration_minutes,
-            owner_id: user?.id
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        setRestaurant(data);
-      }
-
-      // Show success message
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = 'Restaurant settings saved successfully!';
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        document.body.removeChild(notification);
-      }, 3000);
-
-    } catch (error) {
-      console.error('Error saving restaurant:', error);
-      alert('Failed to save restaurant settings. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const copyBookingUrl = async () => {
     const url = `${window.location.origin}/${formData.slug}`;
