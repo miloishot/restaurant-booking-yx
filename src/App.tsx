@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useSubscription } from './hooks/useSubscription';
+import { useRestaurantData } from './hooks/useRestaurantData';
 import { AuthPage } from './components/auth/AuthPage';
 import { SubscriptionPlans } from './components/subscription/SubscriptionPlans';
 import { SubscriptionSuccess } from './components/subscription/SubscriptionSuccess';
@@ -12,6 +13,7 @@ import { Settings, Users, Crown, LogOut, User, Building } from 'lucide-react';
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
   const { subscription, loading: subscriptionLoading, getCurrentPlan, isPremium } = useSubscription();
+  const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantData();
   const [viewMode, setViewMode] = useState<'dashboard' | 'subscription' | 'subscription-success' | 'setup'>('dashboard');
   const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
 
@@ -34,17 +36,25 @@ function App() {
     }
   }, []);
 
+  // Auto-redirect to setup if user is logged in but has no restaurant
+  useEffect(() => {
+    if (user && !restaurantLoading && !restaurant && !restaurantError?.includes('Restaurant not found')) {
+      setViewMode('setup');
+    }
+  }, [user, restaurant, restaurantLoading, restaurantError]);
   // If accessing a restaurant booking page, show customer interface
   if (restaurantSlug) {
     return <CustomerBooking restaurantSlug={restaurantSlug} />;
   }
 
-  if (authLoading) {
+  if (authLoading || (user && restaurantLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">
+            {authLoading ? 'Loading...' : 'Loading restaurant data...'}
+          </p>
         </div>
       </div>
     );

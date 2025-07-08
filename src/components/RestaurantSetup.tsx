@@ -131,6 +131,20 @@ export function RestaurantSetup() {
 
         if (error) throw error;
         setRestaurant(data);
+        
+        // Also create user profile if it doesn't exist
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: user?.id,
+            restaurant_id: data.id,
+            role: 'owner'
+          });
+        
+        if (profileError) {
+          console.warn('Could not create user profile:', profileError);
+          // Don't throw here as restaurant creation succeeded
+        }
       }
 
       // Show success message
@@ -147,7 +161,19 @@ export function RestaurantSetup() {
 
     } catch (error) {
       console.error('Error saving restaurant:', error);
-      alert('Failed to save restaurant settings. Please try again.');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to save restaurant settings. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('row-level security policy')) {
+          errorMessage = 'Permission denied. Please ensure you have the correct permissions to create a restaurant. Contact support if this issue persists.';
+        } else if (error.message.includes('duplicate key')) {
+          errorMessage = 'A restaurant with this URL slug already exists. Please choose a different slug.';
+        }
+      }
+      
+      alert(errorMessage);
     } finally {
       setSaving(false);
     }
