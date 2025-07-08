@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { OrderWithDetails, Restaurant } from '../../types/database';
 import { format } from 'date-fns';
 import { 

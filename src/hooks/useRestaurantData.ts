@@ -88,8 +88,8 @@ export function useRestaurantData(restaurantSlug?: string) {
           `)
           .eq('restaurant_id', restaurantData.id)
           .eq('requested_date', new Date().toISOString().split('T')[0])
-          .neq('status', 'paid')
-          .order('created_at', { ascending: false })
+          .eq('status', 'waiting')
+          .order('priority_order', { ascending: true })
       ]);
 
       // Check for errors and set data
@@ -250,6 +250,24 @@ export function useRestaurantData(restaurantSlug?: string) {
         // For walk-ins being completed, also update table to available
         if (status === 'completed' && booking.is_walk_in) {
           await updateTableStatus(booking.table_id, 'available');
+        }
+      }
+
+      // Handle order status updates that affect table status
+      if (booking.table_id) {
+        // If this is a walk-in booking, check if all orders are paid
+        if (booking.is_walk_in && status === 'completed') {
+          // Check if there are any unpaid orders for this table
+          const { data: unpaidOrders } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('session_id', booking.table_id)
+            .neq('status', 'paid');
+
+          // If no unpaid orders, we can mark table as available
+          if (!unpaidOrders || unpaidOrders.length === 0) {
+            await updateTableStatus(booking.table_id, 'available');
+          }
         }
         
         // If completing a booking, deactivate any order sessions
@@ -586,6 +604,31 @@ export function useRestaurantData(restaurantSlug?: string) {
     }
   };
 
+  const updateOrderStatus = async (orderId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      // If order is marked as paid, check if we should update table status
+      if (status === 'paid') {
+        // Force refresh to get updated data
+        await fetchRestaurantData(restaurantSlug);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      throw error;
+    }
+  };
+
   return {
     restaurant,
     tables,
@@ -601,6 +644,7 @@ export function useRestaurantData(restaurantSlug?: string) {
     cancelWaitingListEntry,
     createOrderSession,
     markTableOccupiedWithSession,
+    updateOrderStatus,
     refetch: () => fetchRestaurantData(restaurantSlug)
   };
 }
