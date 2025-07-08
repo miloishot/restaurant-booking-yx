@@ -10,6 +10,7 @@ import { RestaurantDashboard } from './components/RestaurantDashboard';
 import { CustomerBooking } from './components/CustomerBooking';
 import { RestaurantSetup } from './components/RestaurantSetup';
 import { CustomerOrderingInterface } from './components/qr-ordering/CustomerOrderingInterface';
+import { LoyaltyManagement } from './components/LoyaltyManagement';
 import { Settings, Users, Crown, LogOut, User, Building } from 'lucide-react';
 
 function App() {
@@ -23,11 +24,6 @@ function App() {
   useEffect(() => {
     const path = window.location.pathname;
     const pathSegments = path.split('/').filter(segment => segment);
-    
-    // Check if this is an order page (should be handled by Router)
-    if (pathSegments[0] === 'order') {
-      return; // Let React Router handle this
-    }
     
     // If URL contains a restaurant slug (not admin paths and not order paths)
     if (pathSegments.length === 1 && pathSegments[0] && 
@@ -55,7 +51,8 @@ function App() {
     return <CustomerBooking restaurantSlug={restaurantSlug} />;
   }
 
-  if (authLoading || (user && restaurantLoading)) {
+  // Only show loading for admin interface, not for QR ordering
+  if ((authLoading || (user && restaurantLoading)) && !window.location.pathname.startsWith('/order/')) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
@@ -79,10 +76,6 @@ function App() {
     );
   }
 
-  // Staff login required for admin interface
-  if (!user) {
-    return <AuthPage onAuthSuccess={() => window.location.reload()} />;
-  }
 
   const currentPlan = getCurrentPlan();
 
@@ -94,6 +87,9 @@ function App() {
         
         {/* Main App Routes */}
         <Route path="/*" element={
+          !user ? (
+            <AuthPage onAuthSuccess={() => window.location.reload()} />
+          ) : (
           <div className="min-h-screen bg-gray-50">
             {/* Staff Navigation */}
             <div className="fixed top-4 right-4 z-50">
@@ -120,6 +116,18 @@ function App() {
                 >
                   <Building className="w-4 h-4 mr-2" />
                   Setup
+                </button>
+                
+                <button
+                  onClick={() => setViewMode('loyalty')}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'loyalty'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Loyalty
                 </button>
                 
                 <button
@@ -166,6 +174,7 @@ function App() {
             {/* Content */}
             {viewMode === 'dashboard' && <RestaurantDashboard />}
             {viewMode === 'setup' && <RestaurantSetup />}
+            {viewMode === 'loyalty' && restaurant && <LoyaltyManagement restaurant={restaurant} />}
             {viewMode === 'subscription' && (
               <div className="py-12 px-4">
                 <SubscriptionPlans currentPriceId={subscription?.price_id || undefined} />
@@ -175,6 +184,7 @@ function App() {
               <SubscriptionSuccess onContinue={() => setViewMode('dashboard')} />
             )}
           </div>
+          )
         } />
       </Routes>
     </Router>

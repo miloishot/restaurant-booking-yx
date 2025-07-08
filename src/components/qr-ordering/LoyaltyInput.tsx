@@ -6,9 +6,10 @@ interface LoyaltyInputProps {
   loyaltyUserIds: string[];
   onLoyaltyUserIdsChange: (ids: string[]) => void;
   loyaltyDiscount: LoyaltyDiscount | null;
+  customerUser?: any;
 }
 
-export function LoyaltyInput({ loyaltyUserIds, onLoyaltyUserIdsChange, loyaltyDiscount }: LoyaltyInputProps) {
+export function LoyaltyInput({ loyaltyUserIds, onLoyaltyUserIdsChange, loyaltyDiscount, customerUser }: LoyaltyInputProps) {
   const [newUserId, setNewUserId] = useState('');
   const [showInput, setShowInput] = useState(false);
 
@@ -46,9 +47,22 @@ export function LoyaltyInput({ loyaltyUserIds, onLoyaltyUserIdsChange, loyaltyDi
         )}
       </div>
 
+      {customerUser && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center text-green-800 mb-1">
+            <CheckCircle className="w-4 h-4 mr-2" />
+            <span className="font-medium">Signed in as {customerUser.email}</span>
+          </div>
+          <p className="text-sm text-green-700">
+            You're automatically enrolled in our loyalty program and earning points with this order!
+          </p>
+        </div>
+      )}
       <p className="text-sm text-gray-600 mb-4">
-        Enter User IDs to check for loyalty discounts. If any member has spent S$100+, 
-        a 10% discount will be applied to your entire order.
+        {customerUser 
+          ? "Add additional loyalty member IDs to share rewards with friends or family."
+          : "Enter User IDs to check for loyalty discounts. If any member has spent S$100+, a 10% discount will be applied to your entire order."
+        }
       </p>
 
       {/* Current User IDs */}
@@ -61,19 +75,26 @@ export function LoyaltyInput({ loyaltyUserIds, onLoyaltyUserIdsChange, loyaltyDi
                 className={`flex items-center px-3 py-1 rounded-full text-sm ${
                   loyaltyDiscount?.triggering_user_id === userId
                     ? 'bg-green-100 text-green-800 border border-green-300'
-                    : 'bg-gray-100 text-gray-700'
+                    : customerUser?.id === userId
+                      ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                      : 'bg-gray-100 text-gray-700'
                 }`}
               >
                 <Users className="w-3 h-3 mr-1" />
-                {userId}
+                {customerUser?.id === userId ? 'You' : userId}
                 {loyaltyDiscount?.triggering_user_id === userId && (
                   <CheckCircle className="w-3 h-3 ml-1" />
                 )}
                 <button
                   onClick={() => removeUserId(index)}
-                  className="ml-2 text-gray-500 hover:text-red-500 transition-colors"
+                  className={`ml-2 transition-colors ${
+                    customerUser?.id === userId 
+                      ? 'text-blue-400 hover:text-blue-600' 
+                      : 'text-gray-500 hover:text-red-500'
+                  }`}
+                  disabled={customerUser?.id === userId}
                 >
-                  <X className="w-3 h-3" />
+                  {customerUser?.id === userId ? null : <X className="w-3 h-3" />}
                 </button>
               </div>
             ))}
@@ -116,7 +137,7 @@ export function LoyaltyInput({ loyaltyUserIds, onLoyaltyUserIdsChange, loyaltyDi
           className="flex items-center px-4 py-2 border border-purple-300 text-purple-600 rounded-md hover:bg-purple-50 transition-colors"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Add User ID
+          {customerUser ? 'Add Friend\'s ID' : 'Add User ID'}
         </button>
       )}
 
@@ -130,7 +151,10 @@ export function LoyaltyInput({ loyaltyUserIds, onLoyaltyUserIdsChange, loyaltyDi
                 <span className="font-medium">Discount Eligible!</span>
               </div>
               <p className="text-sm">
-                User ID "{loyaltyDiscount.triggering_user_id}" qualifies for a 10% discount.
+                {loyaltyDiscount.triggering_user_id === customerUser?.id 
+                  ? "You qualify for a 10% discount!" 
+                  : `User ID "${loyaltyDiscount.triggering_user_id}" qualifies for a 10% discount.`
+                }
               </p>
             </div>
           ) : (

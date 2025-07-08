@@ -6,7 +6,8 @@ import { MenuDisplay } from './MenuDisplay';
 import { CartSidebar } from './CartSidebar';
 import { LoyaltyInput } from './LoyaltyInput';
 import { OrderConfirmation } from './OrderConfirmation';
-import { ShoppingCart, ArrowLeft, Users, Clock, MapPin } from 'lucide-react';
+import { CustomerAuth } from './CustomerAuth';
+import { ShoppingCart, ArrowLeft, Users, Clock, MapPin, User, LogOut } from 'lucide-react';
 
 interface CustomerOrderingInterfaceProps {
   sessionToken?: string;
@@ -29,6 +30,8 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   const [loyaltyUserIds, setLoyaltyUserIds] = useState<string[]>([]);
   const [loyaltyDiscount, setLoyaltyDiscount] = useState<LoyaltyDiscount | null>(null);
   const [orderConfirmed, setOrderConfirmed] = useState(false);
+  const [showCustomerAuth, setShowCustomerAuth] = useState(false);
+  const [customerUser, setCustomerUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +47,10 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   }, [activeToken]);
 
   useEffect(() => {
+    // Check if customer is already logged in
+    checkCustomerAuth();
+  }, []);
+  useEffect(() => {
     if (loyaltyUserIds.length > 0 && session) {
       checkLoyaltyDiscount();
     } else {
@@ -51,6 +58,26 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     }
   }, [loyaltyUserIds, session]);
 
+  const checkCustomerAuth = async () => {
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (authSession?.user) {
+        setCustomerUser(authSession.user);
+        // Auto-add customer to loyalty if they have a profile
+        const { data: loyaltyProfile } = await supabase
+          .from('loyalty_users')
+          .select('user_id')
+          .eq('user_id', authSession.user.id)
+          .maybeSingle();
+        
+        if (loyaltyProfile) {
+          setLoyaltyUserIds([authSession.user.id]);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking customer auth:', error);
+    }
+  };
   const fetchSessionAndMenu = async () => {
     try {
       setLoading(true);
@@ -133,6 +160,19 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     }
   };
 
+  const handleCustomerSignIn = (user: any) => {
+    setCustomerUser(user);
+    setShowCustomerAuth(false);
+    // Auto-add to loyalty if they have a profile
+    checkCustomerAuth();
+  };
+
+  const handleCustomerSignOut = async () => {
+    await supabase.auth.signOut();
+    setCustomerUser(null);
+    setLoyaltyUserIds([]);
+    setLoyaltyDiscount(null);
+  };
   const addToCart = (menuItem: MenuItem, quantity: number = 1, specialInstructions?: string) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => 
@@ -331,6 +371,31 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
             </div>
 
             <button
+              {/* Customer Auth Button */}
+              {customerUser ? (
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                    <User className="w-4 h-4 mr-1" />
+                    {customerUser.email}
+                  </div>
+                  <button
+                    onClick={handleCustomerSignOut}
+                    className="p-2 text-gray-600 hover:text-gray-800 transition-colors"
+                    title="Sign out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowCustomerAuth(true)}
+                  className="flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Sign In for Rewards
+                </button>
+              )}
+
               onClick={() => setShowCart(true)}
               className="relative p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
@@ -351,6 +416,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           loyaltyUserIds={loyaltyUserIds}
           onLoyaltyUserIdsChange={setLoyaltyUserIds}
           loyaltyDiscount={loyaltyDiscount}
+          customerUser={customerUser}
         />
       </div>
 
@@ -378,5 +444,13 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         loading={loading}
       />
     </div>
+      {/* Customer Auth Modal */}
+      {showCustomerAuth && (
+        <CustomerAuth
+          onSuccess={handleCustomerSignIn}
+          onClose={() => setShowCustomerAuth(false)}
+          restaurantId={session?.restaurant_id}
+        />
+      )}
   );
 }
