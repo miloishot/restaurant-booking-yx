@@ -473,15 +473,22 @@ export function useRestaurantData(restaurantSlug?: string) {
         .from('order_sessions')
         .insert({
           restaurant_id: restaurant.id,
-      if (error) throw error;
           table_id: tableId,
+          booking_id: bookingId || null,
+          session_token: sessionToken,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
       return { success: true, session: data };
     } catch (error) {
       console.error('Error creating order session:', error);
       throw error;
     }
   };
-          booking_id: bookingId || null,
+
   const markTableOccupiedWithSession = async (tableId: string, bookingId?: string | null) => {
     try {
       // Create order session first
@@ -495,9 +502,9 @@ export function useRestaurantData(restaurantSlug?: string) {
           updated_at: new Date().toISOString()
         })
         .eq('id', tableId);
-          session_token: sessionToken,
+
       if (tableError) throw tableError;
-          is_active: true
+
       // If there's a booking, update its status to seated
       if (bookingId) {
         const { error: bookingError } = await supabase
@@ -507,10 +514,10 @@ export function useRestaurantData(restaurantSlug?: string) {
             updated_at: new Date().toISOString()
           })
           .eq('id', bookingId);
-        })
+
         if (bookingError) throw bookingError;
       }
-        .select()
+
       // Force immediate refresh to ensure UI consistency
       await fetchRestaurantData(restaurantSlug);
       
@@ -520,7 +527,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       throw error;
     }
   };
-        .single();
+
   return {
     restaurant,
     tables,
