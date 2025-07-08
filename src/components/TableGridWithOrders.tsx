@@ -253,10 +253,10 @@ export function TableGridWithOrders({
                         e.stopPropagation();
                         openQROrderingPage(table.sessionToken!);
                       }}
-                      className="text-blue-600 hover:text-blue-800 flex items-center"
+                      className="text-blue-600 hover:text-blue-800 flex items-center text-xs"
                     >
                       <ExternalLink className="w-3 h-3 mr-1" />
-                      Open
+                      Order
                     </button>
                   </div>
                 ) : (

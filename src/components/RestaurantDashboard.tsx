@@ -7,6 +7,8 @@ import { WaitingListManager } from './WaitingListManager';
 import { OperatingHoursManager } from './OperatingHoursManager';
 import { BookingAnalytics } from './BookingAnalytics';
 import { StaffOrderManagement } from './qr-ordering/StaffOrderManagement';
+import { MenuManagement } from './MenuManagement';
+import { QRCodeGenerator } from './QRCodeGenerator';
 import { RestaurantTable } from '../types/database';
 import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat } from 'lucide-react';
 
@@ -300,6 +302,16 @@ export function RestaurantDashboard() {
               Orders
             </button>
             <button
+              onClick={() => setActiveTab('menu')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'menu'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Menu & QR Codes
+            </button>
+            <button
               onClick={() => setActiveTab('analytics')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'analytics'
@@ -355,6 +367,12 @@ export function RestaurantDashboard() {
           <StaffOrderManagement restaurant={restaurant} />
         )}
 
+        {activeTab === 'menu' && (
+          <div className="space-y-6">
+            <MenuManagement restaurant={restaurant} />
+            <QRCodeGenerator restaurant={restaurant} tables={tables} />
+          </div>
+        )}
         {activeTab === 'analytics' && (
           <BookingAnalytics restaurant={restaurant} />
         )}
