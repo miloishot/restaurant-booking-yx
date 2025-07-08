@@ -45,9 +45,9 @@ export function TimeSlotBookingForm({
         .from('customers')
         .select('id')
         .eq('phone', formData.phone)
-        .single();
+        .maybeSingle();
 
-      if (existingCustomer) {
+      if (existingCustomer && existingCustomer.id) {
         customerId = existingCustomer.id;
         
         // Update customer info if provided

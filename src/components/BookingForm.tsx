@@ -36,9 +36,9 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
         .from('customers')
         .select('id')
         .eq('phone', formData.phone)
-        .single();
+        .maybeSingle();
 
-      if (existingCustomer) {
+      if (existingCustomer && existingCustomer.id) {
         customerId = existingCustomer.id;
       } else {
         const { data: newCustomer, error: customerError } = await supabase
