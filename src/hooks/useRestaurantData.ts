@@ -26,21 +26,36 @@ export function useRestaurantData(restaurantSlug?: string) {
       if (slug) {
         // Public booking page - fetch by slug
         restaurantQuery = restaurantQuery.eq('slug', slug);
+        const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
+        
+        if (restaurantError) throw restaurantError;
+        setRestaurant(restaurantData);
       } else {
         // Staff dashboard - fetch first restaurant (for demo)
         restaurantQuery = restaurantQuery.limit(1);
+        const { data: restaurantData, error: restaurantError } = await restaurantQuery.maybeSingle();
+        
+        if (restaurantError) throw restaurantError;
+        
+        // If no restaurant found for staff dashboard, set restaurant to null and return early
+        if (!restaurantData) {
+          setRestaurant(null);
+          setTables([]);
+          setBookings([]);
+          setWaitingList([]);
+          setOperatingHours([]);
+          setLoading(false);
+          return;
+        }
+        
+        setRestaurant(restaurantData);
       }
-      
-      const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
-
-      if (restaurantError) throw restaurantError;
-      setRestaurant(restaurantData);
 
       // Fetch tables
       const { data: tablesData, error: tablesError } = await supabase
         .from('restaurant_tables')
         .select('*')
-        .eq('restaurant_id', restaurantData.id)
+        .eq('restaurant_id', restaurant!.id)
         .order('table_number');
 
       if (tablesError) throw tablesError;
@@ -50,7 +65,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       const { data: hoursData, error: hoursError } = await supabase
         .from('restaurant_operating_hours')
         .select('*')
-        .eq('restaurant_id', restaurantData.id)
+        .eq('restaurant_id', restaurant!.id)
         .order('day_of_week');
 
       if (hoursError) throw hoursError;
@@ -65,7 +80,7 @@ export function useRestaurantData(restaurantSlug?: string) {
           customer:customers(*),
           restaurant_table:restaurant_tables(*)
         `)
-        .eq('restaurant_id', restaurantData.id)
+        .eq('restaurant_id', restaurant!.id)
         .eq('booking_date', today)
         .order('booking_time');
 
@@ -79,7 +94,7 @@ export function useRestaurantData(restaurantSlug?: string) {
           *,
           customer:customers(*)
         `)
-        .eq('restaurant_id', restaurantData.id)
+        .eq('restaurant_id', restaurant!.id)
         .eq('requested_date', today)
         .eq('status', 'waiting')
         .order('priority_order', { ascending: true });
