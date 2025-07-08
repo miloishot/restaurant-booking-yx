@@ -14,6 +14,7 @@ import { RestaurantTable } from '../types/database';
 import { PrinterSetup } from './PrinterSetup';
 import { QRCodePrinting } from './QRCodePrinting';
 import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown } from 'lucide-react';
+import { PrinterDocumentation } from './PrinterDocumentation';
 
 export function RestaurantDashboard() {
   const { 
@@ -424,6 +425,7 @@ export function RestaurantDashboard() {
               tables={tables} 
               onOpenPrinterSetup={() => setShowPrinterSetup(true)} 
             />
+            <PrinterDocumentation />
             {showPrinterSetup && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                 <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-90vh overflow-y-auto">

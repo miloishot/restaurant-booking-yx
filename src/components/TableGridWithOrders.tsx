@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { RestaurantTable, Restaurant, OrderWithDetails } from '../types/database';
-import { Users, MapPin, ShoppingCart, Clock, DollarSign, Eye, QrCode, ExternalLink } from 'lucide-react';
+import { Users, MapPin, ShoppingCart, Clock, DollarSign, Eye, QrCode, ExternalLink, Printer } from 'lucide-react';
+import { PrintQRModal } from './PrintQRModal';
 
 interface TableGridWithOrdersProps {
   restaurant: Restaurant;
@@ -43,6 +44,9 @@ export function TableGridWithOrders({
 }: TableGridWithOrdersProps) {
   const [tablesWithOrders, setTablesWithOrders] = useState<TableWithOrders[]>([]);
   const [selectedTableDetails, setSelectedTableDetails] = useState<TableWithOrders | null>(null);
+  const [showPrintQRModal, setShowPrintQRModal] = useState(false);
+  const [selectedTableForQR, setSelectedTableForQR] = useState<TableWithOrders | null>(null);
+  const [showPrinterSetup, setShowPrinterSetup] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -112,6 +116,12 @@ export function TableGridWithOrders({
     window.open(url, '_blank');
   };
 
+  const handlePrintQR = (e: React.MouseEvent, table: TableWithOrders) => {
+    e.stopPropagation();
+    setSelectedTableForQR(table);
+    setShowPrintQRModal(true);
+  };
+
   const formatPrice = (price: number) => {
     return `S$${price.toFixed(2)}`;
   };
@@ -166,11 +176,20 @@ export function TableGridWithOrders({
               <div className="flex items-center space-x-1">
                 {table.sessionToken && (
                   <button
+                    onClick={(e) => handlePrintQR(e, table)}
+                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                    title="Print QR Code"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                )}
+                {table.sessionToken && (
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       openQROrderingPage(table.sessionToken!);
                     }}
-                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                    className="p-1 text-green-600 hover:text-green-800 transition-colors"
                     title="Open QR Ordering"
                   >
                     <QrCode className="w-4 h-4" />
@@ -459,6 +478,20 @@ export function TableGridWithOrders({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Print QR Modal */}
+      {showPrintQRModal && selectedTableForQR && (
+        <PrintQRModal
+          restaurant={restaurant}
+          table={selectedTableForQR}
+          session={selectedTableForQR.session}
+          onClose={() => {
+            setShowPrintQRModal(false);
+            setSelectedTableForQR(null);
+          }}
+          onOpenPrinterSetup={() => setShowPrinterSetup(true)}
+        />
       )}
     </>
   );
