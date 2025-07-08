@@ -248,22 +248,115 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
   };
 
   const exportData = () => {
-    const csvData = [
-      ['Time Slot', 'Total Bookings', 'Avg Party Size', 'Waitlist Triggered'],
-      ...timeSlotData.map(slot => [
+    // Prepare comprehensive analytics data for export
+    const csvData = [];
+    
+    // Header section
+    csvData.push(['Restaurant Analytics Report']);
+    csvData.push([`Restaurant: ${restaurant.name}`]);
+    csvData.push([`Date Range: ${dateRange}`]);
+    csvData.push([`Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}`]);
+    csvData.push(['']); // Empty row
+    
+    // Key Metrics Summary
+    csvData.push(['KEY METRICS SUMMARY']);
+    csvData.push(['Metric', 'Value']);
+    csvData.push(['Total Bookings', totalBookings]);
+    csvData.push(['Total Waitlist Entries', totalWaitlist]);
+    csvData.push(['Average Lead Time (days)', avgLeadTime.toFixed(1)]);
+    if (revenueAnalytics) {
+      csvData.push(['Total Revenue', formatPrice(revenueAnalytics.total_revenue)]);
+      csvData.push(['Total Orders', revenueAnalytics.total_orders]);
+      csvData.push(['Average Order Value', formatPrice(revenueAnalytics.avg_order_value)]);
+      csvData.push(['Total Discounts', formatPrice(revenueAnalytics.total_discounts)]);
+      csvData.push(['Loyalty Orders', revenueAnalytics.loyalty_orders]);
+    }
+    csvData.push(['']); // Empty row
+    
+    // Time Slot Analysis
+    csvData.push(['TIME SLOT ANALYSIS']);
+    csvData.push(['Time Slot', 'Total Bookings', 'Avg Party Size', 'Waitlist Triggered', 'Peak Hour']);
+    timeSlotData.forEach(slot => {
+      csvData.push([
         formatTime(slot.time_slot),
         slot.total_bookings,
         slot.avg_party_size.toFixed(1),
-        slot.waitlist_triggered
-      ])
-    ];
+        slot.waitlist_triggered,
+        slot.peak_indicator ? 'Yes' : 'No'
+      ]);
+    });
+    csvData.push(['']); // Empty row
+    
+    // Daily Analytics
+    if (dayAnalytics.length > 0) {
+      csvData.push(['DAILY ANALYTICS']);
+      csvData.push(['Day', 'Total Bookings', 'Peak Time', 'Avg Party Size', 'Waitlist Frequency']);
+      dayAnalytics.forEach(day => {
+        csvData.push([
+          day.day_name.trim(),
+          day.total_bookings,
+          formatTime(day.peak_time_slot),
+          day.avg_party_size.toFixed(1),
+          day.waitlist_frequency
+        ]);
+      });
+      csvData.push(['']); // Empty row
+    }
+    
+    // Booking Trends
+    if (bookingTrends.length > 0) {
+      csvData.push(['BOOKING TRENDS']);
+      csvData.push(['Date', 'Total Bookings', 'Avg Lead Time', 'Waitlist Count']);
+      bookingTrends.forEach(trend => {
+        csvData.push([
+          format(new Date(trend.booking_date), 'yyyy-MM-dd'),
+          trend.total_bookings,
+          trend.avg_lead_time.toFixed(1),
+          trend.waitlist_count
+        ]);
+      });
+      csvData.push(['']); // Empty row
+    }
+    
+    // Popular Dishes
+    if (popularDishes.length > 0) {
+      csvData.push(['POPULAR DISHES']);
+      csvData.push(['Rank', 'Dish Name', 'Category', 'Total Orders', 'Quantity Sold', 'Revenue', 'Avg Price']);
+      popularDishes.forEach((dish, index) => {
+        csvData.push([
+          index + 1,
+          dish.dish_name,
+          dish.category_name,
+          dish.total_orders,
+          dish.total_quantity,
+          formatPrice(dish.total_revenue),
+          formatPrice(dish.avg_price)
+        ]);
+      });
+      csvData.push(['']); // Empty row
+    }
+    
+    // Category Performance
+    if (categoryPerformance.length > 0) {
+      csvData.push(['CATEGORY PERFORMANCE']);
+      csvData.push(['Category', 'Total Orders', 'Revenue', 'Avg Items per Order', 'Percentage of Total']);
+      categoryPerformance.forEach(category => {
+        csvData.push([
+          category.category_name,
+          category.total_orders,
+          formatPrice(category.total_revenue),
+          category.avg_items_per_order.toFixed(1),
+          `${category.category_percentage}%`
+        ]);
+      });
+    }
 
     const csvContent = csvData.map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `booking-analytics-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = `restaurant-analytics-${restaurant.name.toLowerCase().replace(/\s+/g, '-')}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
