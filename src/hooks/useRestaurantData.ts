@@ -367,7 +367,6 @@ export function useRestaurantData(restaurantSlug?: string) {
     updateBookingStatus,
     assignTableToBooking,
     promoteFromWaitingList,
-    refetch: fetchRestaurantData
     refetch: () => fetchRestaurantData(restaurantSlug)
   };
 }
