@@ -14,8 +14,12 @@ interface CustomerOrderingInterfaceProps {
 
 export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInterfaceProps) {
   const { token } = useParams<{ token: string }>();
-  const navigate = useNavigate();
   const activeToken = sessionToken || token;
+
+  // Debug logging for production
+  console.log('CustomerOrderingInterface loaded with token:', activeToken);
+  console.log('URL params:', { token, sessionToken });
+  console.log('Current pathname:', window.location.pathname);
 
   const [session, setSession] = useState<OrderSession | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -30,7 +34,12 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
 
   useEffect(() => {
     if (activeToken) {
+      console.log('Fetching session and menu for token:', activeToken);
       fetchSessionAndMenu();
+    } else {
+      console.error('No token provided to CustomerOrderingInterface');
+      setError('Invalid ordering session. Please scan the QR code again.');
+      setLoading(false);
     }
   }, [activeToken]);
 
@@ -46,6 +55,8 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     try {
       setLoading(true);
       setError(null);
+      
+      console.log('Fetching order session with token:', activeToken);
 
       // Fetch order session
       const { data: sessionData, error: sessionError } = await supabase
@@ -60,7 +71,12 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         .single();
 
       if (sessionError) throw sessionError;
-      if (!sessionData) throw new Error('Invalid or expired session');
+      if (!sessionData) {
+        console.error('No session data found for token:', activeToken);
+        throw new Error('Invalid or expired session');
+      }
+      
+      console.log('Session data found:', sessionData);
 
       setSession(sessionData);
 
@@ -89,7 +105,9 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       if (itemsError) throw itemsError;
       setMenuItems(itemsData || []);
 
+      console.log('Menu data loaded successfully');
     } catch (err) {
+      console.error('Error in fetchSessionAndMenu:', err);
       setError(err instanceof Error ? err.message : 'Failed to load menu');
     } finally {
       setLoading(false);
@@ -257,6 +275,14 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           <div className="bg-red-100 border border-red-300 rounded-lg p-6">
             <h2 className="text-red-800 font-semibold mb-2">Unable to Load Menu</h2>
             <p className="text-red-600 text-sm mb-4">{error}</p>
+            <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
+              <p className="font-medium text-gray-700 mb-1">Debug Info:</p>
+              <p className="text-gray-600">Token: {activeToken || 'Not provided'}</p>
+              <p className="text-gray-600">URL: {window.location.pathname}</p>
+              <p className="text-gray-600">
+                Supabase: {import.meta.env.VITE_SUPABASE_URL ? '✓ Connected' : '✗ Not configured'}
+              </p>
+            </div>
             <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
@@ -281,7 +307,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => window.history.back()}
                 className="mr-4 p-2 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />

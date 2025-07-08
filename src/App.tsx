@@ -22,11 +22,17 @@ function App() {
   // Check URL for restaurant booking page
   useEffect(() => {
     const path = window.location.pathname;
-    const slug = path.split('/').pop();
+    const pathSegments = path.split('/').filter(segment => segment);
     
-    // If URL contains a restaurant slug (not admin paths)
-    if (slug && !['admin', 'dashboard', 'subscription'].includes(slug) && path !== '/') {
-      setRestaurantSlug(slug);
+    // Check if this is an order page (should be handled by Router)
+    if (pathSegments[0] === 'order') {
+      return; // Let React Router handle this
+    }
+    
+    // If URL contains a restaurant slug (not admin paths and not order paths)
+    if (pathSegments.length === 1 && pathSegments[0] && 
+        !['admin', 'dashboard', 'subscription', 'order'].includes(pathSegments[0])) {
+      setRestaurantSlug(pathSegments[0]);
     }
     
     // Check for success parameter in URL
@@ -45,7 +51,7 @@ function App() {
     }
   }, [user, restaurant, restaurantLoading, restaurantError]);
   // If accessing a restaurant booking page, show customer interface
-  if (restaurantSlug) {
+  if (restaurantSlug && !window.location.pathname.startsWith('/order/')) {
     return <CustomerBooking restaurantSlug={restaurantSlug} />;
   }
 
