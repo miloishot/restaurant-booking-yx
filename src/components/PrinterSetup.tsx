@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant } from '../types/database';
 import { useAuth } from '../hooks/useAuth';
-import { Printer, Settings, Wifi, Check, X, RefreshCw, QrCode, Save, Plus, Edit2, Trash2, Search, Network } from 'lucide-react';
+import { Printer, Settings, Wifi, Check, X, RefreshCw, QrCode, Save, Plus, Edit2, Trash2, Network, Smartphone, Laptop } from 'lucide-react';
 import { NetworkPrinterDiscovery } from './NetworkPrinterDiscovery'; 
+import { FlutterIntegrationGuide } from './FlutterIntegrationGuide';
 
 interface PrinterSetupProps {
   restaurant: Restaurant;
@@ -29,6 +30,7 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
   const [testingPrinter, setTestingPrinter] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDiscovery, setShowDiscovery] = useState(false);
+  const [showFlutterGuide, setShowFlutterGuide] = useState(false);
   const [editingPrinter, setEditingPrinter] = useState<PrinterConfig | null>(null);
   const [formData, setFormData] = useState<Omit<PrinterConfig, 'id' | 'created_at' | 'updated_at'>>({
     restaurant_id: restaurant.id,
@@ -292,6 +294,14 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
           </button>
           
           <button
+            onClick={() => setShowFlutterGuide(true)}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+          >
+            <Smartphone className="w-4 h-4 mr-2" />
+            Mobile App
+          </button>
+          
+          <button
             onClick={() => setShowForm(true)}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
@@ -447,6 +457,36 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
         </div>
       )}
 
+      {/* Flutter Integration Guide Modal */}
+      {showFlutterGuide && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-90vh overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">Mobile & Desktop App Integration</h3>
+                <button
+                  onClick={() => setShowFlutterGuide(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <FlutterIntegrationGuide />
+              
+              <div className="flex justify-end mt-6">
+                <button 
+                  onClick={() => setShowFlutterGuide(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Printer Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -578,11 +618,12 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
           <div>
             <h4 className="font-medium text-gray-700 mb-2">Network Printer Requirements</h4>
             <ul className="list-disc pl-5 text-sm text-gray-600 space-y-2">
-              <li>Printer must be connected to the same network as your device</li>
+              <li>Printer must be connected to the same network as your device (browser limitations apply)</li>
               <li>Printer must have a static IP address</li>
               <li>Printer must support ESC/POS commands</li>
               <li>Default port is usually 9100 for most network printers</li>
-              <li>Use the "Find Printers" button to automatically discover network printers</li>
+              <li>Use the "Discover Printers" button to find network printers</li>
+              <li>For more reliable discovery, use our <button onClick={() => {setShowPrinterSetup(false); setShowFlutterGuide(true);}} className="text-blue-600 hover:underline">mobile or desktop app</button></li>
             </ul>
           </div>
           
@@ -601,8 +642,9 @@ export function PrinterSetup({ restaurant }: PrinterSetupProps) {
             <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
               <li>Ensure printer is powered on and connected to the network</li>
               <li>Verify IP address is correct and printer is reachable (try pinging the IP address)</li>
-              <li>Check firewall settings to ensure port 9100 is open</li>
+              <li>Check firewall settings to ensure printer ports are open</li>
               <li>Try restarting the printer if issues persist</li>
+              <li>For advanced troubleshooting, use our <button onClick={() => {setShowPrinterSetup(false); setShowFlutterGuide(true);}} className="text-blue-600 hover:underline">native apps</button></li>
               <li>Contact support if you need further assistance</li>
             </ul>
           </div>
