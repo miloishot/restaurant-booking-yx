@@ -370,7 +370,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
               </div>
             </div>
 
-            <button
+            <div className="flex items-center space-x-3">
               {/* Customer Auth Button */}
               {customerUser ? (
                 <div className="flex items-center space-x-2">
@@ -396,16 +396,19 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
                 </button>
               )}
 
-              onClick={() => setShowCart(true)}
-              className="relative p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              {cart.length > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
-                </span>
-              )}
-            </button>
+              {/* Cart Button */}
+              <button
+                onClick={() => setShowCart(true)}
+                className="relative p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {cart.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -443,7 +446,6 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         onSubmitOrder={submitOrder}
         loading={loading}
       />
-    </div>
       {/* Customer Auth Modal */}
       {showCustomerAuth && (
         <CustomerAuth
@@ -452,5 +454,6 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           restaurantId={session?.restaurant_id}
         />
       )}
+    </div>
   );
 }
