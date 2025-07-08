@@ -133,9 +133,9 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
           p_end_date: endDateStr
         }),
         supabase.rpc('get_booking_trends', {
+          p_end_date: endDateStr,
           p_restaurant_id: restaurant.id,
-          p_start_date: startDateStr,
-          p_end_date: endDateStr
+          p_start_date: startDateStr
         }),
         supabase.rpc('get_popular_dishes', {
           p_restaurant_id: restaurant.id,
