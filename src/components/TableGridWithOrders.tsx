@@ -197,7 +197,7 @@ export function TableGridWithOrders({
             {/* Order Information */}
             {table.status === 'occupied' && table.orderCount! > 0 && (
               <div className="mt-3 p-2 bg-white bg-opacity-50 rounded border">
-                <div className="flex items-center justify-between mb-1">
+              <QRCodeSVG value={`${window.location.origin}/order/${restaurant?.slug}?table=${selectedTable.table_number}`} size={200} />
                   <div className="flex items-center text-xs">
                     <ShoppingCart className="w-3 h-3 mr-1" />
                     <span>{table.orderCount} order{table.orderCount !== 1 ? 's' : ''}</span>
@@ -403,7 +403,7 @@ export function TableGridWithOrders({
               </div>
             </div>
           </div>
-        </div>
+              Scan to order food for Table {selectedTable.table_number}
       )}
     </>
   );

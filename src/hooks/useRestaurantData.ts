@@ -517,7 +517,7 @@ export function useRestaurantData(restaurantSlug?: string) {
 
       if (customerError) throw customerError;
 
-      const { error: bookingError } = await supabase
+      const { data: newBooking, error: bookingError } = await supabase
         .from('bookings')
         .insert({
           restaurant_id: restaurant!.id,
@@ -531,6 +531,8 @@ export function useRestaurantData(restaurantSlug?: string) {
           assignment_method: 'manual',
           was_on_waitlist: false
         });
+        .select('id')
+        .single();
 
       if (bookingError) throw bookingError;
 
@@ -538,7 +540,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       if (sessionResult.session) {
         const { error: sessionUpdateError } = await supabase
           .from('order_sessions')
-          .update({ booking_id: anonymousCustomer.id })
+          .update({ booking_id: newBooking.id })
           .eq('id', sessionResult.session.id);
 
         if (sessionUpdateError) {
