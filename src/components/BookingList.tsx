@@ -68,7 +68,7 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
             message = 'Customer seated successfully!';
             break;
           case 'completed':
-            message = 'Booking completed! Table is now available.';
+            message = 'Booking completed! Table is now available and QR session deactivated.';
             break;
           case 'cancelled':
             message = 'Booking cancelled! Table is now available.';
@@ -335,7 +335,7 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                         <button
                           onClick={() => handleStatusUpdate(booking.id, 'seated')}
                           disabled={isProcessing(`${booking.id}-seated`)}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center relative group"
                         >
                           {isProcessing(`${booking.id}-seated`) ? (
                             <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
@@ -343,6 +343,13 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                             <User className="w-3 h-3 mr-1" />
                           )}
                           Seat
+                          
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                            <div className="bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+                              Seats customer & enables QR ordering
+                            </div>
+                          </div>
                         </button>
                         <button
                           onClick={() => handleStatusUpdate(booking.id, 'no_show')}

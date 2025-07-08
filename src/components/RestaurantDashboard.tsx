@@ -10,7 +10,7 @@ import { StaffOrderManagement } from './qr-ordering/StaffOrderManagement';
 import { MenuManagement } from './MenuManagement';
 import { QRCodeGenerator } from './QRCodeGenerator';
 import { RestaurantTable } from '../types/database';
-import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat } from 'lucide-react';
+import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode } from 'lucide-react';
 
 export function RestaurantDashboard() {
   const { 

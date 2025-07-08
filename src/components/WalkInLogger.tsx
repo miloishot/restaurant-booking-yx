@@ -108,11 +108,11 @@ export function WalkInLogger({ restaurant, table, onSuccess, onCancel }: WalkInL
             <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
               <div className="flex items-center text-orange-800 mb-2">
                 <Clock className="w-4 h-4 mr-2" />
-                <span className="font-medium">Instant Table Update + QR Ordering</span>
+                <span className="font-medium">Instant Setup: Table + QR Ordering</span>
               </div>
               <p className="text-sm text-orange-700">
-                Table {table.table_number} will be marked as occupied, excluded from auto-assignment, 
-                and enabled for QR code ordering. Customers can scan the QR code to order food and drinks.
+                Table {table.table_number} will be marked as occupied and QR ordering will be enabled immediately. 
+                Customers can scan the table's QR code to browse the menu and place orders directly.
               </p>
             </div>
 
