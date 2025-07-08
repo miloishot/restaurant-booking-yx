@@ -12,7 +12,7 @@ export const stripeProducts: StripeProduct[] = [
     id: 'prod_S4hPJplssOZcn7',
     priceId: 'price_1RAY0MB1E07AY4srgFYhfB26',
     name: 'Premium',
-    description: '',
+    description: 'Complete restaurant management solution with advanced features',
     mode: 'subscription',
     price: '$99.99'
   }

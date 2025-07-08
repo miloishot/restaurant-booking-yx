@@ -9,6 +9,7 @@ interface TimeSlotBookingFormProps {
   selectedDate: string;
   selectedTime: string;
   partySize: number;
+  isPublicBooking?: boolean;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -18,6 +19,7 @@ export function TimeSlotBookingForm({
   selectedDate, 
   selectedTime, 
   partySize, 
+  isPublicBooking = false,
   onSuccess, 
   onCancel 
 }: TimeSlotBookingFormProps) {
@@ -329,7 +331,10 @@ export function TimeSlotBookingForm({
 
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
               <p className="text-sm text-blue-800">
-                <strong>Automatic Assignment:</strong> If tables are available, we'll confirm your booking immediately and assign the best table for your party. If fully booked, you'll be added to our waiting list and notified if a table becomes available.
+                <strong>Automatic Assignment:</strong> {isPublicBooking 
+                  ? "If tables are available, we'll confirm your booking immediately. If fully booked, you'll be added to our waiting list and notified if a table becomes available."
+                  : "If tables are available, we'll confirm your booking immediately and assign the best table for your party. If fully booked, you'll be added to our waiting list and notified if a table becomes available."
+                }
               </p>
             </div>
 

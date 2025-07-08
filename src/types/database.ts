@@ -6,9 +6,11 @@ export type AssignmentMethod = 'auto' | 'manual' | 'waitlist';
 export interface Restaurant {
   id: string;
   name: string;
+  slug: string;
   address: string | null;
   phone: string | null;
   email: string | null;
+  owner_id: string;
   time_slot_duration_minutes: number;
   created_at: string;
   updated_at: string;

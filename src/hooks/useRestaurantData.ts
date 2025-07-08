@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, RestaurantTable, BookingWithDetails, RestaurantOperatingHours, WaitingListWithDetails } from '../types/database';
 
-export function useRestaurantData() {
+export function useRestaurantData(restaurantSlug?: string) {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
@@ -12,20 +12,26 @@ export function useRestaurantData() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchRestaurantData();
+    fetchRestaurantData(restaurantSlug);
     subscribeToRealtime();
-  }, []);
+  }, [restaurantSlug]);
 
-  const fetchRestaurantData = async () => {
+  const fetchRestaurantData = async (slug?: string) => {
     try {
       setLoading(true);
       
       // Fetch restaurant
-      const { data: restaurantData, error: restaurantError } = await supabase
-        .from('restaurants')
-        .select('*')
-        .limit(1)
-        .single();
+      let restaurantQuery = supabase.from('restaurants').select('*');
+      
+      if (slug) {
+        // Public booking page - fetch by slug
+        restaurantQuery = restaurantQuery.eq('slug', slug);
+      } else {
+        // Staff dashboard - fetch first restaurant (for demo)
+        restaurantQuery = restaurantQuery.limit(1);
+      }
+      
+      const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
 
       if (restaurantError) throw restaurantError;
       setRestaurant(restaurantData);
@@ -362,5 +368,6 @@ export function useRestaurantData() {
     assignTableToBooking,
     promoteFromWaitingList,
     refetch: fetchRestaurantData
+    refetch: () => fetchRestaurantData(restaurantSlug)
   };
 }

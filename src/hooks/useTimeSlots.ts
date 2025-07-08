@@ -6,7 +6,8 @@ export function useTimeSlots(
   restaurant: Restaurant | null,
   operatingHours: RestaurantOperatingHours[],
   bookings: BookingWithDetails[],
-  selectedDate: string
+  selectedDate: string,
+  restaurantSlug?: string
 ) {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
@@ -16,10 +17,10 @@ export function useTimeSlots(
       return;
     }
 
-    generateTimeSlots();
-  }, [restaurant, operatingHours, bookings, selectedDate]);
+    generateTimeSlots(restaurantSlug);
+  }, [restaurant, operatingHours, bookings, selectedDate, restaurantSlug]);
 
-  const generateTimeSlots = async () => {
+  const generateTimeSlots = async (slug?: string) => {
     if (!restaurant || !selectedDate) return;
 
     const date = new Date(selectedDate);

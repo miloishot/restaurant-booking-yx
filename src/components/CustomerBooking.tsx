@@ -5,14 +5,18 @@ import { TimeSlotBookingForm } from './TimeSlotBookingForm';
 import { Calendar, Clock, Users, Phone, MapPin, ChefHat } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 
-export function CustomerBooking() {
+interface CustomerBookingProps {
+  restaurantSlug?: string;
+}
+
+export function CustomerBooking({ restaurantSlug }: CustomerBookingProps) {
   const { restaurant, bookings, operatingHours, loading, error } = useRestaurantData();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [partySize, setPartySize] = useState(2);
   const [showBookingForm, setShowBookingForm] = useState(false);
 
-  const { timeSlots, formatTimeSlot } = useTimeSlots(restaurant, operatingHours, bookings, selectedDate);
+  const { timeSlots, formatTimeSlot } = useTimeSlots(restaurant, operatingHours, bookings, selectedDate, restaurantSlug);
 
   if (loading) {
     return (
@@ -74,6 +78,14 @@ export function CustomerBooking() {
       {/* Header */}
       <header className="bg-white shadow-lg">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {restaurantSlug && (
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
+                <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                Online Booking
+              </div>
+            </div>
+          )}
           <div className="text-center">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
@@ -81,7 +93,12 @@ export function CustomerBooking() {
               </div>
             </div>
             <h1 className="text-4xl font-bold text-gray-800 mb-2">{restaurant.name}</h1>
-            <p className="text-lg text-gray-600 mb-6">Reserve your table for an unforgettable dining experience</p>
+            <p className="text-lg text-gray-600 mb-6">
+              {restaurantSlug 
+                ? 'Reserve your table for an unforgettable dining experience' 
+                : 'Customer booking interface preview'
+              }
+            </p>
             
             <div className="flex justify-center items-center space-x-8 text-sm text-gray-600">
               {restaurant.address && (
@@ -258,6 +275,7 @@ export function CustomerBooking() {
           selectedDate={selectedDate}
           selectedTime={selectedTime}
           partySize={partySize}
+          isPublicBooking={!!restaurantSlug}
           onSuccess={() => {
             setShowBookingForm(false);
             setSelectedTime(null);

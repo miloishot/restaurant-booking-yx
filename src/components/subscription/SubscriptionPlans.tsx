@@ -42,7 +42,7 @@ export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
       <div className="text-center mb-12">
         <h2 className="text-3xl font-bold text-gray-800 mb-4">Choose Your Plan</h2>
         <p className="text-lg text-gray-600">
-          Upgrade your restaurant management experience with our premium features
+          Professional restaurant booking system for your business
         </p>
       </div>
 
@@ -88,23 +88,27 @@ export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
                 <div className="space-y-4 mb-8">
                   <div className="flex items-center">
                     <Check className="w-5 h-5 text-green-500 mr-3" />
+                    <span className="text-gray-700">Unlimited bookings & customers</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Check className="w-5 h-5 text-green-500 mr-3" />
+                    <span className="text-gray-700">Custom booking URL</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Check className="w-5 h-5 text-green-500 mr-3" />
                     <span className="text-gray-700">Advanced booking analytics</span>
                   </div>
                   <div className="flex items-center">
                     <Check className="w-5 h-5 text-green-500 mr-3" />
+                    <span className="text-gray-700">Waitlist management</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Check className="w-5 h-5 text-green-500 mr-3" />
+                    <span className="text-gray-700">Real-time notifications</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Check className="w-5 h-5 text-green-500 mr-3" />
                     <span className="text-gray-700">Priority customer support</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Check className="w-5 h-5 text-green-500 mr-3" />
-                    <span className="text-gray-700">Custom reporting features</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Check className="w-5 h-5 text-green-500 mr-3" />
-                    <span className="text-gray-700">Unlimited table management</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Check className="w-5 h-5 text-green-500 mr-3" />
-                    <span className="text-gray-700">Advanced waitlist features</span>
                   </div>
                 </div>
 
@@ -132,6 +136,26 @@ export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
             </div>
           );
         })}
+        
+        <div className="mt-12 text-center">
+          <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+            <h3 className="text-lg font-semibold text-blue-800 mb-2">How It Works</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-blue-700">
+              <div>
+                <strong>1. Subscribe</strong><br />
+                Choose your plan and complete setup
+              </div>
+              <div>
+                <strong>2. Get Your URL</strong><br />
+                Receive a unique booking link for your restaurant
+              </div>
+              <div>
+                <strong>3. Share & Manage</strong><br />
+                Customers book for free, you manage everything
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
