@@ -192,6 +192,17 @@ export function useRestaurantData(restaurantSlug?: string) {
       const booking = bookings.find(b => b.id === bookingId);
       if (!booking) throw new Error('Booking not found');
 
+      // If marking as seated, create order session for QR ordering
+      if (status === 'seated' && booking.table_id) {
+        try {
+          await createOrderSession(booking.table_id, bookingId);
+          console.log('Order session created for seated booking');
+        } catch (sessionError) {
+          console.warn('Could not create order session for seated booking:', sessionError);
+          // Don't fail the booking update if session creation fails
+        }
+      }
+
       // Update booking status with timestamp
       const { error: bookingError } = await supabase
         .from('bookings')
@@ -239,6 +250,23 @@ export function useRestaurantData(restaurantSlug?: string) {
         // For walk-ins being completed, also update table to available
         if (status === 'completed' && booking.is_walk_in) {
           await updateTableStatus(booking.table_id, 'available');
+        }
+        
+        // If completing a booking, deactivate any order sessions
+        if (status === 'completed') {
+          try {
+            const { error: sessionError } = await supabase
+              .from('order_sessions')
+              .update({ is_active: false })
+              .eq('table_id', booking.table_id)
+              .eq('is_active', true);
+            
+            if (sessionError) {
+              console.warn('Could not deactivate order session:', sessionError);
+            }
+          } catch (sessionError) {
+            console.warn('Error deactivating order session:', sessionError);
+          }
         }
       }
 
