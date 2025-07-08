@@ -463,6 +463,64 @@ export function useRestaurantData(restaurantSlug?: string) {
     }
   };
 
+  const createOrderSession = async (tableId: string, bookingId?: string | null) => {
+    try {
+      if (!restaurant) throw new Error('Restaurant not found');
+
+      const sessionToken = crypto.randomUUID();
+
+      const { data, error } = await supabase
+        .from('order_sessions')
+        .insert({
+          restaurant_id: restaurant.id,
+      if (error) throw error;
+          table_id: tableId,
+      return { success: true, session: data };
+    } catch (error) {
+      console.error('Error creating order session:', error);
+      throw error;
+    }
+  };
+          booking_id: bookingId || null,
+  const markTableOccupiedWithSession = async (tableId: string, bookingId?: string | null) => {
+    try {
+      // Create order session first
+      const sessionResult = await createOrderSession(tableId, bookingId);
+      
+      // Update table status to occupied
+      const { error: tableError } = await supabase
+        .from('restaurant_tables')
+        .update({ 
+          status: 'occupied',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tableId);
+          session_token: sessionToken,
+      if (tableError) throw tableError;
+          is_active: true
+      // If there's a booking, update its status to seated
+      if (bookingId) {
+        const { error: bookingError } = await supabase
+          .from('bookings')
+          .update({ 
+            status: 'seated',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', bookingId);
+        })
+        if (bookingError) throw bookingError;
+      }
+        .select()
+      // Force immediate refresh to ensure UI consistency
+      await fetchRestaurantData(restaurantSlug);
+      
+      return { success: true, session: sessionResult.session };
+    } catch (error) {
+      console.error('Error marking table occupied with session:', error);
+      throw error;
+    }
+  };
+        .single();
   return {
     restaurant,
     tables,
