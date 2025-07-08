@@ -46,7 +46,22 @@ function App() {
   }, [user, restaurant, restaurantLoading, restaurantError]);
   // If accessing a restaurant booking page, show customer interface
   if (restaurantSlug) {
-    return <CustomerBooking restaurantSlug={restaurantSlug} />;
+    // Check if this is an order URL (starts with /order/)
+    const isOrderUrl = window.location.pathname.startsWith('/order/');
+    
+    if (isOrderUrl) {
+      // This will be handled by the Router below
+      return (
+        <Router>
+          <Routes>
+            <Route path="/order/:token" element={<CustomerOrderingInterface />} />
+          </Routes>
+        </Router>
+      );
+    } else {
+      // Regular booking page
+      return <CustomerBooking restaurantSlug={restaurantSlug} />;
+    }
   }
 
   if (authLoading || (user && restaurantLoading)) {
