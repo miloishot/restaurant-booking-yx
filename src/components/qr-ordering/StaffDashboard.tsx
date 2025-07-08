@@ -275,7 +275,7 @@ export function StaffDashboard() {
                 <ul className="text-sm text-blue-700 space-y-2">
                   <li className="flex items-center">
                     <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                    Click "Mark Occupied" for walk-in customers
+                    Click "Mark Occupied\" for walk-in customers
                   </li>
                   <li className="flex items-center">
                     <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
