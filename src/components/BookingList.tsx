@@ -22,7 +22,7 @@ const statusColors = {
 export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }: BookingListProps) {
   const [assigningTable, setAssigningTable] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(true);
 
   // Filter bookings based on hideCompleted setting
   const filteredBookings = hideCompleted 
