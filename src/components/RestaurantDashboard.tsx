@@ -22,6 +22,7 @@ export function RestaurantDashboard() {
     updateBookingStatus, 
     assignTableToBooking, 
     promoteFromWaitingList,
+    cancelWaitingListEntry,
     refetch 
   } = useRestaurantData();
   
@@ -41,32 +42,19 @@ export function RestaurantDashboard() {
 
   const handlePromoteFromWaitingList = async (waitingListId: string) => {
     try {
-      await promoteFromWaitingList(waitingListId);
-      
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = 'Customer promoted from waiting list and table assigned!';
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        document.body.removeChild(notification);
-      }, 3000);
+      return await promoteFromWaitingList(waitingListId);
     } catch (error) {
       console.error('Error promoting customer:', error);
-      alert('Failed to promote customer. Please try again.');
+      throw error;
     }
   };
 
   const handleCancelWaiting = async (waitingListId: string) => {
     try {
-      // Update waiting list status to cancelled
-      // This would be implemented similar to other status updates
-      console.log('Cancel waiting list entry:', waitingListId);
-      // For now, just refresh the data
-      await refetch();
+      return await cancelWaitingListEntry(waitingListId);
     } catch (error) {
       console.error('Error cancelling waiting list entry:', error);
-      alert('Failed to cancel waiting list entry. Please try again.');
+      throw error;
     }
   };
 
@@ -130,10 +118,19 @@ export function RestaurantDashboard() {
 
   const handleBookingStatusUpdate = async (bookingId: string, status: any) => {
     try {
-      await updateBookingStatus(bookingId, status);
+      return await updateBookingStatus(bookingId, status);
     } catch (err) {
       console.error('Failed to update booking status:', err);
-      throw err; // Re-throw to be handled by BookingList component
+      throw err;
+    }
+  };
+
+  const handleTableAssignment = async (bookingId: string, tableId: string) => {
+    try {
+      return await assignTableToBooking(bookingId, tableId);
+    } catch (err) {
+      console.error('Failed to assign table:', err);
+      throw err;
     }
   };
 
@@ -330,7 +327,7 @@ export function RestaurantDashboard() {
             bookings={todaysBookings} 
             tables={tables}
             onUpdateBooking={handleBookingStatusUpdate}
-            onAssignTable={assignTableToBooking}
+            onAssignTable={handleTableAssignment}
           />
         )}
 

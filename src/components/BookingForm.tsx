@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { RestaurantTable, Restaurant } from '../types/database';
 import { format } from 'date-fns';
+import { User, Phone, Mail, Calendar, Clock, Users, FileText, CheckCircle, XCircle } from 'lucide-react';
 
 interface BookingFormProps {
   restaurant: Restaurant;
@@ -24,6 +25,21 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
+      type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+    }`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 3000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -40,6 +56,20 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
 
       if (existingCustomer && existingCustomer.id) {
         customerId = existingCustomer.id;
+        
+        // Update customer info if provided
+        if (formData.name || formData.email) {
+          const { error: updateError } = await supabase
+            .from('customers')
+            .update({
+              ...(formData.name && { name: formData.name }),
+              ...(formData.email && { email: formData.email }),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', customerId);
+
+          if (updateError) throw updateError;
+        }
       } else {
         const { data: newCustomer, error: customerError } = await supabase
           .from('customers')
@@ -55,7 +85,7 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
         customerId = newCustomer.id;
       }
 
-      // Create booking
+      // Create booking with immediate database sync
       const { error: bookingError } = await supabase
         .from('bookings')
         .insert({
@@ -72,7 +102,7 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
 
       if (bookingError) throw bookingError;
 
-      // Update table status based on booking type
+      // Update table status based on booking type with immediate sync
       let tableStatus: RestaurantTable['status'];
       if (formData.isWalkIn) {
         tableStatus = 'occupied'; // Walk-ins are seated immediately
@@ -82,17 +112,26 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
 
       const { error: tableError } = await supabase
         .from('restaurant_tables')
-        .update({ status: tableStatus })
+        .update({ 
+          status: tableStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', selectedTable.id);
 
       if (tableError) throw tableError;
 
       // Show success message
-      alert(formData.isWalkIn ? 'Walk-in customer seated successfully!' : 'Booking created successfully!');
+      const message = formData.isWalkIn 
+        ? 'Walk-in customer seated successfully!' 
+        : 'Booking created successfully!';
+      
+      showNotification(message, 'success');
       
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create booking');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create booking';
+      setError(errorMessage);
+      showNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -102,12 +141,21 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-90vh overflow-y-auto">
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-4 text-gray-800">
-            {formData.isWalkIn ? 'Walk-in Registration' : 'Book Table'} {selectedTable.table_number}
-          </h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              {formData.isWalkIn ? 'Walk-in Registration' : 'Book Table'} {selectedTable.table_number}
+            </h2>
+            <button
+              onClick={onCancel}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <XCircle className="w-6 h-6" />
+            </button>
+          </div>
           
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded text-red-700">
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded text-red-700 flex items-center">
+              <XCircle className="w-4 h-4 mr-2" />
               {error}
             </div>
           )}
@@ -115,6 +163,7 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                <User className="w-4 h-4 inline mr-1" />
                 Customer Name *
               </label>
               <input
@@ -123,11 +172,13 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter customer name"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Phone className="w-4 h-4 inline mr-1" />
                 Phone Number *
               </label>
               <input
@@ -136,24 +187,28 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter phone number"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                <Mail className="w-4 h-4 inline mr-1" />
+                Email Address
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter email (optional)"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Calendar className="w-4 h-4 inline mr-1" />
                   Date *
                 </label>
                 <input
@@ -167,6 +222,7 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Clock className="w-4 h-4 inline mr-1" />
                   Time *
                 </label>
                 <input
@@ -181,6 +237,7 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Users className="w-4 h-4 inline mr-1" />
                 Party Size *
               </label>
               <select
@@ -196,6 +253,7 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                <FileText className="w-4 h-4 inline mr-1" />
                 Special Notes
               </label>
               <textarea
@@ -220,6 +278,13 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
               </label>
             </div>
 
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <p className="text-sm text-blue-800">
+                <strong>Database Sync:</strong> All booking actions are immediately synchronized with the database. 
+                Table status and booking records will be updated in real-time across all staff devices.
+              </p>
+            </div>
+
             <div className="flex space-x-4 pt-4">
               <button
                 type="button"
@@ -231,8 +296,13 @@ export function BookingForm({ restaurant, selectedTable, onSuccess, onCancel }: 
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
               >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                ) : (
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                )}
                 {loading ? 'Creating...' : formData.isWalkIn ? 'Seat Now' : 'Book Table'}
               </button>
             </div>

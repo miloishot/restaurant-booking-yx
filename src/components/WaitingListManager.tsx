@@ -1,15 +1,66 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { WaitingListWithDetails } from '../types/database';
 import { format } from 'date-fns';
-import { Clock, User, Phone, Mail, Users, ArrowUp, X } from 'lucide-react';
+import { Clock, User, Phone, Mail, Users, ArrowUp, X, CheckCircle, XCircle } from 'lucide-react';
 
 interface WaitingListManagerProps {
   waitingList: WaitingListWithDetails[];
-  onPromoteCustomer: (waitingListId: string) => void;
-  onCancelWaiting: (waitingListId: string) => void;
+  onPromoteCustomer: (waitingListId: string) => Promise<{ success: boolean }>;
+  onCancelWaiting: (waitingListId: string) => Promise<{ success: boolean }>;
 }
 
 export function WaitingListManager({ waitingList, onPromoteCustomer, onCancelWaiting }: WaitingListManagerProps) {
+  const [processingAction, setProcessingAction] = useState<string | null>(null);
+
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
+      type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+    }`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 3000);
+  };
+
+  const handlePromoteCustomer = async (waitingListId: string) => {
+    setProcessingAction(`promote-${waitingListId}`);
+    
+    try {
+      const result = await onPromoteCustomer(waitingListId);
+      
+      if (result.success) {
+        showNotification('Customer promoted from waiting list and table assigned!', 'success');
+      }
+    } catch (error) {
+      console.error('Error promoting customer:', error);
+      showNotification('Failed to promote customer. Please try again.', 'error');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleCancelWaiting = async (waitingListId: string) => {
+    setProcessingAction(`cancel-${waitingListId}`);
+    
+    try {
+      const result = await onCancelWaiting(waitingListId);
+      
+      if (result.success) {
+        showNotification('Customer removed from waiting list.', 'success');
+      }
+    } catch (error) {
+      console.error('Error cancelling waiting list entry:', error);
+      showNotification('Failed to remove customer from waiting list. Please try again.', 'error');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
   const formatTime = (time: string) => {
     const [hour, minute] = time.split(':').map(Number);
     const period = hour >= 12 ? 'PM' : 'AM';
@@ -29,6 +80,8 @@ export function WaitingListManager({ waitingList, onPromoteCustomer, onCancelWai
     acc[timeKey].push(entry);
     return acc;
   }, {} as Record<string, WaitingListWithDetails[]>);
+
+  const isProcessing = (actionKey: string) => processingAction === actionKey;
 
   if (waitingList.length === 0) {
     return (
@@ -98,26 +151,37 @@ export function WaitingListManager({ waitingList, onPromoteCustomer, onCancelWai
                             </p>
                           )}
 
-                          <p className="text-xs text-gray-500">
-                            Added: {format(new Date(entry.created_at), 'h:mm a')}
-                          </p>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>Added: {format(new Date(entry.created_at), 'h:mm a')}</span>
+                            <span>Updated: {format(new Date(entry.updated_at), 'h:mm a')}</span>
+                          </div>
                         </div>
 
                         <div className="flex space-x-2 ml-4">
                           <button
-                            onClick={() => onPromoteCustomer(entry.id)}
-                            className="flex items-center px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                            onClick={() => handlePromoteCustomer(entry.id)}
+                            disabled={processingAction !== null}
+                            className="flex items-center px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
                             title="Promote to confirmed booking"
                           >
-                            <ArrowUp className="w-4 h-4 mr-1" />
+                            {isProcessing(`promote-${entry.id}`) ? (
+                              <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                            ) : (
+                              <ArrowUp className="w-4 h-4 mr-1" />
+                            )}
                             Seat Now
                           </button>
                           <button
-                            onClick={() => onCancelWaiting(entry.id)}
-                            className="flex items-center px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                            onClick={() => handleCancelWaiting(entry.id)}
+                            disabled={processingAction !== null}
+                            className="flex items-center px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors disabled:opacity-50"
                             title="Remove from waiting list"
                           >
-                            <X className="w-4 h-4" />
+                            {isProcessing(`cancel-${entry.id}`) ? (
+                              <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                            ) : (
+                              <X className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -136,6 +200,7 @@ export function WaitingListManager({ waitingList, onPromoteCustomer, onCancelWai
           <li>• Priority is based on arrival time (first come, first served)</li>
           <li>• Use "Seat Now" to manually assign a table when available</li>
           <li>• System automatically notifies next customer when tables become available</li>
+          <li>• All actions are immediately synchronized with the database</li>
         </ul>
       </div>
     </div>

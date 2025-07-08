@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { BookingWithDetails, RestaurantTable } from '../types/database';
 import { format } from 'date-fns';
-import { Clock, User, Phone, Mail, MapPin, AlertCircle } from 'lucide-react';
+import { Clock, User, Phone, Mail, MapPin, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
 interface BookingListProps {
   bookings: BookingWithDetails[];
   tables: RestaurantTable[];
-  onUpdateBooking: (bookingId: string, status: BookingWithDetails['status']) => void;
-  onAssignTable: (bookingId: string, tableId: string) => void;
+  onUpdateBooking: (bookingId: string, status: BookingWithDetails['status']) => Promise<{ success: boolean }>;
+  onAssignTable: (bookingId: string, tableId: string) => Promise<{ success: boolean }>;
 }
 
 const statusColors = {
@@ -21,6 +21,7 @@ const statusColors = {
 
 export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }: BookingListProps) {
   const [assigningTable, setAssigningTable] = useState<string | null>(null);
+  const [processingAction, setProcessingAction] = useState<string | null>(null);
 
   const groupedBookings = bookings.reduce((acc, booking) => {
     const status = booking.status;
@@ -29,63 +30,73 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
     return acc;
   }, {} as Record<string, BookingWithDetails[]>);
 
-  const handleStatusUpdate = async (bookingId: string, status: BookingWithDetails['status']) => {
-    try {
-      await onUpdateBooking(bookingId, status);
-      
-      // Show success message based on action
-      let message = '';
-      switch (status) {
-        case 'confirmed':
-          message = 'Booking confirmed!';
-          break;
-        case 'seated':
-          message = 'Customer seated!';
-          break;
-        case 'completed':
-          message = 'Booking completed! Table is now available.';
-          break;
-        case 'cancelled':
-          message = 'Booking cancelled! Table is now available.';
-          break;
-        case 'no_show':
-          message = 'Marked as no-show! Table is now available.';
-          break;
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
+      type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+    }`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
       }
+    }, 3000);
+  };
+
+  const handleStatusUpdate = async (bookingId: string, status: BookingWithDetails['status']) => {
+    const actionKey = `${bookingId}-${status}`;
+    setProcessingAction(actionKey);
+    
+    try {
+      const result = await onUpdateBooking(bookingId, status);
       
-      if (message) {
-        // Create a temporary success notification
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-          document.body.removeChild(notification);
-        }, 3000);
+      if (result.success) {
+        let message = '';
+        switch (status) {
+          case 'confirmed':
+            message = 'Booking confirmed successfully!';
+            break;
+          case 'seated':
+            message = 'Customer seated successfully!';
+            break;
+          case 'completed':
+            message = 'Booking completed! Table is now available.';
+            break;
+          case 'cancelled':
+            message = 'Booking cancelled! Table is now available.';
+            break;
+          case 'no_show':
+            message = 'Marked as no-show! Table is now available.';
+            break;
+        }
+        showNotification(message, 'success');
       }
     } catch (error) {
       console.error('Error updating booking:', error);
-      alert('Failed to update booking. Please try again.');
+      showNotification('Failed to update booking. Please try again.', 'error');
+    } finally {
+      setProcessingAction(null);
     }
   };
 
   const handleTableAssignment = async (bookingId: string, tableId: string) => {
+    const actionKey = `assign-${bookingId}-${tableId}`;
+    setProcessingAction(actionKey);
+    
     try {
-      await onAssignTable(bookingId, tableId);
-      setAssigningTable(null);
+      const result = await onAssignTable(bookingId, tableId);
       
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = 'Table assigned successfully!';
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        document.body.removeChild(notification);
-      }, 3000);
+      if (result.success) {
+        setAssigningTable(null);
+        showNotification('Table assigned successfully!', 'success');
+      }
     } catch (error) {
       console.error('Error assigning table:', error);
-      alert('Failed to assign table. Please try again.');
+      showNotification('Failed to assign table. Please try again.', 'error');
+    } finally {
+      setProcessingAction(null);
     }
   };
 
@@ -95,6 +106,8 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
       table.capacity >= booking.party_size
     );
   };
+
+  const isProcessing = (actionKey: string) => processingAction === actionKey;
 
   return (
     <div className="space-y-6">
@@ -134,6 +147,11 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                         Walk-in
                       </span>
                     )}
+                    {booking.was_on_waitlist && (
+                      <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded ml-1">
+                        From Waitlist
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -165,7 +183,8 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                       </span>
                       <button
                         onClick={() => setAssigningTable(assigningTable === booking.id ? null : booking.id)}
-                        className="text-sm bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700 transition-colors"
+                        disabled={processingAction !== null}
+                        className="text-sm bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700 transition-colors disabled:opacity-50"
                       >
                         {assigningTable === booking.id ? 'Cancel' : 'Assign Table'}
                       </button>
@@ -181,8 +200,12 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                             <button
                               key={table.id}
                               onClick={() => handleTableAssignment(booking.id, table.id)}
-                              className="px-3 py-1 bg-white border border-orange-300 rounded text-sm hover:bg-orange-50 transition-colors"
+                              disabled={isProcessing(`assign-${booking.id}-${table.id}`)}
+                              className="px-3 py-1 bg-white border border-orange-300 rounded text-sm hover:bg-orange-50 transition-colors disabled:opacity-50 flex items-center"
                             >
+                              {isProcessing(`assign-${booking.id}-${table.id}`) && (
+                                <div className="w-3 h-3 border border-orange-600 border-t-transparent rounded-full animate-spin mr-1" />
+                              )}
                               Table {table.table_number} (Cap: {table.capacity})
                             </button>
                           ))}
@@ -202,14 +225,26 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                     <>
                       <button
                         onClick={() => handleStatusUpdate(booking.id, 'confirmed')}
-                        className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                        disabled={isProcessing(`${booking.id}-confirmed`)}
+                        className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
                       >
+                        {isProcessing(`${booking.id}-confirmed`) ? (
+                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                        ) : (
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                        )}
                         Confirm
                       </button>
                       <button
                         onClick={() => handleStatusUpdate(booking.id, 'cancelled')}
-                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                        disabled={isProcessing(`${booking.id}-cancelled`)}
+                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center"
                       >
+                        {isProcessing(`${booking.id}-cancelled`) ? (
+                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                        ) : (
+                          <XCircle className="w-3 h-3 mr-1" />
+                        )}
                         Cancel
                       </button>
                     </>
@@ -219,14 +254,26 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                     <>
                       <button
                         onClick={() => handleStatusUpdate(booking.id, 'seated')}
-                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                        disabled={isProcessing(`${booking.id}-seated`)}
+                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
                       >
+                        {isProcessing(`${booking.id}-seated`) ? (
+                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                        ) : (
+                          <User className="w-3 h-3 mr-1" />
+                        )}
                         Seat
                       </button>
                       <button
                         onClick={() => handleStatusUpdate(booking.id, 'no_show')}
-                        className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition-colors"
+                        disabled={isProcessing(`${booking.id}-no_show`)}
+                        className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center"
                       >
+                        {isProcessing(`${booking.id}-no_show`) ? (
+                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                        ) : (
+                          <XCircle className="w-3 h-3 mr-1" />
+                        )}
                         No Show
                       </button>
                     </>
@@ -235,10 +282,26 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                   {booking.status === 'seated' && (
                     <button
                       onClick={() => handleStatusUpdate(booking.id, 'completed')}
-                      className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
+                      disabled={isProcessing(`${booking.id}-completed`)}
+                      className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center"
                     >
+                      {isProcessing(`${booking.id}-completed`) ? (
+                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin mr-1" />
+                      ) : (
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                      )}
                       Complete
                     </button>
+                  )}
+                </div>
+
+                {/* Status indicators */}
+                <div className="mt-2 text-xs text-gray-500">
+                  Last updated: {format(new Date(booking.updated_at), 'h:mm a')}
+                  {booking.assignment_method !== 'auto' && (
+                    <span className="ml-2 px-1 py-0.5 bg-gray-200 rounded">
+                      {booking.assignment_method}
+                    </span>
                   )}
                 </div>
               </div>

@@ -19,6 +19,7 @@ export function useRestaurantData(restaurantSlug?: string) {
   const fetchRestaurantData = async (slug?: string) => {
     try {
       setLoading(true);
+      setError(null);
       
       // Fetch restaurant
       let restaurantQuery = supabase.from('restaurants').select('*');
@@ -27,68 +28,84 @@ export function useRestaurantData(restaurantSlug?: string) {
         // Public booking page - fetch by slug
         restaurantQuery = restaurantQuery.eq('slug', slug);
       } else {
-        // Staff dashboard - fetch first restaurant (for demo)
-        restaurantQuery = restaurantQuery.limit(1);
+        // Staff dashboard - fetch user's restaurant
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          restaurantQuery = restaurantQuery.eq('owner_id', user.id);
+        } else {
+          // For demo purposes, fetch first restaurant
+          restaurantQuery = restaurantQuery.limit(1);
+        }
       }
       
       const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
 
-      if (restaurantError) throw restaurantError;
+      if (restaurantError) {
+        if (restaurantError.code === 'PGRST116') {
+          setError('Restaurant not found');
+        } else {
+          throw restaurantError;
+        }
+        return;
+      }
+
       setRestaurant(restaurantData);
 
-      // Fetch tables
-      const { data: tablesData, error: tablesError } = await supabase
-        .from('restaurant_tables')
-        .select('*')
-        .eq('restaurant_id', restaurantData.id)
-        .order('table_number');
+      // Fetch all related data in parallel for better performance
+      const [tablesResult, hoursResult, bookingsResult, waitingResult] = await Promise.all([
+        // Fetch tables
+        supabase
+          .from('restaurant_tables')
+          .select('*')
+          .eq('restaurant_id', restaurantData.id)
+          .order('table_number'),
 
-      if (tablesError) throw tablesError;
-      setTables(tablesData);
+        // Fetch operating hours
+        supabase
+          .from('restaurant_operating_hours')
+          .select('*')
+          .eq('restaurant_id', restaurantData.id)
+          .order('day_of_week'),
 
-      // Fetch operating hours
-      const { data: hoursData, error: hoursError } = await supabase
-        .from('restaurant_operating_hours')
-        .select('*')
-        .eq('restaurant_id', restaurantData.id)
-        .order('day_of_week');
+        // Fetch today's bookings with customer and table details
+        supabase
+          .from('bookings')
+          .select(`
+            *,
+            customer:customers(*),
+            restaurant_table:restaurant_tables(*)
+          `)
+          .eq('restaurant_id', restaurantData.id)
+          .eq('booking_date', new Date().toISOString().split('T')[0])
+          .order('booking_time'),
 
-      if (hoursError) throw hoursError;
-      setOperatingHours(hoursData);
+        // Fetch waiting list
+        supabase
+          .from('waiting_list')
+          .select(`
+            *,
+            customer:customers(*)
+          `)
+          .eq('restaurant_id', restaurantData.id)
+          .eq('requested_date', new Date().toISOString().split('T')[0])
+          .eq('status', 'waiting')
+          .order('priority_order', { ascending: true })
+      ]);
 
-      // Fetch today's bookings with customer and table details
-      const today = new Date().toISOString().split('T')[0];
-      const { data: bookingsData, error: bookingsError } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          customer:customers(*),
-          restaurant_table:restaurant_tables(*)
-        `)
-        .eq('restaurant_id', restaurantData.id)
-        .eq('booking_date', today)
-        .order('booking_time');
+      // Check for errors and set data
+      if (tablesResult.error) throw tablesResult.error;
+      if (hoursResult.error) throw hoursResult.error;
+      if (bookingsResult.error) throw bookingsResult.error;
+      if (waitingResult.error) throw waitingResult.error;
 
-      if (bookingsError) throw bookingsError;
-      setBookings(bookingsData);
-
-      // Fetch waiting list
-      const { data: waitingData, error: waitingError } = await supabase
-        .from('waiting_list')
-        .select(`
-          *,
-          customer:customers(*)
-        `)
-        .eq('restaurant_id', restaurantData.id)
-        .eq('requested_date', today)
-        .eq('status', 'waiting')
-        .order('priority_order', { ascending: true });
-
-      if (waitingError) throw waitingError;
-      setWaitingList(waitingData);
+      setTables(tablesResult.data || []);
+      setOperatingHours(hoursResult.data || []);
+      setBookings(bookingsResult.data || []);
+      setWaitingList(waitingResult.data || []);
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error fetching restaurant data:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred while loading restaurant data');
     } finally {
       setLoading(false);
     }
@@ -100,7 +117,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, 
         () => {
           console.log('Table status changed, refreshing data...');
-          fetchRestaurantData();
+          fetchRestaurantData(restaurantSlug);
         })
       .subscribe();
 
@@ -109,7 +126,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, 
         () => {
           console.log('Booking changed, refreshing data...');
-          fetchRestaurantData();
+          fetchRestaurantData(restaurantSlug);
         })
       .subscribe();
 
@@ -118,7 +135,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'waiting_list' }, 
         () => {
           console.log('Waiting list changed, refreshing data...');
-          fetchRestaurantData();
+          fetchRestaurantData(restaurantSlug);
         })
       .subscribe();
 
@@ -130,57 +147,82 @@ export function useRestaurantData(restaurantSlug?: string) {
   };
 
   const updateTableStatus = async (tableId: string, status: RestaurantTable['status']) => {
-    const { error } = await supabase
-      .from('restaurant_tables')
-      .update({ status })
-      .eq('id', tableId);
+    try {
+      const { error } = await supabase
+        .from('restaurant_tables')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tableId);
 
-    if (error) throw error;
-    
-    // Force refresh after update
-    await fetchRestaurantData();
+      if (error) throw error;
+      
+      // Force immediate refresh to ensure UI consistency
+      await fetchRestaurantData(restaurantSlug);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating table status:', error);
+      throw error;
+    }
   };
 
   const updateBookingStatus = async (bookingId: string, status: BookingWithDetails['status']) => {
     try {
-      // Get the booking details first to update table status accordingly
+      // Start a transaction-like operation by getting current booking state
       const booking = bookings.find(b => b.id === bookingId);
       if (!booking) throw new Error('Booking not found');
 
-      // Update booking status
+      // Update booking status with timestamp
       const { error: bookingError } = await supabase
         .from('bookings')
-        .update({ status })
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', bookingId);
 
       if (bookingError) throw bookingError;
 
-      // Update table status based on booking status (only if table is assigned)
+      // Update related table status if table is assigned
       if (booking.table_id) {
         let tableStatus: RestaurantTable['status'] = 'available';
         
-        if (status === 'confirmed') {
-          tableStatus = 'reserved';
-        } else if (status === 'seated') {
-          tableStatus = 'occupied';
-        } else if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
-          tableStatus = 'available';
-          
-          // When a table becomes available, check waiting list
-          await processWaitingList(booking.restaurant_id, booking.booking_date, booking.booking_time);
+        switch (status) {
+          case 'confirmed':
+            tableStatus = 'reserved';
+            break;
+          case 'seated':
+            tableStatus = 'occupied';
+            break;
+          case 'completed':
+          case 'cancelled':
+          case 'no_show':
+            tableStatus = 'available';
+            break;
         }
 
-        // Update the table status
         const { error: tableError } = await supabase
           .from('restaurant_tables')
-          .update({ status: tableStatus })
+          .update({ 
+            status: tableStatus,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', booking.table_id);
 
         if (tableError) throw tableError;
+
+        // If table becomes available, process waiting list
+        if (tableStatus === 'available') {
+          await processWaitingList(booking.restaurant_id, booking.booking_date, booking.booking_time);
+        }
       }
 
-      // Force refresh after updates
-      await fetchRestaurantData();
+      // Force immediate refresh to ensure UI consistency
+      await fetchRestaurantData(restaurantSlug);
+      
+      return { success: true };
       
     } catch (error) {
       console.error('Error updating booking status:', error);
@@ -195,7 +237,8 @@ export function useRestaurantData(restaurantSlug?: string) {
         .from('bookings')
         .update({ 
           table_id: tableId,
-          assignment_method: 'manual'
+          assignment_method: 'manual',
+          updated_at: new Date().toISOString()
         })
         .eq('id', bookingId);
 
@@ -204,12 +247,18 @@ export function useRestaurantData(restaurantSlug?: string) {
       // Update table status to reserved
       const { error: tableError } = await supabase
         .from('restaurant_tables')
-        .update({ status: 'reserved' })
+        .update({ 
+          status: 'reserved',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', tableId);
 
       if (tableError) throw tableError;
 
-      await fetchRestaurantData();
+      // Force immediate refresh to ensure UI consistency
+      await fetchRestaurantData(restaurantSlug);
+      
+      return { success: true };
     } catch (error) {
       console.error('Error assigning table:', error);
       throw error;
@@ -231,9 +280,8 @@ export function useRestaurantData(restaurantSlug?: string) {
 
       if (waitingError) throw waitingError;
       
-      // Check if there are any customers on the waiting list
       if (!nextWaitingData || nextWaitingData.length === 0) {
-        return; // No customers waiting, exit early
+        return; // No customers waiting
       }
 
       const nextWaiting = nextWaitingData[0];
@@ -248,7 +296,6 @@ export function useRestaurantData(restaurantSlug?: string) {
         });
 
       if (availableTables && availableTables.length > 0) {
-        // Assign the first available table
         const assignedTable = availableTables[0];
 
         // Create booking from waiting list
@@ -273,7 +320,10 @@ export function useRestaurantData(restaurantSlug?: string) {
         // Update waiting list status
         const { error: waitingUpdateError } = await supabase
           .from('waiting_list')
-          .update({ status: 'notified' })
+          .update({ 
+            status: 'notified',
+            updated_at: new Date().toISOString()
+          })
           .eq('id', nextWaiting.id);
 
         if (waitingUpdateError) throw waitingUpdateError;
@@ -281,15 +331,19 @@ export function useRestaurantData(restaurantSlug?: string) {
         // Update table status
         const { error: tableError } = await supabase
           .from('restaurant_tables')
-          .update({ status: 'reserved' })
+          .update({ 
+            status: 'reserved',
+            updated_at: new Date().toISOString()
+          })
           .eq('id', assignedTable.table_id);
 
         if (tableError) throw tableError;
 
-        console.log('Waiting list customer notified and table assigned');
+        console.log('Waiting list customer automatically promoted and table assigned');
       }
     } catch (error) {
       console.error('Error processing waiting list:', error);
+      // Don't throw here as this is a background process
     }
   };
 
@@ -335,7 +389,10 @@ export function useRestaurantData(restaurantSlug?: string) {
       // Update waiting list status
       const { error: waitingUpdateError } = await supabase
         .from('waiting_list')
-        .update({ status: 'confirmed' })
+        .update({ 
+          status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', waitingListId);
 
       if (waitingUpdateError) throw waitingUpdateError;
@@ -343,14 +400,42 @@ export function useRestaurantData(restaurantSlug?: string) {
       // Update table status
       const { error: tableError } = await supabase
         .from('restaurant_tables')
-        .update({ status: 'reserved' })
+        .update({ 
+          status: 'reserved',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', assignedTable.table_id);
 
       if (tableError) throw tableError;
 
-      await fetchRestaurantData();
+      // Force immediate refresh to ensure UI consistency
+      await fetchRestaurantData(restaurantSlug);
+      
+      return { success: true };
     } catch (error) {
       console.error('Error promoting from waiting list:', error);
+      throw error;
+    }
+  };
+
+  const cancelWaitingListEntry = async (waitingListId: string) => {
+    try {
+      const { error } = await supabase
+        .from('waiting_list')
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', waitingListId);
+
+      if (error) throw error;
+
+      // Force immediate refresh to ensure UI consistency
+      await fetchRestaurantData(restaurantSlug);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error cancelling waiting list entry:', error);
       throw error;
     }
   };
@@ -367,6 +452,7 @@ export function useRestaurantData(restaurantSlug?: string) {
     updateBookingStatus,
     assignTableToBooking,
     promoteFromWaitingList,
+    cancelWaitingListEntry,
     refetch: () => fetchRestaurantData(restaurantSlug)
   };
 }
