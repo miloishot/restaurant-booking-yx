@@ -197,35 +197,33 @@ export function TableGridWithOrders({
             {/* Order Information */}
             {table.status === 'occupied' && table.orderCount! > 0 && (
               <div className="mt-3 p-2 bg-white bg-opacity-50 rounded border">
-              <QRCodeSVG value={`${window.location.origin}/order/${restaurant?.slug}?table=${selectedTable.table_number}`} size={200} />
-                  <div className="flex items-center text-xs">
-                    <ShoppingCart className="w-3 h-3 mr-1" />
-                    <span>{table.orderCount} order{table.orderCount !== 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="flex items-center text-xs font-semibold">
-                    <DollarSign className="w-3 h-3 mr-1" />
-                    <span>{formatPrice(table.totalOrderValue!)}</span>
-                  </div>
+                <div className="flex items-center text-xs">
+                  <ShoppingCart className="w-3 h-3 mr-1" />
+                  <span>{table.orderCount} order{table.orderCount !== 1 ? 's' : ''}</span>
                 </div>
-                
-                {/* Latest order status */}
-                {table.activeOrders && table.activeOrders.length > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs px-2 py-1 rounded-full ${getOrderStatusColor(table.activeOrders[0].status)}`}>
-                      {table.activeOrders[0].status}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedTableDetails(table);
-                      }}
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
-                    >
-                      <Eye className="w-3 h-3 mr-1" />
-                      Details
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center text-xs font-semibold">
+                  <DollarSign className="w-3 h-3 mr-1" />
+                  <span>{formatPrice(table.totalOrderValue!)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Latest order status */}
+            {table.activeOrders && table.activeOrders.length > 0 && (
+              <div className="flex items-center justify-between">
+                <span className={`text-xs px-2 py-1 rounded-full ${getOrderStatusColor(table.activeOrders[0].status)}`}>
+                  {table.activeOrders[0].status}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTableDetails(table);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                >
+                  <Eye className="w-3 h-3 mr-1" />
+                  Details
+                </button>
               </div>
             )}
 
@@ -403,7 +401,7 @@ export function TableGridWithOrders({
               </div>
             </div>
           </div>
-              Scan to order food for Table {selectedTable.table_number}
+        </div>
       )}
     </>
   );
