@@ -50,7 +50,7 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
           )
         `)
         .eq('restaurant_id', restaurant.id)
-        .neq('status', 'paid')
+        .in('status', ['pending', 'confirmed'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -129,15 +129,11 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'preparing':
         return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'ready':
+      case 'confirmed':
         return 'bg-green-100 text-green-800 border-green-300';
-      case 'served':
-        return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'paid':
+        return 'bg-gray-100 text-gray-800 border-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300';
     }
@@ -146,15 +142,11 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Clock className="w-4 h-4" />;
+        return <AlertCircle className="w-4 h-4" />;
       case 'confirmed':
         return <CheckCircle className="w-4 h-4" />;
-      case 'preparing':
-        return <ChefHat className="w-4 h-4" />;
-      case 'ready':
-        return <Utensils className="w-4 h-4" />;
-      case 'served':
-        return <CheckCircle className="w-4 h-4" />;
+      case 'paid':
+        return <CreditCard className="w-4 h-4" />;
       default:
         return <Clock className="w-4 h-4" />;
     }
@@ -163,14 +155,6 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
       case 'pending':
-        return 'confirmed';
-      case 'confirmed':
-        return 'preparing';
-      case 'preparing':
-        return 'ready';
-      case 'ready':
-        return 'served';
-      case 'served':
         return 'paid';
       default:
         return null;
@@ -182,12 +166,6 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
       case 'pending':
         return 'Confirm Order';
       case 'confirmed':
-        return 'Start Preparing';
-      case 'preparing':
-        return 'Mark Ready';
-      case 'ready':
-        return 'Mark Served';
-      case 'served':
         return 'Mark Paid';
       default:
         return null;
@@ -235,20 +213,23 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
 
       {/* Orders List */}
       {orders.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">No Active Orders</h3>
-          <p className="text-gray-600">New orders will appear here when customers place them</p>
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg p-12 text-center border border-blue-200">
+          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ChefHat className="w-10 h-10 text-blue-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-800 mb-3">No Active Orders</h3>
+          <p className="text-gray-600 text-lg mb-4">Your kitchen is all caught up!</p>
+          <p className="text-sm text-blue-600">New orders will appear here when customers place them via QR code</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
           {orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="p-4 border-b">
+            <div key={order.id} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="p-6 border-b border-gray-100">
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <h3 className="font-semibold text-gray-800">Order #{order.order_number}</h3>
-                    <div className="flex items-center text-sm text-gray-600 mt-1">
+                    <h3 className="font-bold text-xl text-gray-800">#{order.order_number}</h3>
+                    <div className="flex items-center text-sm text-gray-500 mt-2">
                       <MapPin className="w-3 h-3 mr-1" />
                       Table {order.session?.table?.table_number}
                       {order.session?.booking && (
@@ -261,56 +242,64 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
                     </div>
                   </div>
                   
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
+                  <div className={`px-3 py-2 rounded-full text-sm font-semibold border-2 ${getStatusColor(order.status)}`}>
                     <div className="flex items-center">
                       {getStatusIcon(order.status)}
-                      <span className="ml-1 capitalize">{order.status}</span>
+                      <span className="ml-2 capitalize">{order.status}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="text-xs text-gray-500">
-                  Ordered: {format(new Date(order.created_at), 'h:mm a')}
+                <div className="flex items-center text-xs text-gray-400 mt-3">
+                  <Clock className="w-3 h-3 mr-1" />
+                  <span>Ordered at {format(new Date(order.created_at), 'h:mm a')}</span>
                 </div>
               </div>
               
-              <div className="p-4">
+              <div className="p-6">
                 {/* Order Items */}
-                <div className="space-y-2 mb-4">
+                <div className="space-y-3 mb-6">
                   {order.items?.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span>{item.quantity}x {item.menu_item?.name}</span>
-                      <span>{formatPrice(item.total_price_sgd)}</span>
+                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-b-0">
+                      <div className="flex items-center">
+                        <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full mr-3">
+                          {item.quantity}
+                        </span>
+                        <span className="font-medium text-gray-800">{item.menu_item?.name}</span>
+                      </div>
+                      <span className="font-semibold text-green-600">{formatPrice(item.total_price_sgd)}</span>
                     </div>
                   ))}
                   {order.items && order.items.length > 3 && (
-                    <div className="text-xs text-gray-500">
-                      +{order.items.length - 3} more items
+                    <div className="text-center py-2">
+                      <span className="text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                        +{order.items.length - 3} more items
+                      </span>
                     </div>
                   )}
                 </div>
                 
                 {/* Loyalty Discount */}
                 {order.discount_applied && (
-                  <div className="flex items-center text-sm text-green-600 mb-2">
+                  <div className="flex items-center text-sm text-green-600 mb-4 bg-green-50 p-3 rounded-lg">
                     <Tag className="w-3 h-3 mr-1" />
-                    <span>10% Loyalty Discount Applied</span>
+                    <span className="font-medium">10% Loyalty Discount Applied</span>
                   </div>
                 )}
                 
                 {/* Total */}
-                <div className="border-t pt-2 mb-4">
-                  <div className="flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span>{formatPrice(order.total_sgd)}</span>
+                <div className="border-t border-gray-200 pt-4 mb-6">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold text-gray-700">Total</span>
+                    <span className="text-2xl font-bold text-green-600">{formatPrice(order.total_sgd)}</span>
                   </div>
                 </div>
                 
                 {/* Actions */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <button
                     onClick={() => setSelectedOrder(order)}
-                    className="w-full flex items-center justify-center px-3 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-center px-4 py-3 border-2 border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
                   >
                     <Eye className="w-4 h-4 mr-2" />
                     View Details
@@ -320,14 +309,18 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
                     <button
                       onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
                       disabled={processingOrder === order.id}
-                      className="w-full flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      className={`w-full flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
+                        order.status === 'pending' 
+                          ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
+                          : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
+                      }`}
                     >
                       {processingOrder === order.id ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                       ) : (
                         getStatusIcon(getNextStatus(order.status)!)
                       )}
-                      <span className="ml-2">{getNextStatusLabel(order.status)}</span>
+                      <span className="ml-2 font-bold">{getNextStatusLabel(order.status)}</span>
                     </button>
                   )}
                 </div>
@@ -339,13 +332,13 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
 
       {/* Order Detail Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-90vh overflow-y-auto">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-90vh overflow-y-auto">
+            <div className="p-8">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">Order #{selectedOrder.order_number}</h2>
-                  <div className="flex items-center text-gray-600 mt-1">
+                  <h2 className="text-3xl font-bold text-gray-800">Order #{selectedOrder.order_number}</h2>
+                  <div className="flex items-center text-gray-600 mt-3">
                     <MapPin className="w-4 h-4 mr-1" />
                     Table {selectedOrder.session?.table?.table_number}
                     <span className="mx-2">•</span>
@@ -356,7 +349,7 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
                 
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors text-3xl font-light"
                 >
                   ×
                 </button>
@@ -364,21 +357,23 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
               
               {/* Order Items */}
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-800 mb-3">Order Items</h3>
-                <div className="space-y-3">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Order Items</h3>
+                <div className="space-y-4">
                   {selectedOrder.items?.map((item) => (
-                    <div key={item.id} className="flex justify-between items-start p-3 bg-gray-50 rounded">
+                    <div key={item.id} className="flex justify-between items-start p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
                       <div className="flex-1">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="font-medium">{item.menu_item?.name}</span>
-                          <span className="font-semibold">{formatPrice(item.total_price_sgd)}</span>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-bold text-lg text-gray-800">{item.menu_item?.name}</span>
+                          <span className="font-bold text-xl text-green-600">{formatPrice(item.total_price_sgd)}</span>
                         </div>
-                        <div className="text-sm text-gray-600">
-                          Quantity: {item.quantity} × {formatPrice(item.unit_price_sgd)}
+                        <div className="text-sm text-gray-600 mb-2">
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
+                            {item.quantity} × {formatPrice(item.unit_price_sgd)}
+                          </span>
                         </div>
                         {item.special_instructions && (
-                          <div className="text-sm text-orange-600 mt-1">
-                            <strong>Special:</strong> {item.special_instructions}
+                          <div className="text-sm text-orange-700 mt-2 bg-orange-50 p-2 rounded-lg border border-orange-200">
+                            <strong>Special Instructions:</strong> {item.special_instructions}
                           </div>
                         )}
                       </div>
@@ -389,12 +384,12 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
               
               {/* Loyalty Information */}
               {selectedOrder.discount_applied && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded">
-                  <div className="flex items-center text-green-800 mb-2">
+                <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
+                  <div className="flex items-center text-green-800 mb-3">
                     <Tag className="w-4 h-4 mr-2" />
-                    <span className="font-medium">Loyalty Discount Applied</span>
+                    <span className="font-bold text-lg">Loyalty Discount Applied</span>
                   </div>
-                  <div className="text-sm text-green-700">
+                  <div className="text-green-700">
                     <p>Triggering User ID: {selectedOrder.triggering_user_id}</p>
                     <p>Discount Amount: {formatPrice(selectedOrder.discount_sgd)}</p>
                   </div>
@@ -402,30 +397,30 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
               )}
               
               {/* Order Total */}
-              <div className="border-t pt-4 mb-6">
-                <div className="space-y-2">
+              <div className="border-t-2 border-gray-200 pt-6 mb-8">
+                <div className="space-y-3 bg-gray-50 p-6 rounded-xl">
                   <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>{formatPrice(selectedOrder.subtotal_sgd)}</span>
+                    <span className="text-lg font-medium">Subtotal</span>
+                    <span className="text-lg font-semibold">{formatPrice(selectedOrder.subtotal_sgd)}</span>
                   </div>
                   {selectedOrder.discount_sgd > 0 && (
                     <div className="flex justify-between text-green-600">
-                      <span>Loyalty Discount</span>
-                      <span>-{formatPrice(selectedOrder.discount_sgd)}</span>
+                      <span className="text-lg font-medium">Loyalty Discount</span>
+                      <span className="text-lg font-semibold">-{formatPrice(selectedOrder.discount_sgd)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                    <span>Total</span>
-                    <span>{formatPrice(selectedOrder.total_sgd)}</span>
+                  <div className="flex justify-between text-2xl font-bold border-t-2 border-gray-300 pt-3">
+                    <span className="text-gray-800">Total</span>
+                    <span className="text-green-600">{formatPrice(selectedOrder.total_sgd)}</span>
                   </div>
                 </div>
               </div>
               
               {/* Actions */}
-              <div className="flex space-x-4">
+              <div className="flex space-x-6">
                 <button
                   onClick={() => setSelectedOrder(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-6 py-4 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
                 >
                   Close
                 </button>
@@ -437,7 +432,11 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
                       setSelectedOrder(null);
                     }}
                     disabled={processingOrder === selectedOrder.id}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className={`flex-1 px-6 py-4 rounded-xl font-bold transition-all duration-200 disabled:opacity-50 ${
+                      selectedOrder.status === 'pending'
+                        ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
+                        : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
+                    }`}
                   >
                     {getNextStatusLabel(selectedOrder.status)}
                   </button>
