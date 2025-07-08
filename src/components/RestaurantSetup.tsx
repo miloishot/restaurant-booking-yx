@@ -28,9 +28,8 @@ export function RestaurantSetup() {
 
     try {
       const { data, error } = await supabase
-        .from('restaurants')
+        .from('user_restaurant_view')
         .select('*')
-        .eq('owner_id', user.id)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -95,6 +94,50 @@ export function RestaurantSetup() {
       } else {
         // Create new restaurant
         const { data, error } = await supabase
+          .from('restaurants')
+          .insert({
+            name: formData.name,
+            slug: formData.slug,
+            address: formData.address,
+            phone: formData.phone,
+            email: formData.email,
+            time_slot_duration_minutes: formData.time_slot_duration_minutes
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        // Create user profile linking user to restaurant
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: user?.id,
+            restaurant_id: data.id,
+            role: 'owner'
+          });
+
+        if (profileError) throw profileError;
+        setRestaurant(data);
+      }
+
+      // Show success message
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Restaurant settings saved successfully!';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error saving restaurant:', error);
+      alert('Failed to save restaurant settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
           .from('restaurants')
           .insert({
             name: formData.name,
