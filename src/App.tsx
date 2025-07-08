@@ -52,7 +52,10 @@ function App() {
 
   // Staff login required for admin interface
   if (!user) {
-    return <AuthPage onAuthSuccess={() => window.location.reload()} />;
+    // Allow access to test restaurant without authentication for demo purposes
+    if (!restaurantSlug) {
+      return <AuthPage onAuthSuccess={() => window.location.reload()} />;
+    }
   }
 
   const currentPlan = getCurrentPlan();

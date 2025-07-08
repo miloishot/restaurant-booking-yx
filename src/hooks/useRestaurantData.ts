@@ -45,19 +45,42 @@ export function useRestaurantData(restaurantSlug?: string) {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          setError('User not authenticated');
-          return;
-        }
-
-        const { data, error: restaurantError } = await supabase
-          .from('user_restaurant_view')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (restaurantError) {
-          if (restaurantError.code === 'PGRST116') {
-            // User doesn't have a restaurant yet
+          // For development, allow unauthenticated access to test restaurant
+          const { data, error: restaurantError } = await supabase
+            .from('restaurants')
+            .select('*')
+            .eq('slug', 'test-restaurant')
+            .single();
+          
+          if (restaurantError || !data) {
+            setError('Please sign in to access the dashboard');
+            return;
+          }
+          
+          restaurantData = data;
+        } else {
+          const { data, error: restaurantError } = await supabase
+            .from('user_restaurant_view')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          
+          if (restaurantError) {
+            if (restaurantError.code === 'PGRST116') {
+              // User doesn't have a restaurant yet
+              setRestaurant(null);
+              setTables([]);
+              setBookings([]);
+              setWaitingList([]);
+              setOperatingHours([]);
+              setLoading(false);
+              return;
+            } else {
+              throw restaurantError;
+            }
+          }
+          
+          if (!data) {
             setRestaurant(null);
             setTables([]);
             setBookings([]);
@@ -65,34 +88,22 @@ export function useRestaurantData(restaurantSlug?: string) {
             setOperatingHours([]);
             setLoading(false);
             return;
-          } else {
-            throw restaurantError;
           }
+          
+          // Convert user_restaurant_view data to Restaurant format
+          restaurantData = {
+            id: data.id,
+            name: data.name,
+            slug: data.slug,
+            address: data.address,
+            phone: data.phone,
+            email: data.email,
+            owner_id: data.owner_id,
+            time_slot_duration_minutes: data.time_slot_duration_minutes,
+            created_at: data.created_at,
+            updated_at: data.updated_at
+          };
         }
-        
-        if (!data) {
-          setRestaurant(null);
-          setTables([]);
-          setBookings([]);
-          setWaitingList([]);
-          setOperatingHours([]);
-          setLoading(false);
-          return;
-        }
-        
-        // Convert user_restaurant_view data to Restaurant format
-        restaurantData = {
-          id: data.id,
-          name: data.name,
-          slug: data.slug,
-          address: data.address,
-          phone: data.phone,
-          email: data.email,
-          owner_id: data.owner_id,
-          time_slot_duration_minutes: data.time_slot_duration_minutes,
-          created_at: data.created_at,
-          updated_at: data.updated_at
-        };
       }
 
       if (!restaurantData) {

@@ -22,6 +22,19 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
           </div>
           <h1 className="text-3xl font-bold text-gray-800">Restaurant Booking</h1>
           <p className="text-gray-600 mt-2">Manage your restaurant reservations</p>
+          
+          {/* Test User Info */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-semibold text-blue-800 mb-2">Demo Access</h3>
+            <div className="text-sm text-blue-700 space-y-1">
+              <p><strong>Email:</strong> test@restaurant.com</p>
+              <p><strong>Password:</strong> testpass123</p>
+              <p><strong>Restaurant URL:</strong> <a href="/test-restaurant" className="underline hover:text-blue-900">/test-restaurant</a></p>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">
+              This test account has full premium access and sample data for demonstration.
+            </p>
+          </div>
         </div>
 
         {/* Auth Forms */}

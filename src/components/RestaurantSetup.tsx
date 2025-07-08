@@ -78,6 +78,11 @@ export function RestaurantSetup() {
     setSaving(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       if (restaurant) {
         // Update existing restaurant
         const { error } = await supabase
@@ -114,10 +119,12 @@ export function RestaurantSetup() {
         // Create user profile linking user to restaurant
         const { error: profileError } = await supabase
           .from('user_profiles')
-          .insert({
-            id: user?.id,
+          .upsert({
+            id: user.id,
             restaurant_id: newRestaurant.id,
             role: 'owner'
+          }, {
+            onConflict: 'id'
           });
 
         if (profileError) throw profileError;
