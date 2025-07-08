@@ -347,11 +347,11 @@ export function TableGridWithOrders({
                               Updated: {new Date(order.updated_at).toLocaleTimeString()}
                             </div>
                           )}
-                          </div>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getOrderStatusColor(order.status)}`}>
                           {order.status}
                         </span>
+                      </div>
                       </div>
 
                       {/* Order Items */}
