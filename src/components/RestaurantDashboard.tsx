@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRestaurantData } from '../hooks/useRestaurantData';
 import { TableGrid } from './TableGrid';
-import { BookingForm } from './BookingForm';
+import { WalkInLogger } from './WalkInLogger';
 import { BookingList } from './BookingList';
 import { WaitingListManager } from './WaitingListManager';
 import { OperatingHoursManager } from './OperatingHoursManager';
@@ -27,7 +27,7 @@ export function RestaurantDashboard() {
   } = useRestaurantData();
   
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
-  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [showWalkInLogger, setShowWalkInLogger] = useState(false);
   const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics'>('bookings');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -102,9 +102,9 @@ export function RestaurantDashboard() {
     );
   }
 
-  const handleTableClick = (table: RestaurantTable) => {
+  const handleMarkOccupied = (table: RestaurantTable) => {
     setSelectedTable(table);
-    setShowBookingForm(true);
+    setShowWalkInLogger(true);
   };
 
   const handleTableStatusUpdate = async (table: RestaurantTable, status: RestaurantTable['status']) => {
@@ -346,10 +346,28 @@ export function RestaurantDashboard() {
         {activeTab === 'tables' && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">Table Layout</h2>
-              <p className="text-gray-600">Click on any table to create a walk-in booking or change status</p>
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">Table Layout & Walk-In Management</h2>
+              <p className="text-gray-600">
+                Click "Mark Occupied" on available tables to instantly log walk-ins without collecting personal data
+              </p>
             </div>
-            <TableGrid tables={tables} onTableClick={handleTableClick} />
+            <TableGrid 
+              tables={tables} 
+              onMarkOccupied={handleMarkOccupied}
+              showOccupiedButton={true}
+            />
+            
+            {/* Walk-in Instructions */}
+            <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <h4 className="font-semibold text-orange-800 mb-2">Walk-In Management</h4>
+              <ul className="text-sm text-orange-700 space-y-1">
+                <li>• Click "Mark Occupied" on available tables for walk-in customers</li>
+                <li>• No personal customer data is collected or stored</li>
+                <li>• Tables are instantly marked as occupied and excluded from auto-assignment</li>
+                <li>• Anonymous analytics data is logged for operational insights</li>
+                <li>• Use "Complete" action in bookings to free up tables when customers leave</li>
+              </ul>
+            </div>
           </div>
         )}
 
@@ -362,17 +380,17 @@ export function RestaurantDashboard() {
         )}
       </div>
 
-      {/* Booking Form Modal */}
-      {showBookingForm && selectedTable && (
-        <BookingForm
+      {/* Walk-In Logger Modal */}
+      {showWalkInLogger && selectedTable && (
+        <WalkInLogger
           restaurant={restaurant}
-          selectedTable={selectedTable}
+          table={selectedTable}
           onSuccess={() => {
-            setShowBookingForm(false);
+            setShowWalkInLogger(false);
             setSelectedTable(null);
           }}
           onCancel={() => {
-            setShowBookingForm(false);
+            setShowWalkInLogger(false);
             setSelectedTable(null);
           }}
         />

@@ -148,6 +148,24 @@ export function useRestaurantData(restaurantSlug?: string) {
 
   const updateTableStatus = async (tableId: string, status: RestaurantTable['status']) => {
     try {
+      // If marking table as available, also complete any active walk-in bookings
+      if (status === 'available') {
+        const { error: completeBookingError } = await supabase
+          .from('bookings')
+          .update({ 
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('table_id', tableId)
+          .eq('status', 'seated')
+          .eq('is_walk_in', true);
+
+        if (completeBookingError) {
+          console.warn('Could not complete walk-in booking:', completeBookingError);
+          // Don't throw here as table status update is more important
+        }
+      }
+
       const { error } = await supabase
         .from('restaurant_tables')
         .update({ 
@@ -216,6 +234,11 @@ export function useRestaurantData(restaurantSlug?: string) {
         // If table becomes available, process waiting list
         if (tableStatus === 'available') {
           await processWaitingList(booking.restaurant_id, booking.booking_date, booking.booking_time);
+        }
+        
+        // For walk-ins being completed, also update table to available
+        if (status === 'completed' && booking.is_walk_in) {
+          await updateTableStatus(booking.table_id, 'available');
         }
       }
 
