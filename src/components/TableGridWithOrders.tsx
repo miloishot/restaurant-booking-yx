@@ -60,7 +60,7 @@ export function TableGridWithOrders({
         .from('order_sessions')
         .select(`
           *,
-          orders:orders(
+          orders:orders!inner(
             *,
             items:order_items(
               *,
@@ -76,7 +76,7 @@ export function TableGridWithOrders({
       // Map tables with their order information
       const enhancedTables: TableWithOrders[] = tables.map(table => {
         const tableSession = sessions?.find(session => session.table_id === table.id);
-        const activeOrders = tableSession?.orders?.filter(order => order.status !== 'paid') || [];
+        const activeOrders = tableSession?.orders || [];
         
         const totalOrderValue = activeOrders.reduce((sum, order) => sum + order.total_sgd, 0);
         const orderCount = activeOrders.length;
@@ -195,7 +195,7 @@ export function TableGridWithOrders({
             </div>
 
             {/* Order Information */}
-            {table.status === 'occupied' && table.orderCount! > 0 && (
+            {table.orderCount! > 0 && (
               <div className="mt-3 p-2 bg-white bg-opacity-50 rounded border">
                 <div className="flex items-center text-xs">
                   <ShoppingCart className="w-3 h-3 mr-1" />
@@ -211,8 +211,18 @@ export function TableGridWithOrders({
             {/* Latest order status */}
             {table.activeOrders && table.activeOrders.length > 0 && (
               <div className="flex items-center justify-between">
-                <span className={`text-xs px-2 py-1 rounded-full ${getOrderStatusColor(table.activeOrders[0].status)}`}>
-                  {table.activeOrders[0].status}
+                <div className="flex flex-wrap gap-1">
+                  {table.activeOrders.slice(0, 2).map((order, index) => (
+                    <span key={order.id} className={`text-xs px-2 py-1 rounded-full ${getOrderStatusColor(order.status)}`}>
+                      #{order.order_number}: {order.status}
+                    </span>
+                  ))}
+                  {table.activeOrders.length > 2 && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                      +{table.activeOrders.length - 2} more
+                    </span>
+                  )}
+                </div>
                 </span>
                 <button
                   onClick={(e) => {
@@ -321,7 +331,7 @@ export function TableGridWithOrders({
               {/* Active Orders */}
               {selectedTableDetails.activeOrders && selectedTableDetails.activeOrders.length > 0 ? (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Active Orders</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Order History ({selectedTableDetails.activeOrders.length})</h3>
                   
                   {selectedTableDetails.activeOrders.map((order) => (
                     <div key={order.id} className="border border-gray-200 rounded-lg p-4">
@@ -330,7 +340,14 @@ export function TableGridWithOrders({
                           <h4 className="font-semibold">Order #{order.order_number}</h4>
                           <div className="flex items-center text-sm text-gray-600 mt-1">
                             <Clock className="w-4 h-4 mr-1" />
-                            {new Date(order.created_at).toLocaleTimeString()}
+                            Ordered: {new Date(order.created_at).toLocaleTimeString()}
+                          </div>
+                          {order.updated_at !== order.created_at && (
+                            <div className="flex items-center text-sm text-gray-500 mt-1">
+                              <Clock className="w-3 h-3 mr-1" />
+                              Updated: {new Date(order.updated_at).toLocaleTimeString()}
+                            </div>
+                          )}
                           </div>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getOrderStatusColor(order.status)}`}>
@@ -371,23 +388,66 @@ export function TableGridWithOrders({
                           <strong>Notes:</strong> {order.notes}
                         </div>
                       )}
+
+                      {/* Order Timeline */}
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="text-xs text-gray-500">
+                          <div className="flex items-center space-x-4">
+                            <span className={`px-2 py-1 rounded ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
+                              Pending
+                            </span>
+                            {order.status !== 'pending' && (
+                              <>
+                                <span>→</span>
+                                <span className={`px-2 py-1 rounded ${order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                                  Confirmed
+                                </span>
+                              </>
+                            )}
+                            {order.status === 'paid' && (
+                              <>
+                                <span>→</span>
+                                <span className="px-2 py-1 rounded bg-green-100 text-green-800">
+                                  Paid
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
 
                   {/* Summary */}
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold">Total Table Bill</span>
-                      <span className="text-xl font-bold text-green-600">
-                        {formatPrice(selectedTableDetails.totalOrderValue!)}
-                      </span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">Total Table Bill</span>
+                        <span className="text-xl font-bold text-green-600">
+                          {formatPrice(selectedTableDetails.totalOrderValue!)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <div className="flex justify-between">
+                          <span>Pending Orders:</span>
+                          <span>{selectedTableDetails.activeOrders?.filter(o => o.status === 'pending').length || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Confirmed Orders:</span>
+                          <span>{selectedTableDetails.activeOrders?.filter(o => o.status === 'confirmed').length || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Paid Orders:</span>
+                          <span>{selectedTableDetails.activeOrders?.filter(o => o.status === 'paid').length || 0}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-8">
                   <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No active orders for this table</p>
+                  <p className="text-gray-600">No orders for this table</p>
                 </div>
               )}
 

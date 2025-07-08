@@ -156,6 +156,8 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
       case 'pending':
+        return 'confirmed';
+      case 'confirmed':
         return 'paid';
       default:
         return null;

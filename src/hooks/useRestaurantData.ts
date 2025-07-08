@@ -88,8 +88,8 @@ export function useRestaurantData(restaurantSlug?: string) {
           `)
           .eq('restaurant_id', restaurantData.id)
           .eq('requested_date', new Date().toISOString().split('T')[0])
-          .eq('status', 'waiting')
-          .order('priority_order', { ascending: true })
+          .neq('status', 'paid')
+          .order('created_at', { ascending: false })
       ]);
 
       // Check for errors and set data
