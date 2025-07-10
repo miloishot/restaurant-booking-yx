@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, RestaurantTable, OrderSession } from '../types/database';
-import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check } from 'lucide-react';
+import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer } from 'lucide-react';
 
 interface QRCodeGeneratorProps {
   restaurant: Restaurant;
@@ -11,6 +11,15 @@ interface QRCodeGeneratorProps {
 interface TableWithSession extends RestaurantTable {
   session?: OrderSession;
   qrCodeUrl?: string;
+  qrCodeHtml?: string;
+}
+
+interface PrinterConfig {
+  id: string;
+  printer_name: string;
+  device_id: string;
+  printer_id: string;
+  is_default: boolean;
 }
 
 export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
@@ -18,10 +27,41 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const [loading, setLoading] = useState(true);
   const [generatingQR, setGeneratingQR] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const [printerConfigs, setPrinterConfigs] = useState<PrinterConfig[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string | null>(null);
+  const [printing, setPrinting] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTableSessions();
+    fetchPrinterConfigs();
   }, [restaurant.id, tables]);
+
+  const fetchPrinterConfigs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('printer_configs')
+        .select('id, printer_name, device_id, printer_id, is_default')
+        .eq('restaurant_id', restaurant.id)
+        .eq('is_active', true)
+        .not('device_id', 'is', null)
+        .not('printer_id', 'is', null);
+
+      if (error) throw error;
+      
+      setPrinterConfigs(data || []);
+      
+      // Set default printer if available
+      const defaultPrinter = data?.find(p => p.is_default);
+      if (defaultPrinter) {
+        setSelectedPrinter(defaultPrinter.id);
+      } else if (data && data.length > 0) {
+        setSelectedPrinter(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching printer configs:', error);
+    }
+  };
 
   const fetchTableSessions = async () => {
     try {
@@ -41,6 +81,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
         const session = sessions?.find(s => s.table_id === table.id);
         const qrCodeUrl = session ? `${window.location.origin}/order/${session.session_token}` : undefined;
         
+        // Generate QR code HTML for printing
         return {
           ...table,
           session,
@@ -138,6 +179,111 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     document.body.removeChild(link);
   };
 
+  const generateQRCodeHtml = (tableNumber: string, qrCodeUrl: string) => {
+    return `
+      <html>
+        <head>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 0;
+              text-align: center;
+            }
+            .container {
+              padding: 10px;
+            }
+            .restaurant-name {
+              font-size: 14px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .table-number {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 10px;
+            }
+            .instructions {
+              font-size: 12px;
+              margin-top: 10px;
+            }
+            img {
+              max-width: 200px;
+              height: auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="restaurant-name">${restaurant.name}</div>
+            <div class="table-number">Table ${tableNumber}</div>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}" alt="QR Code" />
+            <div class="instructions">Scan to order food & drinks</div>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const printQRCode = async (table: TableWithSession) => {
+    if (!table.qrCodeUrl || !selectedPrinter) return;
+    
+    setPrinting(table.id);
+    setPrintError(null);
+    
+    try {
+      const printer = printerConfigs.find(p => p.id === selectedPrinter);
+      if (!printer) throw new Error('Selected printer not found');
+      
+      const qrCodeHtml = generateQRCodeHtml(table.table_number, table.qrCodeUrl);
+      const base64Content = btoa(qrCodeHtml);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('You must be logged in to print');
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          deviceId: printer.device_id,
+          printerId: printer.printer_id,
+          content: base64Content,
+          options: {
+            mimeType: 'text/html',
+            copies: 1
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to print QR code');
+      }
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `QR code for Table ${table.table_number} sent to printer!`;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error printing QR code:', error);
+      setPrintError(error instanceof Error ? error.message : 'Failed to print QR code');
+    } finally {
+      setPrinting(null);
+    }
+  };
+
   const openOrderingPage = (url: string) => {
     window.open(url, '_blank');
   };
@@ -176,6 +322,28 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
           Refresh
         </button>
       </div>
+      
+      {/* Printer Selection */}
+      {printerConfigs.length > 0 && (
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Printer className="w-5 h-5 text-blue-600 mr-2" />
+              <h3 className="font-semibold text-blue-800">Print QR Codes</h3>
+            </div>
+            
+            <select
+              value={selectedPrinter || ''}
+              onChange={(e) => setSelectedPrinter(e.target.value)}
+              className="px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {printerConfigs.map(printer => (
+                <option key={printer.id} value={printer.id}>{printer.printer_name} {printer.is_default ? '(Default)' : ''}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tablesWithSessions.map((table) => (
@@ -247,6 +415,17 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </button>
+                  
+                  {printerConfigs.length > 0 && selectedPrinter && (
+                    <button
+                      onClick={() => printQRCode(table)}
+                      disabled={printing === table.id}
+                      className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      <Printer className="w-4 h-4 mr-1" />
+                      {printing === table.id ? 'Printing...' : 'Print'}
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -278,6 +457,15 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
         ))}
       </div>
 
+      {/* Print Error Message */}
+      {printError && (
+        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <h4 className="font-semibold text-red-800 mb-2">Print Error</h4>
+          <p className="text-red-700 text-sm">{printError}</p>
+          <p className="text-sm text-red-600 mt-2">Please check that your printer is properly configured and the Electron client is running.</p>
+        </div>
+      )}
+
       {/* Instructions */}
       <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
         <h4 className="font-semibold text-blue-800 mb-2">QR Code Instructions</h4>
@@ -288,6 +476,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
           <li>• Each QR code is unique to a specific table</li>
           <li>• Deactivate QR codes when tables are not in use</li>
           <li>• Test the ordering flow by clicking "Test" button</li>
+          <li>• Print QR codes to place on tables for easy customer access</li>
         </ul>
       </div>
     </div>

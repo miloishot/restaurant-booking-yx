@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, RestaurantTable } from '../types/database';
 import { TableManager } from './TableManager';
-import { Building, Globe, Copy, Check, ExternalLink, Settings, Users } from 'lucide-react';
+import { Building, Globe, Copy, Check, ExternalLink, Settings, Users, Printer } from 'lucide-react';
+import { PrinterConfiguration } from './PrinterConfiguration';
 
 export function RestaurantSetup() {
   const { user } = useAuth();
@@ -12,7 +13,7 @@ export function RestaurantSetup() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'tables'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'tables' | 'printers'>('details');
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -243,6 +244,17 @@ export function RestaurantSetup() {
               <Users className="w-4 h-4 inline mr-1" />
               Table Management ({tables.length})
             </button>
+            <button
+              onClick={() => setActiveTab('printers')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'printers'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Printer className="w-4 h-4 inline mr-1" />
+              Printer Setup
+            </button>
           </nav>
         </div>
 
@@ -463,6 +475,26 @@ export function RestaurantSetup() {
                 )}
               </div>
             </div>
+          </div>
+        ) : activeTab === 'printers' ? (
+          <div>
+            {restaurant ? (
+              <PrinterConfiguration restaurant={restaurant} />
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Restaurant Details Required</h3>
+                <p className="text-gray-600 mb-4">
+                  Please complete your restaurant details first before configuring printers.
+                </p>
+                <button
+                  onClick={() => setActiveTab('details')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  Complete Restaurant Details
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div>

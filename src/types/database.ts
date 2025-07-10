@@ -90,6 +90,21 @@ export interface RestaurantOperatingHours {
   updated_at: string;
 }
 
+export interface PrinterConfig {
+  id: string;
+  restaurant_id: string;
+  printer_name: string;
+  printer_type: 'network' | 'usb' | 'bluetooth';
+  ip_address: string | null;
+  port: number | null;
+  device_id: string | null;
+  printer_id: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TimeSlot {
   time: string;
   available: boolean;
