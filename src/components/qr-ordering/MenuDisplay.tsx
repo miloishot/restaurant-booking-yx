@@ -169,15 +169,6 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                       {getDietaryBadges(item)}
                     </div>
                     
-                      <button
-                        onClick={() => onAddToCart(item, 1)}
-                        className="mt-3 flex items-center justify-center w-full px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add to Cart
-                      </button>
-                    ) : null}
-                    
                     <div className="flex justify-between items-center">
                       <button
                         onClick={() => setSelectedItem(item)}
@@ -197,14 +188,6 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                         </button>
                       ) : null}
                     </div>
-                    
-                    <button
-                      onClick={() => setSelectedItem(item)}
-                      className="mt-2 text-gray-500 hover:text-gray-700 text-sm flex items-center transition-colors"
-                    >
-                      <Info className="w-4 h-4 mr-1" />
-                      Details
-                    </button>
                   </div>
                 </div>
               ))}
