@@ -1,11 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
+// Initialize Supabase client with service role key for admin access
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
-
 // CORS headers for all responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,15 +65,28 @@ Deno.serve(async (req) => {
     }
   } catch (error) {
     console.error('Error processing request:', error);
-    return createResponse({ error: 'Internal server error' }, 500);
-  }
-});
-
-// Handler for getting available printers with optional deviceId filter
-async function handleGetPrinters(url: URL) {
-  try {
     // Get deviceId from query parameters if provided
     const deviceId = url.searchParams.get('deviceId');
+    const restaurantId = url.searchParams.get('restaurantId');
+    
+    if (!restaurantId) {
+      return createResponse({ error: 'Missing restaurantId parameter' }, 400);
+    }
+    
+    // Get restaurant's print API configuration
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants')
+      .select('print_api_url, print_api_key')
+      .eq('id', restaurantId)
+      .single();
+    
+    if (restaurantError || !restaurant) {
+      return createResponse({ error: 'Restaurant not found or error retrieving restaurant data' }, 404);
+    }
+    
+    if (!restaurant.print_api_url || !restaurant.print_api_key) {
+      return createResponse({ error: 'Print API not configured for this restaurant' }, 400);
+    }
     const restaurantId = url.searchParams.get('restaurantId');
     
     if (!restaurantId) {
@@ -127,13 +137,6 @@ async function handleGetPrinters(url: URL) {
 async function handleRefreshDevicePrinters(req: Request) {
   try {
     const { deviceId, restaurantId } = await req.json();
-
-    // Validate required parameters
-    if (!deviceId || !restaurantId) {
-      return createResponse({ error: 'Missing deviceId or restaurantId parameter' }, 400);
-    }
-    
-    // Get restaurant's print API configuration
     const { data: restaurant, error: restaurantError } = await supabase
       .from('restaurants')
       .select('print_api_url, print_api_key')
@@ -174,19 +177,44 @@ async function handleRefreshDevicePrinters(req: Request) {
     return createResponse({ success: true, message: `Printer refresh command sent to device ${deviceId}` });
   } catch (error) {
     console.error('Error refreshing device printers:', error);
-    return createResponse({ error: error.message }, 500);
-  }
-}
-
-// Handler for print requests
-async function handlePrintRequest(req: Request, userId: string) {
-  try {
     const { restaurantId, deviceId, printerId, content, options } = await req.json();
 
     // Validate required parameters
-    if (!restaurantId || !deviceId || !printerId || !content) {
-      return createResponse({ error: 'Missing required parameters: restaurantId, deviceId, printerId, content' }, 400);
+    if (!deviceId || !restaurantId) {
+      return createResponse({ error: 'Missing deviceId or restaurantId parameter' }, 400);
     }
+    
+    // Get restaurant's print API configuration
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants')
+      .select('print_api_url, print_api_key')
+      .eq('id', restaurantId)
+      .single();
+    
+    if (restaurantError || !restaurant) {
+      return createResponse({ error: 'Restaurant not found or error retrieving restaurant data' }, 404);
+    }
+    
+    const apiUrl = restaurant.print_api_url;
+    const apiKey = restaurant.print_api_key;
+    
+    // Get restaurant's print API configuration
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants')
+      .select('print_api_url, print_api_key')
+      .eq('id', restaurantId)
+      .single();
+    
+    if (restaurantError || !restaurant) {
+      return createResponse({ error: 'Restaurant not found or error retrieving restaurant data' }, 404);
+    }
+    
+    if (!restaurant.print_api_url || !restaurant.print_api_key) {
+      return createResponse({ error: 'Print API not configured for this restaurant' }, 400);
+    }
+    
+    const apiUrl = restaurant.print_api_url;
+    const apiKey = restaurant.print_api_key;
 
     // Get restaurant's print API configuration
     const { data: restaurant, error: restaurantError } = await supabase

@@ -99,7 +99,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       console.log('Fetching printers for device:', deviceId);
       
       // Direct API call to the middleware server
-      const commandUrl = `${apiUrl}/api/printers?deviceId=${encodeURIComponent(deviceId)}`;
+      const commandUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/printers?deviceId=${encodeURIComponent(deviceId)}&restaurantId=${encodeURIComponent(restaurant.id)}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -107,7 +107,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       const response = await fetch(commandUrl, {
         method: 'GET',
         headers: {
-          'x-api-key': apiKey,
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
           'Content-Type': 'application/json',
         },
         signal: controller.signal,
@@ -187,22 +187,14 @@ Common causes and solutions:
       setError(null);
       
       // Get API configuration from restaurant
-      const apiUrl = restaurant.print_api_url;
-      const apiKey = restaurant.print_api_key;
-      
-      if (!apiUrl || !apiKey) {
-        throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
-      }
-
-      const commandUrl = `${apiUrl}/api/refresh_printers`;
-      
-      const response = await fetch(commandUrl, {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ deviceId: formData.device_id }),
+      // Call the print-proxy edge function
+          printerId: printer.printer_id,
+          content: base64Content,
+          options: {
+            mimeType: 'text/html',
+            copies: 1
+          }
+        }),
       });
 
       if (!response.ok) {
@@ -248,6 +240,12 @@ Common causes and solutions:
         .eq('id', restaurant.id);
 
       if (error) throw error;
+          print_api_url: apiConfig.apiUrl,
+          print_api_key: apiConfig.apiKey
+        })
+        .eq('id', restaurant.id);
+
+      if (error) throw error;
       
       // Show success notification
       const notification = document.createElement('div');
@@ -262,6 +260,7 @@ Common causes and solutions:
       }, 3000);
       
       setShowApiConfig(false);
+      window.location.reload(); // Refresh to get updated restaurant data
       window.location.reload(); // Refresh to get updated restaurant data
     } catch (err) {
       console.error('Error saving API config:', err);
@@ -621,6 +620,9 @@ Common causes and solutions:
                   <p className="text-xs text-blue-600 mt-1">
                     This will be saved to your restaurant configuration in the database
                   </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This will be saved to your restaurant configuration in the database
+                  </p>
                 </div>
 
                 <div>
@@ -637,6 +639,9 @@ Common causes and solutions:
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     The authentication key for your print middleware API
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This will be saved to your restaurant configuration in the database
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
                     This will be saved to your restaurant configuration in the database
