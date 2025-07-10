@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BookingWithDetails, RestaurantTable } from '../types/database';
 import { format } from 'date-fns';
-import { Clock, User, Phone, Mail, MapPin, AlertCircle, CheckCircle, XCircle, Eye, EyeOff, Filter } from 'lucide-react';
+import { Clock, User, Phone, Mail, MapPin, AlertCircle, CheckCircle, XCircle, Eye, EyeOff, Filter, Calendar } from 'lucide-react';
 
 interface BookingListProps {
   bookings: BookingWithDetails[];
