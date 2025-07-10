@@ -82,12 +82,15 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       setLoadingDevices(true);
       setError(null);
       
+      // Declare commandUrl at function scope to ensure it's accessible in catch block
+      let commandUrl = '';
+      
       if (!apiConfig.apiUrl || !apiConfig.apiKey) {
         throw new Error(`Missing configuration: Please ensure you are logged in and have configured the Print API URL and API Key in API Settings. Current API URL: ${apiConfig.apiUrl || 'Not configured'}`);
       }
 
       // Construct the API URL for the command endpoint
-      const commandUrl = `${apiConfig.apiUrl}/api/command`;
+      commandUrl = `${apiConfig.apiUrl}/api/command`;
       
       console.log('Fetching printer devices from:', commandUrl);
       console.log('API Key configured:', apiConfig.apiKey ? 'Yes' : 'No');
