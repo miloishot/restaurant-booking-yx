@@ -82,27 +82,30 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       setLoadingDevices(true);
       setError(null);
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !apiConfig.apiUrl || !apiConfig.apiKey) {
+      if (!apiConfig.apiUrl || !apiConfig.apiKey) {
         throw new Error('Missing configuration: Please ensure you are logged in and have configured the Print API URL and API Key in API Settings');
       }
 
-      // Ensure the API URL ends with /api if it doesn't already
-      const baseUrl = apiConfig.apiUrl.endsWith('/api') ? apiConfig.apiUrl : `${apiConfig.apiUrl}/api`;
-      const fullUrl = `${baseUrl}/printers`;
+      // Construct the API URL for the command endpoint
+      const commandUrl = `${apiConfig.apiUrl}/api/command`;
       
-      console.log('Fetching printer devices from:', fullUrl);
+      console.log('Fetching printer devices from:', commandUrl);
       console.log('API Key configured:', apiConfig.apiKey ? 'Yes' : 'No');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch(fullUrl, {
-        method: 'GET',
+      const response = await fetch(commandUrl, {
+        method: 'POST',
         headers: {
           'x-api-key': apiConfig.apiKey,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          deviceId: "electron-lg-laptop",
+          command: "get_printers",
+          payload: {}
+        }),
         signal: controller.signal,
       });
       
@@ -119,8 +122,22 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
         throw new Error(`Failed to fetch printer devices - ${errorMessage}`);
       }
 
-      const { devices } = await response.json();
-      setAvailableDevices(devices || []);
+      const data = await response.json();
+      
+      // Format the response to match our expected structure
+      if (data && data.printers) {
+        const formattedDevices = [{
+          deviceId: "electron-lg-laptop",
+          printers: data.printers.map((printer: any) => ({
+            id: printer.id,
+            name: printer.name
+          }))
+        }];
+        
+        setAvailableDevices(formattedDevices);
+      } else {
+        throw new Error('Invalid response format from print server');
+      }
     } catch (err) {
       console.error('Error fetching printer devices:', err);
       
