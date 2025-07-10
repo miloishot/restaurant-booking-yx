@@ -135,12 +135,21 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {getItemsByCategory(category.id).map(item => (
                 <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:shadow-lg">
-                  {item.image_url && (
+                  {item.image_url ? (
                     <img
                       src={item.image_url}
                       alt={item.name}
                       className="w-full h-48 object-cover"
                     />
+                  ) : (
+                    <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <span className="text-2xl">🍽️</span>
+                        </div>
+                        <p className="text-gray-500 text-sm font-medium">{item.name}</p>
+                      </div>
+                    </div>
                   )}
                   
                   <div className="p-4">
@@ -162,24 +171,24 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                     
                     {/* Quantity in cart display */}
                     {getItemQuantityInCart(item.id) > 0 ? (
-                      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
                         <div className="flex items-center justify-between">
-                          <span className="text-green-800 font-medium text-sm">
+                          <span className="text-blue-800 font-semibold text-sm">
                             {getItemQuantityInCart(item.id)} in cart
                           </span>
                           <div className="flex items-center space-x-3">
                             <button
                               onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) - 1)}
-                              className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center hover:bg-green-700 transition-colors"
+                              className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all duration-200 shadow-md hover:shadow-lg"
                             >
                               <Plus className="w-4 h-4 rotate-45" />
                             </button>
-                            <span className="font-bold text-green-800 min-w-[2rem] text-center">
+                            <span className="font-bold text-blue-900 min-w-[2rem] text-center text-lg">
                               {getItemQuantityInCart(item.id)}
                             </span>
                             <button
                               onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) + 1)}
-                              className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center hover:bg-green-700 transition-colors"
+                              className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
                             >
                               <Plus className="w-4 h-4" />
                             </button>
@@ -200,20 +209,12 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                       {getItemQuantityInCart(item.id) === 0 ? (
                         <button
                           onClick={() => onAddToCart(item, 1)}
-                          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+                          className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
                         >
                           <Plus className="w-4 h-4 mr-2" />
                           Add to Cart
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) + 1)}
-                          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-md hover:shadow-lg"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add More
-                        </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -305,7 +306,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                 </button>
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
                 >
                   Add to Cart - {formatPrice(selectedItem.price_sgd * quantity)}
                 </button>

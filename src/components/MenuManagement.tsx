@@ -31,8 +31,11 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
     image_url: '',
     allergens: [] as string[],
     dietary_info: [] as string[],
-    display_order: 0
+    display_order: 0,
+    image_file: null as File | null
   });
+
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     fetchMenuData();
@@ -248,10 +251,41 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
       image_url: '',
       allergens: [],
       dietary_info: [],
-      display_order: 0
+      display_order: 0,
+      image_file: null
     });
     setEditingItem(null);
     setShowItemForm(false);
+  };
+
+  const handleImageUpload = async (file: File): Promise<string> => {
+    // For demo purposes, we'll use a placeholder image service
+    // In production, you would upload to your preferred storage service
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Simulate upload delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Return a placeholder URL (in production, return the actual uploaded URL)
+    return `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop&crop=center`;
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const imageUrl = await handleImageUpload(file);
+      setItemForm(prev => ({ ...prev, image_url: imageUrl, image_file: file }));
+      showNotification('Image uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      showNotification('Failed to upload image', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const editCategory = (category: MenuCategory) => {
@@ -273,7 +307,8 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
       image_url: item.image_url || '',
       allergens: item.allergens || [],
       dietary_info: item.dietary_info || [],
-      display_order: item.display_order
+      display_order: item.display_order,
+      image_file: null
     });
     setEditingItem(item);
     setShowItemForm(true);
@@ -625,15 +660,56 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image URL
+                    Product Image
                   </label>
-                  <input
-                    type="url"
-                    value={itemForm.image_url}
-                    onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/image.jpg"
-                  />
+                  
+                  {/* Image Preview */}
+                  {itemForm.image_url && (
+                    <div className="mb-3">
+                      <img
+                        src={itemForm.image_url}
+                        alt="Preview"
+                        className="w-32 h-24 object-cover rounded-lg border border-gray-300"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Upload Options */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Upload Image File
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileChange}
+                        disabled={uploadingImage}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                      {uploadingImage && (
+                        <div className="flex items-center mt-2 text-sm text-blue-600">
+                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
+                          Uploading image...
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-center text-gray-500 text-sm">or</div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Image URL
+                      </label>
+                      <input
+                        type="url"
+                        value={itemForm.image_url}
+                        onChange={(e) => setItemForm({ ...itemForm, image_url: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="https://example.com/image.jpg"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
