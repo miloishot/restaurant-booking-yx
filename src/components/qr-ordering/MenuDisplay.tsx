@@ -5,10 +5,13 @@ import { Plus, Info, Leaf, AlertTriangle } from 'lucide-react';
 interface MenuDisplayProps {
   categories: MenuCategory[];
   menuItems: MenuItem[];
+  cart: CartItem[];
   onAddToCart: (item: MenuItem, quantity: number, specialInstructions?: string) => void;
+  onUpdateCartItem: (itemId: string, quantity: number) => void;
+  onRemoveCartItem: (itemId: string) => void;
 }
 
-export function MenuDisplay({ categories, menuItems, onAddToCart }: MenuDisplayProps) {
+export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdateCartItem, onRemoveCartItem }: MenuDisplayProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(
     categories.length > 0 ? categories[0].id : null
   );
@@ -66,6 +69,28 @@ export function MenuDisplay({ categories, menuItems, onAddToCart }: MenuDisplayP
     return badges;
   };
 
+  const getItemQuantityInCart = (itemId: string) => {
+    return cart.reduce((total, cartItem) => {
+      if (cartItem.menu_item.id === itemId) {
+        return total + cartItem.quantity;
+      }
+      return total;
+    }, 0);
+  };
+
+  const handleQuantityChange = (item: MenuItem, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      onRemoveCartItem(item.id);
+    } else {
+      const currentQuantity = getItemQuantityInCart(item.id);
+      if (currentQuantity === 0) {
+        onAddToCart(item, newQuantity);
+      } else {
+        onUpdateCartItem(item.id, newQuantity);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Category Sidebar */}
@@ -109,7 +134,7 @@ export function MenuDisplay({ categories, menuItems, onAddToCart }: MenuDisplayP
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {getItemsByCategory(category.id).map(item => (
-                <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:shadow-lg">
                   {item.image_url && (
                     <img
                       src={item.image_url}
@@ -135,22 +160,60 @@ export function MenuDisplay({ categories, menuItems, onAddToCart }: MenuDisplayP
                       {getDietaryBadges(item)}
                     </div>
                     
+                    {/* Quantity in cart display */}
+                    {getItemQuantityInCart(item.id) > 0 ? (
+                      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-green-800 font-medium text-sm">
+                            {getItemQuantityInCart(item.id)} in cart
+                          </span>
+                          <div className="flex items-center space-x-3">
+                            <button
+                              onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) - 1)}
+                              className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center hover:bg-green-700 transition-colors"
+                            >
+                              <Plus className="w-4 h-4 rotate-45" />
+                            </button>
+                            <span className="font-bold text-green-800 min-w-[2rem] text-center">
+                              {getItemQuantityInCart(item.id)}
+                            </span>
+                            <button
+                              onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) + 1)}
+                              className="w-8 h-8 rounded-full bg-green-600 text-white flex items-center justify-center hover:bg-green-700 transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    
                     <div className="flex justify-between items-center">
                       <button
                         onClick={() => setSelectedItem(item)}
-                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center transition-colors"
                       >
                         <Info className="w-4 h-4 mr-1" />
                         Details
                       </button>
                       
-                      <button
-                        onClick={() => onAddToCart(item, 1)}
-                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add
-                      </button>
+                      {getItemQuantityInCart(item.id) === 0 ? (
+                        <button
+                          onClick={() => onAddToCart(item, 1)}
+                          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add to Cart
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) + 1)}
+                          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-md hover:shadow-lg"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add More
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -242,7 +305,7 @@ export function MenuDisplay({ categories, menuItems, onAddToCart }: MenuDisplayP
                 </button>
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
                 >
                   Add to Cart - {formatPrice(selectedItem.price_sgd * quantity)}
                 </button>

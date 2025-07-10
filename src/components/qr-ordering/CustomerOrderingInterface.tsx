@@ -209,6 +209,20 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     );
   };
 
+  const updateCartItemById = (itemId: string, newQuantity: number) => {
+    setCart(prevCart => {
+      return prevCart.map(cartItem => {
+        if (cartItem.menu_item.id === itemId) {
+          return { ...cartItem, quantity: newQuantity };
+        }
+        return cartItem;
+      });
+    });
+  };
+
+  const removeCartItemById = (itemId: string) => {
+    setCart(prevCart => prevCart.filter(cartItem => cartItem.menu_item.id !== itemId));
+  };
   const removeFromCart = (index: number) => {
     setCart(prevCart => prevCart.filter((_, i) => i !== index));
   };
@@ -428,7 +442,10 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         <MenuDisplay
           categories={categories}
           menuItems={menuItems}
+          cart={cart}
           onAddToCart={addToCart}
+          onUpdateCartItem={updateCartItemById}
+          onRemoveCartItem={removeCartItemById}
         />
       </div>
 
