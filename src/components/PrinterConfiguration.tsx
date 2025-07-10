@@ -65,7 +65,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('printer_configurations')
+        .from('printer_configs')
         .select('*')
         .eq('restaurant_id', restaurant.id)
         .order('created_at', { ascending: false });
@@ -94,7 +94,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       }
 
       // Call the Edge Function to proxy the request
-      const commandUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/printers?deviceId=${encodeURIComponent(deviceId)}&restaurantId=${restaurant.id}`;
+      const commandUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/printers?restaurantId=${restaurant.id}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -220,14 +220,14 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
 
       if (editingId) {
         const { error } = await supabase
-          .from('printer_configurations')
+          .from('printer_configs')
           .update(configData)
           .eq('id', editingId);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('printer_configurations')
+          .from('printer_configs')
           .insert([configData]);
 
         if (error) throw error;
@@ -256,7 +256,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
 
     try {
       const { error } = await supabase
-        .from('printer_configurations')
+        .from('printer_configs')
         .delete()
         .eq('id', id);
 
@@ -283,10 +283,48 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
     setShowForm(false);
   };
 
+  const [printing, setPrinting] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<{ [key: string]: string }>({});
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+
+  const generateQRCodeHtml = (tableNumber: string, qrCodeUrl: string) => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>QR Code - Table ${tableNumber}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            margin: 20px;
+          }
+          .qr-container {
+            border: 2px solid #000;
+            padding: 20px;
+            display: inline-block;
+          }
+          h1 { margin: 0 0 10px 0; }
+          .qr-code { margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="qr-container">
+          <h1>Table ${tableNumber}</h1>
+          <div class="qr-code">
+            <img src="${qrCodeUrl}" alt="QR Code for Table ${tableNumber}" />
+          </div>
+          <p>Scan to order</p>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
   const printQRCode = async (table: any) => {
     try {
       setPrinting(table.id);
-      setPrintError(null);
+      setPrintError(prev => ({ ...prev, [table.id]: '' }));
 
       // Call the Edge Function to proxy the print request
       const printer = printerConfigs.find(p => p.id === selectedPrinter);
@@ -339,7 +377,10 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
 
     } catch (err) {
       console.error('Print error:', err);
-      setPrintError(table.id, err instanceof Error ? err.message : 'Failed to print QR code');
+      setPrintError(prev => ({ 
+        ...prev, 
+        [table.id]: err instanceof Error ? err.message : 'Failed to print QR code' 
+      }));
     } finally {
       setPrinting(null);
     }

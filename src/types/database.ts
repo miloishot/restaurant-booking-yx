@@ -12,6 +12,8 @@ export interface Restaurant {
   email: string | null;
   owner_id: string;
   time_slot_duration_minutes: number;
+  print_api_url: string | null;
+  print_api_key: string | null;
   created_at: string;
   updated_at: string;
 }
