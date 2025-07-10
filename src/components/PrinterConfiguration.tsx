@@ -48,8 +48,8 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [refreshingDevice, setRefreshingDevice] = useState(false);
   const [apiConfig, setApiConfig] = useState({
-    apiUrl: localStorage.getItem('print_api_url') || '',
-    apiKey: localStorage.getItem('print_api_key') || ''
+    apiUrl: restaurant.print_api_url || '',
+    apiKey: restaurant.print_api_key || ''
   });
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [savingApiConfig, setSavingApiConfig] = useState(false);
@@ -88,9 +88,9 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       setLoadingDevices(true);
       setError(null);
       
-      // Get API configuration from localStorage
-      const apiUrl = localStorage.getItem('print_api_url');
-      const apiKey = localStorage.getItem('print_api_key');
+      // Get API configuration from restaurant
+      const apiUrl = restaurant.print_api_url;
+      const apiKey = restaurant.print_api_key;
       
       if (!apiUrl || !apiKey) {
         throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
@@ -186,9 +186,9 @@ Common causes and solutions:
       setRefreshingDevice(true);
       setError(null);
       
-      // Get API configuration from localStorage
-      const apiUrl = localStorage.getItem('print_api_url');
-      const apiKey = localStorage.getItem('print_api_key');
+      // Get API configuration from restaurant
+      const apiUrl = restaurant.print_api_url;
+      const apiKey = restaurant.print_api_key;
       
       if (!apiUrl || !apiKey) {
         throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
@@ -235,13 +235,19 @@ Common causes and solutions:
     }
   };
   
-  const saveApiConfig = () => {
+  const saveApiConfig = async () => {
     try {
-      setSavingApiConfig(true);
-      
-      // Save to localStorage
-      localStorage.setItem('print_api_url', apiConfig.apiUrl);
-      localStorage.setItem('print_api_key', apiConfig.apiKey);
+      setSavingApiConfig(true);      
+      // Save to database
+      const { error } = await supabase
+        .from('restaurants')
+        .update({
+          print_api_url: apiConfig.apiUrl,
+          print_api_key: apiConfig.apiKey
+        })
+        .eq('id', restaurant.id);
+
+      if (error) throw error;
       
       // Show success notification
       const notification = document.createElement('div');
@@ -256,6 +262,7 @@ Common causes and solutions:
       }, 3000);
       
       setShowApiConfig(false);
+      window.location.reload(); // Refresh to get updated restaurant data
     } catch (err) {
       console.error('Error saving API config:', err);
       setError(err instanceof Error ? err.message : 'Failed to save API configuration');
@@ -484,7 +491,7 @@ Common causes and solutions:
                 <strong>Current Configuration:</strong><br />
                 API URL: {apiConfig.apiUrl || 'Not configured'}<br />
                 API Key: {apiConfig.apiKey ? 'Configured' : 'Not configured'}<br />
-                Full endpoint URL: {apiConfig.apiUrl ? `${apiConfig.apiUrl}/api/command` : 'Not available'}
+                Full endpoint URL: {apiConfig.apiUrl ? `${apiConfig.apiUrl}/api/printers` : 'Not available'}
               </div>
             </div>
           )}
@@ -611,6 +618,9 @@ Common causes and solutions:
                   <p className="text-xs text-gray-500 mt-1">
                     The base URL of your print middleware server (e.g., http://172.104.191.17:4000)
                   </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This will be saved to your restaurant configuration in the database
+                  </p>
                 </div>
 
                 <div>
@@ -627,6 +637,9 @@ Common causes and solutions:
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     The authentication key for your print middleware API
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This will be saved to your restaurant configuration in the database
                   </p>
                 </div>
 

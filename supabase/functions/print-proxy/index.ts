@@ -1,15 +1,10 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
-// Initialize Supabase client with service role key for admin access
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
-
-// External printing middleware API configuration
-const PRINT_API_URL = Deno.env.get('PRINT_API_URL');
-const PRINT_API_KEY = Deno.env.get('PRINT_API_KEY');
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -80,17 +75,30 @@ Deno.serve(async (req) => {
 // Handler for getting available printers with optional deviceId filter
 async function handleGetPrinters(url: URL) {
   try {
-    // Check if API configuration is set
-    if (!PRINT_API_URL || !PRINT_API_KEY) {
-      return createResponse({ 
-        error: 'Print API not configured. Please set PRINT_API_URL and PRINT_API_KEY environment variables.' 
-      }, 500);
-    }
-    
     // Get deviceId from query parameters if provided
     const deviceId = url.searchParams.get('deviceId');
+    const restaurantId = url.searchParams.get('restaurantId');
     
-    let apiUrl = `${PRINT_API_URL}/api/printers`;
+    if (!restaurantId) {
+      return createResponse({ error: 'Missing restaurantId parameter' }, 400);
+    }
+    
+    // Get restaurant's print API configuration
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants')
+      .select('print_api_url, print_api_key')
+      .eq('id', restaurantId)
+      .single();
+    
+    if (restaurantError || !restaurant) {
+      return createResponse({ error: 'Restaurant not found or error retrieving restaurant data' }, 404);
+    }
+    
+    if (!restaurant.print_api_url || !restaurant.print_api_key) {
+      return createResponse({ error: 'Print API not configured for this restaurant' }, 400);
+    }
+    
+    let apiUrl = `${restaurant.print_api_url}/api/printers`;
     if (deviceId) {
       apiUrl += `?deviceId=${encodeURIComponent(deviceId)}`;
     }
@@ -98,7 +106,7 @@ async function handleGetPrinters(url: URL) {
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
-        'x-api-key': PRINT_API_KEY,
+        'x-api-key': restaurant.print_api_key,
       },
     });
 
@@ -118,25 +126,36 @@ async function handleGetPrinters(url: URL) {
 // Handler for refreshing printers for a specific device
 async function handleRefreshDevicePrinters(req: Request) {
   try {
-    // Check if API configuration is set
-    if (!PRINT_API_URL || !PRINT_API_KEY) {
-      return createResponse({ 
-        error: 'Print API not configured. Please set PRINT_API_URL and PRINT_API_KEY environment variables.' 
-      }, 500);
-    }
-    
-    const { deviceId } = await req.json();
+    const { deviceId, restaurantId } = await req.json();
 
     // Validate required parameters
-    if (!deviceId) {
-      return createResponse({ error: 'Missing deviceId parameter' }, 400);
+    if (!deviceId || !restaurantId) {
+      return createResponse({ error: 'Missing deviceId or restaurantId parameter' }, 400);
     }
+    
+    // Get restaurant's print API configuration
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants')
+      .select('print_api_url, print_api_key')
+      .eq('id', restaurantId)
+      .single();
+    
+    if (restaurantError || !restaurant) {
+      return createResponse({ error: 'Restaurant not found or error retrieving restaurant data' }, 404);
+    }
+    
+    if (!restaurant.print_api_url || !restaurant.print_api_key) {
+      return createResponse({ error: 'Print API not configured for this restaurant' }, 400);
+    }
+    
+    const apiUrl = restaurant.print_api_url;
+    const apiKey = restaurant.print_api_key;
 
     // Send refresh command to the middleware
-    const response = await fetch(`${PRINT_API_URL}/api/command`, {
+    const response = await fetch(`${apiUrl}/api/command`, {
       method: 'POST',
       headers: {
-        'x-api-key': PRINT_API_KEY,
+        'x-api-key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -162,13 +181,6 @@ async function handleRefreshDevicePrinters(req: Request) {
 // Handler for print requests
 async function handlePrintRequest(req: Request, userId: string) {
   try {
-    // Check if API configuration is set
-    if (!PRINT_API_URL || !PRINT_API_KEY) {
-      return createResponse({ 
-        error: 'Print API not configured. Please set PRINT_API_URL and PRINT_API_KEY environment variables.' 
-      }, 500);
-    }
-    
     const { restaurantId, deviceId, printerId, content, options } = await req.json();
 
     // Validate required parameters
@@ -176,6 +188,20 @@ async function handlePrintRequest(req: Request, userId: string) {
       return createResponse({ error: 'Missing required parameters: restaurantId, deviceId, printerId, content' }, 400);
     }
 
+    // Get restaurant's print API configuration
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants')
+      .select('print_api_url, print_api_key')
+      .eq('id', restaurantId)
+      .single();
+    
+    if (restaurantError || !restaurant) {
+      return createResponse({ error: 'Restaurant not found or error retrieving restaurant data' }, 404);
+    }
+    
+    const apiUrl = restaurant.print_api_url;
+    const apiKey = restaurant.print_api_key;
+    
     // Verify user has access to this restaurant
     const { data: restaurant, error: restaurantError } = await supabase
       .from('restaurants')
@@ -211,10 +237,10 @@ async function handlePrintRequest(req: Request, userId: string) {
     };
 
     // Send print job to external API
-    const response = await fetch(`${PRINT_API_URL}/api/command`, {
+    const response = await fetch(`${apiUrl}/api/command`, {
       method: 'POST',
       headers: {
-        'x-api-key': PRINT_API_KEY,
+        'x-api-key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(printPayload),
