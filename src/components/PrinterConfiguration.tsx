@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant } from '../types/database';
-import { Printer, Settings, RefreshCw, Plus, Edit2, Trash2, Check, X, Wifi, Usb, Bluetooth, Globe, Key } from 'lucide-react';
+import { Printer, Settings, RefreshCw, Plus, Edit2, Trash2, Check, X, Wifi, Usb, Bluetooth } from 'lucide-react';
 
 interface PrinterConfigurationProps {
   restaurant: Restaurant;
@@ -46,13 +46,8 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   });
   const [availableDevices, setAvailableDevices] = useState<PrinterDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [refreshingDevice, setRefreshingDevice] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiConfig, setApiConfig] = useState({
-    apiUrl: localStorage.getItem('print_api_url') || '',
-    apiKey: localStorage.getItem('print_api_key') || ''
-  });
-  const [showApiConfig, setShowApiConfig] = useState(false);
-  const [savingApiConfig, setSavingApiConfig] = useState(false);
 
   useEffect(() => {
     fetchPrinterConfigs();
@@ -77,39 +72,34 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
     }
   };
 
-  const fetchAvailableDevices = async () => {
+  const fetchPrintersForSelectedDevice = async (deviceId: string) => {
+    if (!deviceId.trim()) {
+      setAvailableDevices([]);
+      return;
+    }
+
     try {
       setLoadingDevices(true);
       setError(null);
       
-      // Declare commandUrl at function scope to ensure it's accessible in catch block
-      let commandUrl = '';
+      console.log('Fetching printers for device:', deviceId);
       
-      if (!apiConfig.apiUrl || !apiConfig.apiKey) {
-        throw new Error(`Missing configuration: Please ensure you are logged in and have configured the Print API URL and API Key in API Settings. Current API URL: ${apiConfig.apiUrl || 'Not configured'}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
       }
 
-      // Construct the API URL for the command endpoint
-      commandUrl = `${apiConfig.apiUrl}/api/command`;
-      
-      console.log('Fetching printer devices from:', commandUrl);
-      console.log('API Key configured:', apiConfig.apiKey ? 'Yes' : 'No');
-      console.log('Full API URL being accessed:', commandUrl);
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/printers?deviceId=${encodeURIComponent(deviceId)}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch(commandUrl, {
-        method: 'POST',
+      const response = await fetch(apiUrl, {
+        method: 'GET',
         headers: {
-          'x-api-key': apiConfig.apiKey,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          deviceId: "electron-lg-laptop",
-          command: "get_printers",
-          payload: {}
-        }),
         signal: controller.signal,
       });
       
@@ -123,83 +113,96 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
         } catch (e) {
           // If we can't parse the error response, use the status text
         }
-        throw new Error(`Failed to fetch printer devices - ${errorMessage}`);
+        throw new Error(`Failed to fetch printers for device - ${errorMessage}`);
       }
 
       const data = await response.json();
       
       // Format the response to match our expected structure
-      if (data && data.printers) {
-        const formattedDevices = [{
-          deviceId: "electron-lg-laptop",
-          printers: data.printers.map((printer: any) => ({
-            id: printer.id,
-            name: printer.name
-          }))
-        }];
-        
-        setAvailableDevices(formattedDevices);
+      if (data && data.devices) {
+        const deviceData = data.devices.find((d: any) => d.deviceId === deviceId);
+        if (deviceData && deviceData.printers) {
+          setAvailableDevices([{
+            deviceId: deviceData.deviceId,
+            printers: deviceData.printers.map((printer: any) => ({
+              id: printer.id,
+              name: printer.name
+            }))
+          }]);
+        } else {
+          setAvailableDevices([]);
+        }
       } else {
-        throw new Error('Invalid response format from print server');
+        setAvailableDevices([]);
       }
     } catch (err) {
-      console.error('Error fetching printer devices:', err);
+      console.error('Error fetching printers for device:', err);
       
-      let errorMessage = 'Failed to fetch printer devices';
+      let errorMessage = 'Failed to fetch printers for device';
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
-          errorMessage = `Connection timeout: The request to ${commandUrl} timed out after 10 seconds. Please check:
+          errorMessage = `Connection timeout: The request timed out after 10 seconds. Please check:
           
 • Is the print middleware server running and responding?
-• Is the server accessible from your network?
-• Are there any firewall restrictions blocking the connection?
-• Try accessing ${apiConfig.apiUrl} directly in your browser to test connectivity
-
-Full URL attempted: ${commandUrl}`;
+• Is the device "${deviceId}" connected to the middleware?
+• Are there any network connectivity issues?`;
         } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-          errorMessage = `Network error: Cannot connect to print middleware server at ${commandUrl}. 
+          errorMessage = `Network error: Cannot connect to print middleware server. 
 
 Common causes and solutions:
-• Server not running: Ensure your print middleware server is running on the correct port
-• Wrong URL/Port: Verify the API URL in Settings matches your server (current: ${apiConfig.apiUrl})
-• Firewall blocking connection: Check if your firewall allows connections to the server port
-• CORS issues: Ensure the server allows requests from this domain
-• Network connectivity: Try accessing ${apiConfig.apiUrl} directly in your browser
-
-Troubleshooting steps:
-1. Verify server is running: Check if ${apiConfig.apiUrl} responds in your browser
-2. Check port configuration: Ensure the port in the URL matches your server's listening port
-3. Test network connectivity: Try ping or telnet to the server IP and port
-4. Review firewall rules: Ensure the specific port is allowed through your firewall`;
-        } else if (err.message.includes('CORS')) {
-          errorMessage = `CORS error: The print middleware server at ${commandUrl} is not configured to allow requests from this domain. Please check:
-          
-• Server CORS configuration allows requests from this domain
-• Server is running with proper CORS headers
-• API URL is correct: ${apiConfig.apiUrl}`;
+• Server not running: Ensure your print middleware server is running
+• Device not connected: Verify device "${deviceId}" is connected to the middleware
+• Network connectivity: Check if the middleware server is accessible
+• Firewall blocking connection: Ensure firewall allows connections`;
         } else {
           errorMessage = err.message;
         }
       }
       
       setError(errorMessage);
+      setAvailableDevices([]);
     } finally {
       setLoadingDevices(false);
     }
   };
 
-  const saveApiConfig = () => {
+  const handleRefreshPrintersForDevice = async () => {
+    if (!formData.device_id.trim()) {
+      setError('Please enter a device ID first');
+      return;
+    }
+
     try {
-      setSavingApiConfig(true);
+      setRefreshingDevice(true);
+      setError(null);
       
-      // Save to localStorage
-      localStorage.setItem('print_api_url', apiConfig.apiUrl);
-      localStorage.setItem('print_api_key', apiConfig.apiKey);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/refresh-device-printers`;
       
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deviceId: formData.device_id
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to refresh device printers');
+      }
+
       // Show success notification
       const notification = document.createElement('div');
       notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = 'API configuration saved successfully!';
+      notification.textContent = `Refresh command sent to device ${formData.device_id}`;
       document.body.appendChild(notification);
       
       setTimeout(() => {
@@ -207,13 +210,17 @@ Troubleshooting steps:
           document.body.removeChild(notification);
         }
       }, 3000);
-      
-      setShowApiConfig(false);
+
+      // Wait a moment for the device to respond, then fetch updated printers
+      setTimeout(() => {
+        fetchPrintersForSelectedDevice(formData.device_id);
+      }, 2000);
+
     } catch (err) {
-      console.error('Error saving API config:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save API configuration');
+      console.error('Error refreshing device printers:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh device printers');
     } finally {
-      setSavingApiConfig(false);
+      setRefreshingDevice(false);
     }
   };
 
@@ -360,6 +367,8 @@ Troubleshooting steps:
     });
     setEditingPrinter(null);
     setShowForm(false);
+    setAvailableDevices([]);
+    setError(null);
   };
 
   const editPrinter = (printer: PrinterConfig) => {
@@ -370,9 +379,9 @@ Troubleshooting steps:
     setEditingPrinter(printer);
     setShowForm(true);
     
-    // If this is a remote printer, fetch available devices
+    // If this printer has a device ID, fetch its printers
     if (printer.device_id) {
-      fetchAvailableDevices();
+      fetchPrintersForSelectedDevice(printer.device_id);
     }
   };
 
@@ -402,27 +411,7 @@ Troubleshooting steps:
         
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setShowApiConfig(true)}
-            className="flex items-center px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            API Settings
-          </button>
-          
-          <button
-            onClick={fetchAvailableDevices}
-            disabled={loadingDevices}
-            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loadingDevices ? 'animate-spin' : ''}`} />
-            Refresh Devices
-          </button>
-          
-          <button
-            onClick={() => {
-              setShowForm(true);
-              fetchAvailableDevices();
-            }}
+            onClick={() => setShowForm(true)}
             className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -434,23 +423,6 @@ Troubleshooting steps:
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="text-red-700 whitespace-pre-line">{error}</div>
-          {(error.includes('Network error') || error.includes('Connection timeout')) && (
-            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-              <p className="text-yellow-800 text-sm font-medium">Quick Diagnostics:</p>
-              <ul className="text-yellow-700 text-sm mt-1 space-y-1">
-                <li>• <strong>Test server connectivity:</strong> Open <a href={apiConfig.apiUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{apiConfig.apiUrl}</a> in a new tab</li>
-                <li>• <strong>Verify port:</strong> Ensure your server is running on the port specified in the URL</li>
-                <li>• <strong>Check firewall:</strong> Confirm the server port is not blocked by firewall rules</li>
-                <li>• <strong>Network access:</strong> Verify you can reach the server IP from your current network</li>
-              </ul>
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                <strong>Current Configuration:</strong><br />
-                API URL: {apiConfig.apiUrl || 'Not configured'}<br />
-                API Key: {apiConfig.apiKey ? 'Configured' : 'Not configured'}<br />
-                Full endpoint URL: {apiConfig.apiUrl ? `${apiConfig.apiUrl}/api/command` : 'Not available'}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -466,10 +438,7 @@ Troubleshooting steps:
           <Printer className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 mb-4">No printers configured yet</p>
           <button
-            onClick={() => {
-              setShowForm(true);
-              fetchAvailableDevices();
-            }}
+            onClick={() => setShowForm(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
             Configure Your First Printer
@@ -546,90 +515,10 @@ Troubleshooting steps:
         </div>
       )}
 
-      {/* API Configuration Modal */}
-      {showApiConfig && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold">Print API Configuration</h3>
-                <button
-                  onClick={() => setShowApiConfig(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Globe className="w-4 h-4 inline mr-1" />
-                    Print API URL *
-                  </label>
-                  <input
-                    type="url"
-                    required
-                    value={apiConfig.apiUrl}
-                    onChange={(e) => setApiConfig({ ...apiConfig, apiUrl: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="http://172.104.191.17:4000"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    The base URL of your print middleware server (e.g., http://172.104.191.17:4000)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Key className="w-4 h-4 inline mr-1" />
-                    API Key *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={apiConfig.apiKey}
-                    onChange={(e) => setApiConfig({ ...apiConfig, apiKey: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Your API key"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    The authentication key for your print middleware API
-                  </p>
-                </div>
-
-                <div className="flex space-x-4 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowApiConfig(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={saveApiConfig}
-                    disabled={savingApiConfig}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
-                  >
-                    {savingApiConfig ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    ) : (
-                      <Settings className="w-4 h-4 mr-2" />
-                    )}
-                    {savingApiConfig ? 'Saving...' : 'Save Configuration'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Printer Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-90vh overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold">
@@ -715,37 +604,47 @@ Troubleshooting steps:
                   
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Device
+                      Device ID
                     </label>
-                    <select
-                      value={formData.device_id || ''}
-                      onChange={(e) => {
-                        const deviceId = e.target.value;
-                        setFormData({ 
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={formData.device_id || ''}
+                        onChange={(e) => setFormData({ 
                           ...formData, 
-                          device_id: deviceId,
+                          device_id: e.target.value,
                           // Reset printer_id when device changes
                           printer_id: '' 
-                        });
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select a device</option>
-                      {availableDevices.map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                          {device.deviceId}
-                        </option>
-                      ))}
-                    </select>
+                        })}
+                        onBlur={(e) => {
+                          if (e.target.value.trim()) {
+                            fetchPrintersForSelectedDevice(e.target.value.trim());
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter device ID manually"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRefreshPrintersForDevice}
+                        disabled={!formData.device_id || refreshingDevice}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${refreshingDevice ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter the device ID and click refresh to load available printers
+                    </p>
                     {loadingDevices && (
                       <div className="flex items-center mt-2 text-sm text-blue-600">
                         <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
-                        Loading available devices...
+                        Loading printers for device...
                       </div>
                     )}
                   </div>
 
-                  {formData.device_id && (
+                  {formData.device_id && availableDevices.length > 0 && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Printer
@@ -756,13 +655,11 @@ Troubleshooting steps:
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select a printer</option>
-                        {availableDevices
-                          .find(d => d.deviceId === formData.device_id)
-                          ?.printers.map((printer) => (
-                            <option key={printer.id} value={printer.id}>
-                              {printer.name}
-                            </option>
-                          ))}
+                        {availableDevices[0]?.printers.map((printer) => (
+                          <option key={printer.id} value={printer.id}>
+                            {printer.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   )}
@@ -828,12 +725,12 @@ Troubleshooting steps:
         <h4 className="font-semibold text-blue-800 mb-2">Printer Configuration Guide</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <h5 className="font-medium text-blue-700 mb-1">API Configuration</h5>
+            <h5 className="font-medium text-blue-700 mb-1">Device Setup</h5>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Click "API Settings" to configure the print API</li>
-              <li>• Enter the URL of your print middleware server</li>
-              <li>• Enter your API key for authentication</li>
-              <li>• Save the configuration to enable printing</li>
+              <li>• Enter the device ID manually (provided by your print middleware)</li>
+              <li>• Click refresh to load available printers for that device</li>
+              <li>• Select the specific printer you want to use</li>
+              <li>• Ensure the device is connected to your print middleware</li>
             </ul>
           </div>
           <div>
@@ -847,20 +744,21 @@ Troubleshooting steps:
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
-            <h5 className="font-medium text-blue-700 mb-1">Remote Printing</h5>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Select a device from the available list</li>
-              <li>• Choose a printer connected to that device</li>
-              <li>• Ensure the Electron client is running</li>
-            </ul>
-          </div>
-          <div>
             <h5 className="font-medium text-blue-700 mb-1">Testing</h5>
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Configure at least one printer</li>
               <li>• Generate a QR code for a table</li>
               <li>• Click "Print" to test the printing system</li>
               <li>• Check printer for output</li>
+            </ul>
+          </div>
+          <div>
+            <h5 className="font-medium text-blue-700 mb-1">Troubleshooting</h5>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Verify device ID is correct and connected</li>
+              <li>• Check print middleware server is running</li>
+              <li>• Ensure network connectivity between components</li>
+              <li>• Review error messages for specific issues</li>
             </ul>
           </div>
         </div>
