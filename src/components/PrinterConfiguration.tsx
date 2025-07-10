@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant } from '../types/database';
 import { Printer, Settings, RefreshCw, Plus, Edit2, Trash2, Check, X, Wifi, Usb, Bluetooth } from 'lucide-react';
+import { useRestaurantData } from '../hooks/useRestaurantData';
 
 interface PrinterConfigurationProps {
   restaurant: Restaurant;
@@ -29,11 +30,697 @@ interface PrinterDevice {
 }
 
 export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) {
-  // ... [rest of the component code remains the same]
+  const { refetch } = useRestaurantData();
+  const [printerConfigs, setPrinterConfigs] = useState<PrinterConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<PrinterConfig>>({
+    printer_name: '',
+    printer_type: 'network',
+    ip_address: '',
+    port: 9100,
+    device_id: '',
+    printer_id: '',
+    is_default: false,
+    is_active: true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [devices, setDevices] = useState<PrinterDevice[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [refreshingDevice, setRefreshingDevice] = useState(false);
+  const [apiConfig, setApiConfig] = useState({
+    apiUrl: restaurant.print_api_url || '',
+    apiKey: restaurant.print_api_key || ''
+  });
+  const [showApiConfig, setShowApiConfig] = useState(false);
+  const [savingApiConfig, setSavingApiConfig] = useState(false);
+
+  useEffect(() => {
+    fetchPrinterConfigs();
+  }, [restaurant.id]);
+
+  const fetchPrinterConfigs = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('printer_configurations')
+        .select('*')
+        .eq('restaurant_id', restaurant.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPrinterConfigs(data || []);
+    } catch (err) {
+      console.error('Error fetching printer configs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch printer configurations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDevices = async () => {
+    try {
+      setLoadingDevices(true);
+      setError(null);
+      
+      // Get API configuration from restaurant
+      const apiUrl = restaurant.print_api_url;
+      const apiKey = restaurant.print_api_key;
+      
+      if (!apiUrl || !apiKey) {
+        throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
+      }
+
+      // Call the Edge Function to proxy the request
+      const commandUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/printers?deviceId=${encodeURIComponent(deviceId)}&restaurantId=${restaurant.id}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(commandUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch devices: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      setDevices(data.devices || []);
+    } catch (err) {
+      console.error('Error fetching devices:', err);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Request timed out. Please check your API configuration and try again.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to fetch devices');
+      }
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
+
+  const refreshDevicePrinters = async () => {
+    try {
+      setRefreshingDevice(true);
+      setError(null);
+
+      // Call the Edge Function to proxy the request
+      const commandUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/refresh-device-printers`;
+      
+      const response = await fetch(commandUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          deviceId: formData.device_id,
+          restaurantId: restaurant.id
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to refresh device printers: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      // Refresh the devices list to get updated printers
+      await fetchDevices();
+    } catch (err) {
+      console.error('Error refreshing device printers:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh device printers');
+    } finally {
+      setRefreshingDevice(false);
+    }
+  };
+
+  const saveApiConfig = () => {
+    try {
+      setSavingApiConfig(true);
+
+      // Save to database
+      supabase
+        .from('restaurants')
+        .update({
+          print_api_url: apiConfig.apiUrl,
+          print_api_key: apiConfig.apiKey
+        })
+        .eq('id', restaurant.id)
+        .then(({ error }) => {
+          if (error) {
+            throw error;
+          }
+          
+          // Show success notification
+          const notification = document.createElement('div');
+          notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+          notification.textContent = 'API configuration saved successfully!';
+          document.body.appendChild(notification);
+          
+          setTimeout(() => {
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification);
+            }
+          }, 3000);
+          
+          setShowApiConfig(false);
+          
+          // Refresh restaurant data to get updated API config
+          refetch();
+        });
+    } catch (err) {
+      console.error('Error saving API config:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save API configuration');
+    } finally {
+      setSavingApiConfig(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      setSaving(true);
+      setError(null);
+
+      const configData = {
+        ...formData,
+        restaurant_id: restaurant.id,
+      };
+
+      if (editingId) {
+        const { error } = await supabase
+          .from('printer_configurations')
+          .update(configData)
+          .eq('id', editingId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('printer_configurations')
+          .insert([configData]);
+
+        if (error) throw error;
+      }
+
+      await fetchPrinterConfigs();
+      resetForm();
+    } catch (err) {
+      console.error('Error saving printer config:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save printer configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (config: PrinterConfig) => {
+    setFormData(config);
+    setEditingId(config.id || null);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this printer configuration?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('printer_configurations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchPrinterConfigs();
+    } catch (err) {
+      console.error('Error deleting printer config:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete printer configuration');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      printer_name: '',
+      printer_type: 'network',
+      ip_address: '',
+      port: 9100,
+      device_id: '',
+      printer_id: '',
+      is_default: false,
+      is_active: true,
+    });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const printQRCode = async (table: any) => {
+    try {
+      setPrinting(table.id);
+      setPrintError(null);
+
+      // Call the Edge Function to proxy the print request
+      const printer = printerConfigs.find(p => p.id === selectedPrinter);
+      if (!printer) throw new Error('Selected printer not found');
+
+      const qrCodeHtml = generateQRCodeHtml(table.table_number, table.qrCodeUrl);
+      const base64Content = btoa(qrCodeHtml);
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          deviceId: printer.device_id,
+          printerId: printer.printer_id,
+          content: base64Content,
+          options: {
+            mimeType: 'text/html',
+            copies: 1
+          },
+          jobName: `QR Code - Table ${table.table_number}`
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Print failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Print job failed');
+      }
+
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `QR code printed successfully for Table ${table.table_number}`;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+
+    } catch (err) {
+      console.error('Print error:', err);
+      setPrintError(table.id, err instanceof Error ? err.message : 'Failed to print QR code');
+    } finally {
+      setPrinting(null);
+    }
+  };
+
+  const getConnectionIcon = (type: string) => {
+    switch (type) {
+      case 'network':
+        return <Wifi className="h-4 w-4" />;
+      case 'usb':
+        return <Usb className="h-4 w-4" />;
+      case 'bluetooth':
+        return <Bluetooth className="h-4 w-4" />;
+      default:
+        return <Printer className="h-4 w-4" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-center py-8">
+          <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-600">Loading printer configurations...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      {/* ... [rest of the JSX remains the same] */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Printer className="h-6 w-6 text-gray-700 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">Printer Configuration</h2>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowApiConfig(true)}
+            className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Settings className="h-4 w-4 mr-1" />
+            API Settings
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Printer
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* API Configuration Modal */}
+      {showApiConfig && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Print API Configuration</h3>
+                <button
+                  onClick={() => setShowApiConfig(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    API URL
+                  </label>
+                  <input
+                    type="url"
+                    value={apiConfig.apiUrl}
+                    onChange={(e) => setApiConfig(prev => ({ ...prev, apiUrl: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://your-print-server.com"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={apiConfig.apiKey}
+                    onChange={(e) => setApiConfig(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Your API key"
+                  />
+                </div>
+
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                  <strong>Current Configuration:</strong><br />
+                  API URL: {restaurant.print_api_url || 'Not configured'}<br />
+                  API Key: {restaurant.print_api_key ? 'Configured' : 'Not configured'}<br />
+                  Full endpoint URL: {restaurant.print_api_url ? `${restaurant.print_api_url}/api/command` : 'Not available'}
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2 mt-6">
+                <button
+                  onClick={() => setShowApiConfig(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveApiConfig}
+                  disabled={savingApiConfig}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingApiConfig ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printer Configuration Form */}
+      {showForm && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <form onSubmit={handleSubmit}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {editingId ? 'Edit Printer Configuration' : 'Add Printer Configuration'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Printer Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.printer_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, printer_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Kitchen Printer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Connection Type *
+                  </label>
+                  <select
+                    required
+                    value={formData.printer_type}
+                    onChange={(e) => setFormData(prev => ({ ...prev, printer_type: e.target.value as 'network' | 'usb' | 'bluetooth' }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="network">Network (IP)</option>
+                    <option value="usb">USB</option>
+                    <option value="bluetooth">Bluetooth</option>
+                  </select>
+                </div>
+
+                {formData.printer_type === 'network' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        IP Address *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.ip_address}
+                        onChange={(e) => setFormData(prev => ({ ...prev, ip_address: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="192.168.1.100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Port
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.port}
+                        onChange={(e) => setFormData(prev => ({ ...prev, port: parseInt(e.target.value) }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="9100"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Device ID
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={formData.device_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, device_id: e.target.value }))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Device ID from print server"
+                    />
+                    <button
+                      type="button"
+                      onClick={fetchDevices}
+                      disabled={loadingDevices}
+                      className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                    >
+                      {loadingDevices ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Fetch'}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Printer ID
+                  </label>
+                  <div className="flex space-x-2">
+                    <select
+                      value={formData.printer_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, printer_id: e.target.value }))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a printer</option>
+                      {devices
+                        .find(d => d.deviceId === formData.device_id)
+                        ?.printers.map(printer => (
+                          <option key={printer.id} value={printer.id}>
+                            {printer.name}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={refreshDevicePrinters}
+                      disabled={refreshingDevice || !formData.device_id}
+                      className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                    >
+                      {refreshingDevice ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Refresh'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4 mt-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_default}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_default: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Set as default printer</span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Active</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : (editingId ? 'Update' : 'Add')} Printer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Printer Configurations List */}
+      <div className="space-y-4">
+        {printerConfigs.length === 0 ? (
+          <div className="text-center py-8">
+            <Printer className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No printers configured</h3>
+            <p className="text-gray-600 mb-4">Add your first printer to start printing QR codes and receipts.</p>
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Printer
+            </button>
+          </div>
+        ) : (
+          printerConfigs.map((config) => (
+            <div
+              key={config.id}
+              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  {getConnectionIcon(config.printer_type)}
+                  <div>
+                    <h4 className="font-medium text-gray-900">{config.printer_name}</h4>
+                    <div className="text-sm text-gray-600">
+                      <span className="capitalize">{config.printer_type}</span>
+                      {config.printer_type === 'network' && config.ip_address && (
+                        <span> • {config.ip_address}:{config.port}</span>
+                      )}
+                      {config.device_id && (
+                        <span> • Device: {config.device_id}</span>
+                      )}
+                      {config.printer_id && (
+                        <span> • Printer: {config.printer_id}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  {config.is_default && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Default
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    config.is_active 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {config.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleEdit(config)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(config.id!)}
+                  className="p-2 text-gray-400 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
