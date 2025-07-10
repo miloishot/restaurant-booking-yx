@@ -237,31 +237,34 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       
       const qrCodeHtml = generateQRCodeHtml(table.table_number, table.qrCodeUrl);
       
-      // Get authentication session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Not authenticated');
+      const base64Content = btoa(qrCodeHtml);
+      
+      // Get API configuration from localStorage
+      const apiUrl = localStorage.getItem('print_api_url');
+      const apiKey = localStorage.getItem('print_api_key');
+      
+      if (!apiUrl || !apiKey) {
+        throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
       }
       
-      if (!printer.device_id || !printer.printer_id) {
-        throw new Error('Printer device ID and printer ID are required for remote printing');
-      }
-      
-      // Send print request through the print-proxy
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
+      // Direct API call to the middleware server
+      const response = await fetch(`${apiUrl}/api/command`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'x-api-key': apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          restaurantId: restaurant.id,
           deviceId: printer.device_id,
-          printerId: printer.printer_id,
-          content: btoa(qrCodeHtml), // Base64 encode the HTML content
-          options: {
-            mimeType: 'text/html',
-            copies: 1
+          command: 'print',
+          payload: {
+            printer_id: printer.printer_id,
+            content: base64Content,
+            options: {
+              mimeType: 'text/html',
+              copies: 1
+            },
+            jobName: `QR Code - Table ${table.table_number}`
           }
         }),
       });
