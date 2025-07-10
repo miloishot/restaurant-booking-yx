@@ -84,26 +84,54 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !apiConfig.apiUrl || !apiConfig.apiKey) {
-        throw new Error('You must be logged in to fetch printer devices');
+        throw new Error('Missing configuration: Please ensure you are logged in and have configured the Print API URL and API Key in API Settings');
       }
 
-      const response = await fetch(`${apiConfig.apiUrl}/printers`, {
+      // Ensure the API URL ends with /api if it doesn't already
+      const baseUrl = apiConfig.apiUrl.endsWith('/api') ? apiConfig.apiUrl : `${apiConfig.apiUrl}/api`;
+      const fullUrl = `${baseUrl}/printers`;
+      
+      console.log('Fetching printer devices from:', fullUrl);
+      
+      const response = await fetch(fullUrl, {
         method: 'GET',
         headers: {
           'x-api-key': apiConfig.apiKey,
+          'Content-Type': 'application/json',
         },
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch printer devices');
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If we can't parse the error response, use the status text
+        }
+        throw new Error(`Failed to fetch printer devices - ${errorMessage}`);
       }
 
       const { devices } = await response.json();
       setAvailableDevices(devices || []);
     } catch (err) {
       console.error('Error fetching printer devices:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch printer devices');
+      
+      let errorMessage = 'Failed to fetch printer devices';
+      if (err instanceof Error) {
+        if (err.message.includes('Failed to fetch')) {
+          errorMessage = `Network error: Cannot connect to print middleware server at ${apiConfig.apiUrl}. Please check:
+          
+• Is the print middleware server running?
+• Is the API URL correct in API Settings?
+• Are there any firewall or network restrictions?
+• Is CORS properly configured on the server?`;
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoadingDevices(false);
     }
@@ -354,7 +382,18 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700">{error}</p>
+          <div className="text-red-700 whitespace-pre-line">{error}</div>
+          {error.includes('Network error') && (
+            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+              <p className="text-yellow-800 text-sm font-medium">Troubleshooting Tips:</p>
+              <ul className="text-yellow-700 text-sm mt-1 space-y-1">
+                <li>• Try accessing {apiConfig.apiUrl} directly in your browser</li>
+                <li>• Ensure the print middleware server is running and accessible</li>
+                <li>• Check that the API URL in Settings matches your server address</li>
+                <li>• Verify your API key is correct</li>
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -477,10 +516,10 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
                     value={apiConfig.apiUrl}
                     onChange={(e) => setApiConfig({ ...apiConfig, apiUrl: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://print-middleware.example.com/api"
+                    placeholder="http://172.104.191.17:4000"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    The base URL of your print middleware API
+                    The base URL of your print middleware server (e.g., http://172.104.191.17:4000)
                   </p>
                 </div>
 
