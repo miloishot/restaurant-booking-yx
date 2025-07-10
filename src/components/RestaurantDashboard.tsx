@@ -460,9 +460,11 @@ export function RestaurantDashboard() {
         <WalkInLogger
           restaurant={restaurant}
           table={selectedTable}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowWalkInLogger(false);
             setSelectedTable(null);
+            // Force data refresh after walk-in
+            await refetch();
           }}
           onCancel={() => {
             setShowWalkInLogger(false);
