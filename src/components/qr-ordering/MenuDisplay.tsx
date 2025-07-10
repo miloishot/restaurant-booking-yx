@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MenuCategory, MenuItem } from '../../types/database';
-import { Plus, Minus, Info, Leaf, AlertTriangle } from 'lucide-react';
+import { Plus, Minus, Info, Leaf, AlertTriangle, ShoppingCart } from 'lucide-react';
 
 interface MenuDisplayProps {
   categories: MenuCategory[];
@@ -139,10 +139,10 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                     <img
                       src={item.image_url}
                       alt={item.name}
-                      className="w-full h-52 object-cover"
+                      className="w-full h-48 object-cover"
                     />
                   ) : (
-                    <div className="w-full h-52 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                       <div className="text-center">
                         <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-2">
                           <span className="text-2xl">🍽️</span>
@@ -154,40 +154,65 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                   
                   <div className="p-4">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-gray-800 text-lg">{item.name}</h3>
-                      <span className="text-lg font-bold text-orange-500">
+                      <h3 className="font-semibold text-gray-800">{item.name}</h3>
+                      <span className="text-lg font-bold text-orange-500 ml-2">
                         {formatPrice(item.price_sgd)}
                       </span>
                     </div>
                     
                     {item.description && (
-                      <p className="text-gray-600 text-sm mb-3">{item.description}</p>
+                      <p className="text-gray-600 text-sm mb-2">{item.description}</p>
                     )}
                     
                     {/* Dietary badges */}
-                    <div className="flex flex-wrap gap-2 mb-3">
+                    <div className="flex flex-wrap gap-1 mb-3">
                       {getDietaryBadges(item)}
                     </div>
                     
-                    <div className="flex justify-between items-center">
-                      <button
-                        onClick={() => setSelectedItem(item)}
-                        className="text-blue-600 hover:text-blue-800 text-sm flex items-center transition-colors"
-                      >
-                        <Info className="w-4 h-4 mr-1" />
-                        Details
-                      </button>
-                      
-                      {getItemQuantityInCart(item.id) === 0 ? (
+                    {getItemQuantityInCart(item.id) > 0 ? (
+                      <div className="flex items-center justify-between mt-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                        <span className="text-sm font-medium text-gray-700">In cart</span>
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) - 1)}
+                            className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={getItemQuantityInCart(item.id)}
+                            onChange={(e) => handleQuantityChange(item, parseInt(e.target.value) || 1)}
+                            className="w-12 mx-2 text-center border border-gray-200 rounded p-1"
+                          />
+                          <button
+                            onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) + 1)}
+                            className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center mt-3">
+                        <button
+                          onClick={() => setSelectedItem(item)}
+                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center transition-colors"
+                        >
+                          <Info className="w-4 h-4 mr-1" />
+                          Details
+                        </button>
+                        
                         <button
                           onClick={() => onAddToCart(item, 1)}
-                          className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
                         >
-                          <Plus className="w-4 h-4 mr-2" />
+                          <ShoppingCart className="w-4 h-4 mr-2" />
                           Add to Cart
                         </button>
-                      ) : null}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -238,17 +263,23 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Quantity
                 </label>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 rounded bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                    className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
                   >
                     <Minus className="w-5 h-5" />
                   </button>
-                  <span className="text-xl font-semibold w-8 text-center">{quantity}</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                    className="w-16 text-center border border-gray-300 rounded p-2"
+                  />
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 rounded bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
+                    className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
@@ -274,12 +305,13 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                   onClick={() => setSelectedItem(null)}
                   className="flex-1 px-4 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+                  className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors flex items-center justify-center"
                 >
+                  <ShoppingCart className="w-5 h-5 mr-2" />
                   Add to Cart - {formatPrice(selectedItem.price_sgd * quantity)}
                 </button>
               </div>
