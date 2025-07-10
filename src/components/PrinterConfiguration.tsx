@@ -411,15 +411,20 @@ Troubleshooting steps:
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="text-red-700 whitespace-pre-line">{error}</div>
-          {error.includes('Network error') && (
+          {(error.includes('Network error') || error.includes('Connection timeout')) && (
             <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-              <p className="text-yellow-800 text-sm font-medium">Troubleshooting Tips:</p>
+              <p className="text-yellow-800 text-sm font-medium">Quick Diagnostics:</p>
               <ul className="text-yellow-700 text-sm mt-1 space-y-1">
-                <li>• Try accessing {apiConfig.apiUrl} directly in your browser</li>
-                <li>• Ensure the print middleware server is running and accessible</li>
-                <li>• Check that the API URL in Settings matches your server address</li>
-                <li>• Verify your API key is correct</li>
+                <li>• <strong>Test server connectivity:</strong> Open <a href={apiConfig.apiUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{apiConfig.apiUrl}</a> in a new tab</li>
+                <li>• <strong>Verify port:</strong> Ensure your server is running on the port specified in the URL</li>
+                <li>• <strong>Check firewall:</strong> Confirm the server port is not blocked by firewall rules</li>
+                <li>• <strong>Network access:</strong> Verify you can reach the server IP from your current network</li>
               </ul>
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                <strong>Current Configuration:</strong><br />
+                API URL: {apiConfig.apiUrl || 'Not configured'}<br />
+                API Key: {apiConfig.apiKey ? 'Configured' : 'Not configured'}
+              </div>
             </div>
           )}
         </div>
