@@ -23,12 +23,18 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
   const [assigningTable, setAssigningTable] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [hideCompleted, setHideCompleted] = useState(true);
+  const [showAllDates, setShowAllDates] = useState(false);
 
   // Filter bookings based on hideCompleted setting
   const filteredBookings = hideCompleted 
     ? bookings.filter(booking => booking.status !== 'completed')
     : bookings;
 
+  // Filter bookings based on date
+  const today = new Date().toISOString().split('T')[0];
+  const dateFilteredBookings = showAllDates
+    ? filteredBookings
+    : filteredBookings.filter(booking => booking.booking_date === today);
   const groupedBookings = filteredBookings.reduce((acc, booking) => {
     const status = booking.status;
     if (!acc[status]) acc[status] = [];
@@ -124,6 +130,28 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
           <div className="flex items-center space-x-4">
             <div className="flex items-center">
               <button
+                onClick={() => setShowAllDates(!showAllDates)}
+                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  showAllDates
+                    ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                    : 'bg-gray-100 text-gray-700 border border-gray-300'
+                }`}
+              >
+                {showAllDates ? (
+                  <>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Show Today Only
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Show All Dates
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex items-center">
+              <button
                 onClick={() => setHideCompleted(!hideCompleted)}
                 className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   hideCompleted
@@ -145,7 +173,7 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
               </button>
             </div>
             <div className="text-sm text-gray-600">
-              Showing {filteredBookings.length} of {bookings.length} bookings
+              Showing {dateFilteredBookings.length} of {bookings.length} bookings
             </div>
           </div>
         </div>
@@ -154,7 +182,9 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
           <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
               <Filter className="w-4 h-4 inline mr-1" />
-              Completed bookings are hidden. Active and upcoming reservations are shown with enhanced details.
+              {showAllDates 
+                ? "Showing active bookings from all dates. Completed bookings are hidden."
+                : "Showing today's active bookings. Completed bookings are hidden."}
             </p>
           </div>
         )}
@@ -164,7 +194,7 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
         // Filter out completed bookings if hideCompleted is true
         const displayBookings = hideCompleted && status === 'completed' 
           ? [] 
-          : statusBookings;
+          : showAllDates ? statusBookings : statusBookings.filter(b => b.booking_date === today);
         
         // Don't render empty sections when hiding completed
         if (displayBookings.length === 0 && hideCompleted && status === 'completed') {
@@ -190,6 +220,11 @@ export function BookingList({ bookings, tables, onUpdateBooking, onAssignTable }
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h4 className="font-semibold text-lg">{booking.customer.name}</h4>
+                      {booking.booking_date !== today && (
+                        <p className="text-xs text-purple-600 font-medium">
+                          {new Date(booking.booking_date).toLocaleDateString()} (Not Today)
+                        </p>
+                      )}
                       <p className="text-sm opacity-75">
                         {booking.restaurant_table ? (
                           <>Table {booking.restaurant_table.table_number} • {booking.party_size} people</>

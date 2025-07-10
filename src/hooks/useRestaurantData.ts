@@ -76,7 +76,7 @@ export function useRestaurantData(restaurantSlug?: string) {
             restaurant_table:restaurant_tables(*)
           `)
           .eq('restaurant_id', restaurantData.id)
-          .eq('booking_date', new Date().toISOString().split('T')[0])
+          .in('status', ['pending', 'confirmed', 'seated'])
           .order('booking_time'),
 
         // Fetch waiting list
@@ -157,7 +157,7 @@ export function useRestaurantData(restaurantSlug?: string) {
             updated_at: new Date().toISOString()
           })
           .eq('table_id', tableId)
-          .eq('status', 'seated')
+          .in('status', ['seated', 'confirmed'])
           .eq('is_walk_in', true);
 
         if (completeBookingError) {
