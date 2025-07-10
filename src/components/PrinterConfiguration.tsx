@@ -92,6 +92,10 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       const fullUrl = `${baseUrl}/printers`;
       
       console.log('Fetching printer devices from:', fullUrl);
+      console.log('API Key configured:', apiConfig.apiKey ? 'Yes' : 'No');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       const response = await fetch(fullUrl, {
         method: 'GET',
@@ -99,7 +103,10 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
           'x-api-key': apiConfig.apiKey,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
@@ -119,13 +126,34 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       
       let errorMessage = 'Failed to fetch printer devices';
       if (err instanceof Error) {
-        if (err.message.includes('Failed to fetch')) {
-          errorMessage = `Network error: Cannot connect to print middleware server at ${apiConfig.apiUrl}. Please check:
+        if (err.name === 'AbortError') {
+          errorMessage = `Connection timeout: The request to ${apiConfig.apiUrl} timed out after 10 seconds. Please check:
           
-• Is the print middleware server running?
-• Is the API URL correct in API Settings?
-• Are there any firewall or network restrictions?
-• Is CORS properly configured on the server?`;
+• Is the print middleware server running and responding?
+• Is the server accessible from your network?
+• Are there any firewall restrictions blocking the connection?
+• Try accessing ${apiConfig.apiUrl} directly in your browser to test connectivity`;
+        } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          errorMessage = `Network error: Cannot connect to print middleware server at ${apiConfig.apiUrl}. 
+
+Common causes and solutions:
+• Server not running: Ensure your print middleware server is running on the correct port
+• Wrong URL/Port: Verify the API URL in Settings matches your server (current: ${apiConfig.apiUrl})
+• Firewall blocking connection: Check if your firewall allows connections to the server port
+• CORS issues: Ensure the server allows requests from this domain
+• Network connectivity: Try accessing ${apiConfig.apiUrl} directly in your browser
+
+Troubleshooting steps:
+1. Verify server is running: Check if ${apiConfig.apiUrl} responds in your browser
+2. Check port configuration: Ensure the port in the URL matches your server's listening port
+3. Test network connectivity: Try ping or telnet to the server IP and port
+4. Review firewall rules: Ensure the specific port is allowed through your firewall`;
+        } else if (err.message.includes('CORS')) {
+          errorMessage = `CORS error: The print middleware server is not configured to allow requests from this domain. Please check:
+          
+• Server CORS configuration allows requests from this domain
+• Server is running with proper CORS headers
+• API URL is correct: ${apiConfig.apiUrl}`;
         } else {
           errorMessage = err.message;
         }
