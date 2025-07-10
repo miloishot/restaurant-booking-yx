@@ -239,7 +239,15 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       const base64Content = btoa(qrCodeHtml);
       
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { 
+      if (!session) throw new Error('No active session');
+      
+      // Get API configuration from localStorage
+      const apiUrl = localStorage.getItem('print_api_url');
+      const apiKey = localStorage.getItem('print_api_key');
+      
+      if (!apiUrl || !apiKey) {
+        throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
+      }
       
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
         method: 'POST',
@@ -264,14 +272,6 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to print QR code');
-      }
-      
-      // Get API configuration from localStorage
-      const apiUrl = localStorage.getItem('print_api_url');
-      const apiKey = localStorage.getItem('print_api_key');
-      
-      if (!apiUrl || !apiKey) {
-        throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
       }
       
       // Show success notification
