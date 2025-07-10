@@ -3,6 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
 // Initialize Supabase client with service role key for admin access
 const supabase = createClient(
+)
 // CORS headers for all responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -132,6 +133,7 @@ Deno.serve(async (req) => {
     return createResponse({ error: error.message }, 500);
   }
 }
+)
 
 // Handler for refreshing printers for a specific device
 async function handleRefreshDevicePrinters(req: Request) {
