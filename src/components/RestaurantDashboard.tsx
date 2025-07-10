@@ -426,6 +426,7 @@ export function RestaurantDashboard() {
             <TableGridWithOrders 
               restaurant={restaurant}
               tables={tables} 
+              bookings={bookings}
               onMarkOccupied={handleMarkOccupied}
               showOccupiedButton={true}
             />

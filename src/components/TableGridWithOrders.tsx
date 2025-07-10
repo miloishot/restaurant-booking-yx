@@ -6,6 +6,7 @@ import { Users, MapPin, ShoppingCart, Clock, DollarSign, Eye, QrCode, ExternalLi
 interface TableGridWithOrdersProps {
   restaurant: Restaurant;
   tables: RestaurantTable[];
+  bookings?: BookingWithDetails[];
   onTableClick?: (table: RestaurantTable) => void;
   onMarkOccupied?: (table: RestaurantTable) => void;
   selectedTable?: RestaurantTable | null;
@@ -17,6 +18,7 @@ interface TableWithOrders extends RestaurantTable {
   totalOrderValue?: number;
   orderCount?: number;
   sessionToken?: string;
+  associatedBooking?: BookingWithDetails;
 }
 
 const statusColors = {
@@ -36,6 +38,7 @@ const statusIcons = {
 export function TableGridWithOrders({ 
   restaurant,
   tables, 
+  bookings = [],
   onTableClick, 
   onMarkOccupied,
   selectedTable, 
@@ -77,6 +80,10 @@ export function TableGridWithOrders({
       const enhancedTables: TableWithOrders[] = tables.map(table => {
         const tableSession = sessions?.find(session => session.table_id === table.id);
         const activeOrders = tableSession?.orders || [];
+        const associatedBooking = bookings.find(booking => 
+          booking.table_id === table.id && 
+          ['confirmed', 'seated'].includes(booking.status)
+        );
         
         const totalOrderValue = activeOrders.reduce((sum, order) => sum + order.total_sgd, 0);
         const orderCount = activeOrders.length;
@@ -86,7 +93,8 @@ export function TableGridWithOrders({
           activeOrders,
           totalOrderValue,
           orderCount,
-          sessionToken: tableSession?.session_token
+          sessionToken: tableSession?.session_token,
+          associatedBooking
         };
       });
 
@@ -256,7 +264,12 @@ export function TableGridWithOrders({
               <div className="mt-2 text-xs font-medium">
                 {table.sessionToken ? (
                   <div className="flex items-center justify-between">
-                    <span className="text-green-700">QR Active</span>
+                    <span className="text-green-700">
+                      {table.associatedBooking 
+                        ? (table.associatedBooking.is_walk_in ? 'Walk-in + QR' : 'Booking + QR')
+                        : 'QR Active'
+                      }
+                    </span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -269,7 +282,12 @@ export function TableGridWithOrders({
                     </button>
                   </div>
                 ) : (
-                  <span className="text-red-700">Walk-in Active</span>
+                  <span className="text-red-700">
+                    {table.associatedBooking 
+                      ? (table.associatedBooking.is_walk_in ? 'Walk-in Active' : 'Booking Active')
+                      : 'Occupied'
+                    }
+                  </span>
                 )}
               </div>
             )}
