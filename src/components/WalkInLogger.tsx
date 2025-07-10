@@ -41,11 +41,6 @@ export function WalkInLogger({ restaurant, table, onSuccess, onCancel }: WalkInL
 
       showNotification(`Table ${table.table_number} marked as occupied with QR ordering enabled for party of ${partySize}`, 'success');
       onSuccess();
-      
-      // Refresh the page after successful walk-in
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000); // Short delay to allow notification to be seen
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to log walk-in';
       setError(errorMessage);
