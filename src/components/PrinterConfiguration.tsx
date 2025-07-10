@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant } from '../types/database';
-import { Printer, Settings, RefreshCw, Plus, Edit2, Trash2, Check, X, Wifi, Usb, Bluetooth } from 'lucide-react';
+import { Printer, Settings, RefreshCw, Plus, Edit2, Trash2, Check, X, Wifi, Usb, Bluetooth, Globe, Key } from 'lucide-react';
 
 interface PrinterConfigurationProps {
   restaurant: Restaurant;
@@ -47,6 +47,12 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const [availableDevices, setAvailableDevices] = useState<PrinterDevice[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiConfig, setApiConfig] = useState({
+    apiUrl: localStorage.getItem('print_api_url') || '',
+    apiKey: localStorage.getItem('print_api_key') || ''
+  });
+  const [showApiConfig, setShowApiConfig] = useState(false);
+  const [savingApiConfig, setSavingApiConfig] = useState(false);
 
   useEffect(() => {
     fetchPrinterConfigs();
@@ -77,14 +83,14 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       setError(null);
       
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session || !apiConfig.apiUrl || !apiConfig.apiKey) {
         throw new Error('You must be logged in to fetch printer devices');
       }
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/printers`, {
+      const response = await fetch(`${apiConfig.apiUrl}/printers`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'x-api-key': apiConfig.apiKey,
         },
       });
 
@@ -100,6 +106,35 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       setError(err instanceof Error ? err.message : 'Failed to fetch printer devices');
     } finally {
       setLoadingDevices(false);
+    }
+  };
+
+  const saveApiConfig = () => {
+    try {
+      setSavingApiConfig(true);
+      
+      // Save to localStorage
+      localStorage.setItem('print_api_url', apiConfig.apiUrl);
+      localStorage.setItem('print_api_key', apiConfig.apiKey);
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'API configuration saved successfully!';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+      
+      setShowApiConfig(false);
+    } catch (err) {
+      console.error('Error saving API config:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save API configuration');
+    } finally {
+      setSavingApiConfig(false);
     }
   };
 
@@ -288,6 +323,14 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
         
         <div className="flex items-center space-x-2">
           <button
+            onClick={() => setShowApiConfig(true)}
+            className="flex items-center px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            API Settings
+          </button>
+          
+          <button
             onClick={fetchAvailableDevices}
             disabled={loadingDevices}
             className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
@@ -404,6 +447,86 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* API Configuration Modal */}
+      {showApiConfig && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-semibold">Print API Configuration</h3>
+                <button
+                  onClick={() => setShowApiConfig(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Globe className="w-4 h-4 inline mr-1" />
+                    Print API URL *
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    value={apiConfig.apiUrl}
+                    onChange={(e) => setApiConfig({ ...apiConfig, apiUrl: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://print-middleware.example.com/api"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    The base URL of your print middleware API
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <Key className="w-4 h-4 inline mr-1" />
+                    API Key *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={apiConfig.apiKey}
+                    onChange={(e) => setApiConfig({ ...apiConfig, apiKey: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Your API key"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    The authentication key for your print middleware API
+                  </p>
+                </div>
+
+                <div className="flex space-x-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowApiConfig(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveApiConfig}
+                    disabled={savingApiConfig}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                  >
+                    {savingApiConfig ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    ) : (
+                      <Settings className="w-4 h-4 mr-2" />
+                    )}
+                    {savingApiConfig ? 'Saving...' : 'Save Configuration'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -609,6 +732,15 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
         <h4 className="font-semibold text-blue-800 mb-2">Printer Configuration Guide</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
+            <h5 className="font-medium text-blue-700 mb-1">API Configuration</h5>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Click "API Settings" to configure the print API</li>
+              <li>• Enter the URL of your print middleware server</li>
+              <li>• Enter your API key for authentication</li>
+              <li>• Save the configuration to enable printing</li>
+            </ul>
+          </div>
+          <div>
             <h5 className="font-medium text-blue-700 mb-1">Network Printers</h5>
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Enter the IP address of your printer</li>
@@ -616,12 +748,23 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
               <li>• Ensure printer is on the same network</li>
             </ul>
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
             <h5 className="font-medium text-blue-700 mb-1">Remote Printing</h5>
             <ul className="text-sm text-blue-700 space-y-1">
               <li>• Select a device from the available list</li>
               <li>• Choose a printer connected to that device</li>
               <li>• Ensure the Electron client is running</li>
+            </ul>
+          </div>
+          <div>
+            <h5 className="font-medium text-blue-700 mb-1">Testing</h5>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Configure at least one printer</li>
+              <li>• Generate a QR code for a table</li>
+              <li>• Click "Print" to test the printing system</li>
+              <li>• Check printer for output</li>
             </ul>
           </div>
         </div>

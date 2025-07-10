@@ -8,8 +8,8 @@ const supabase = createClient(
 );
 
 // External printing middleware API configuration
-const PRINT_API_URL = Deno.env.get('PRINT_API_URL') ?? 'https://print-middleware.example.com/api';
-const PRINT_API_KEY = Deno.env.get('PRINT_API_KEY') ?? '';
+const PRINT_API_URL = Deno.env.get('PRINT_API_URL');
+const PRINT_API_KEY = Deno.env.get('PRINT_API_KEY');
 
 // CORS headers for all responses
 const corsHeaders = {
@@ -77,6 +77,13 @@ Deno.serve(async (req) => {
 // Handler for getting available printers
 async function handleGetPrinters() {
   try {
+    // Check if API configuration is set
+    if (!PRINT_API_URL || !PRINT_API_KEY) {
+      return createResponse({ 
+        error: 'Print API not configured. Please set PRINT_API_URL and PRINT_API_KEY environment variables.' 
+      }, 500);
+    }
+    
     const response = await fetch(`${PRINT_API_URL}/printers`, {
       method: 'GET',
       headers: {
@@ -100,7 +107,14 @@ async function handleGetPrinters() {
 // Handler for print requests
 async function handlePrintRequest(req: Request, userId: string) {
   try {
-    const { restaurantId, deviceId, printerId, content, options } = await req.json();
+    // Check if API configuration is set
+    if (!PRINT_API_URL || !PRINT_API_KEY) {
+      return createResponse({ 
+        error: 'Print API not configured. Please set PRINT_API_URL and PRINT_API_KEY environment variables.' 
+      }, 500);
+    }
+    
+    const { restaurantId, deviceId, printerId, content, options, apiUrl, apiKey } = await req.json();
 
     // Validate required parameters
     if (!restaurantId || !deviceId || !printerId || !content) {
@@ -117,6 +131,14 @@ async function handlePrintRequest(req: Request, userId: string) {
       return createResponse({ error: 'You do not have access to this restaurant' }, 403);
     }
 
+    // Use provided API URL and key if available, otherwise use environment variables
+    const printApiUrl = apiUrl || PRINT_API_URL;
+    const printApiKey = apiKey || PRINT_API_KEY;
+    
+    if (!printApiUrl || !printApiKey) {
+      return createResponse({ error: 'Print API URL and key are required' }, 400);
+    }
+
     // Prepare print job payload
     const printPayload = {
       deviceId,
@@ -130,10 +152,10 @@ async function handlePrintRequest(req: Request, userId: string) {
     };
 
     // Send print job to external API
-    const response = await fetch(`${PRINT_API_URL}/command`, {
+    const response = await fetch(`${printApiUrl}/command`, {
       method: 'POST',
       headers: {
-        'x-api-key': PRINT_API_KEY,
+        'x-api-key': printApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(printPayload),
