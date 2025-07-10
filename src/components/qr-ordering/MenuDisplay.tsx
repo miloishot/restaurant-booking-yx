@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MenuCategory, MenuItem } from '../../types/database';
-import { Plus, Info, Leaf, AlertTriangle } from 'lucide-react';
+import { Plus, Minus, Info, Leaf, AlertTriangle } from 'lucide-react';
 
 interface MenuDisplayProps {
   categories: MenuCategory[];
@@ -41,7 +41,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
     
     if (item.dietary_info?.includes('vegetarian')) {
       badges.push(
-        <span key="veg" className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+        <span key="veg" className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-50 text-green-700 border border-green-200">
           <Leaf className="w-3 h-3 mr-1" />
           Vegetarian
         </span>
@@ -50,7 +50,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
     
     if (item.dietary_info?.includes('vegan')) {
       badges.push(
-        <span key="vegan" className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+        <span key="vegan" className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-50 text-green-700 border border-green-200">
           <Leaf className="w-3 h-3 mr-1" />
           Vegan
         </span>
@@ -59,7 +59,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
     
     if (item.allergens && item.allergens.length > 0) {
       badges.push(
-        <span key="allergens" className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
+        <span key="allergens" className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-50 text-orange-700 border border-orange-200">
           <AlertTriangle className="w-3 h-3 mr-1" />
           Contains allergens
         </span>
@@ -94,8 +94,8 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
   return (
     <div className="flex flex-col lg:flex-row gap-6">
       {/* Category Sidebar */}
-      <div className="lg:w-64 flex-shrink-0">
-        <div className="bg-white rounded-lg shadow-md p-4 sticky top-24">
+      <div className="lg:w-56 flex-shrink-0">
+        <div className="bg-white rounded-lg shadow p-4 sticky top-24">
           <h3 className="font-semibold text-gray-800 mb-4">Categories</h3>
           <nav className="space-y-2">
             {categories.map(category => (
@@ -104,7 +104,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                 onClick={() => setActiveCategory(category.id)}
                 className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
                   activeCategory === category.id
-                    ? 'bg-blue-100 text-blue-800 font-medium'
+                    ? 'bg-orange-50 text-orange-700 font-medium border-l-4 border-orange-500'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
@@ -123,7 +123,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
         {categories.map(category => (
           <div
             key={category.id}
-            className={`${activeCategory === category.id ? 'block' : 'hidden'}`}
+            className={`${activeCategory === category.id ? 'block' : 'hidden'} space-y-6`}
           >
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-800 mb-2">{category.name}</h2>
@@ -132,17 +132,17 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {getItemsByCategory(category.id).map(item => (
-                <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-200 hover:shadow-lg">
+                <div key={item.id} className="bg-white rounded-lg shadow overflow-hidden transition-all duration-200 hover:shadow-lg">
                   {item.image_url ? (
                     <img
                       src={item.image_url}
                       alt={item.name}
-                      className="w-full h-48 object-cover"
+                      className="w-full h-52 object-cover"
                     />
                   ) : (
-                    <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <div className="w-full h-52 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                       <div className="text-center">
                         <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-2">
                           <span className="text-2xl">🍽️</span>
@@ -154,8 +154,8 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                   
                   <div className="p-4">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-gray-800">{item.name}</h3>
-                      <span className="text-lg font-bold text-blue-600">
+                      <h3 className="font-semibold text-gray-800 text-lg">{item.name}</h3>
+                      <span className="text-lg font-bold text-orange-500">
                         {formatPrice(item.price_sgd)}
                       </span>
                     </div>
@@ -169,32 +169,13 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                       {getDietaryBadges(item)}
                     </div>
                     
-                    {/* Quantity in cart display */}
-                    {getItemQuantityInCart(item.id) > 0 ? (
-                      <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <span className="text-blue-800 font-semibold text-sm">
-                            {getItemQuantityInCart(item.id)} in cart
-                          </span>
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) - 1)}
-                              className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all duration-200 shadow-md hover:shadow-lg"
-                            >
-                              <Plus className="w-4 h-4 rotate-45" />
-                            </button>
-                            <span className="font-bold text-blue-900 min-w-[2rem] text-center text-lg">
-                              {getItemQuantityInCart(item.id)}
-                            </span>
-                            <button
-                              onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) + 1)}
-                              className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <button
+                        onClick={() => onAddToCart(item, 1)}
+                        className="mt-3 flex items-center justify-center w-full px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add to Cart
+                      </button>
                     ) : null}
                     
                     <div className="flex justify-between items-center">
@@ -216,6 +197,14 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                         </button>
                       ) : null}
                     </div>
+                    
+                    <button
+                      onClick={() => setSelectedItem(item)}
+                      className="mt-2 text-gray-500 hover:text-gray-700 text-sm flex items-center transition-colors"
+                    >
+                      <Info className="w-4 h-4 mr-1" />
+                      Details
+                    </button>
                   </div>
                 </div>
               ))}
@@ -227,19 +216,19 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
       {/* Item Detail Modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-90vh overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-90vh overflow-y-auto">
             <div className="p-6">
               {selectedItem.image_url && (
                 <img
                   src={selectedItem.image_url}
                   alt={selectedItem.name}
-                  className="w-full h-48 object-cover rounded-lg mb-4"
+                  className="w-full h-64 object-cover rounded-lg mb-4"
                 />
               )}
               
               <div className="flex justify-between items-start mb-4">
                 <h2 className="text-xl font-bold text-gray-800">{selectedItem.name}</h2>
-                <span className="text-xl font-bold text-blue-600">
+                <span className="text-xl font-bold text-orange-500">
                   {formatPrice(selectedItem.price_sgd)}
                 </span>
               </div>
@@ -266,19 +255,19 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Quantity
                 </label>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                    className="w-10 h-10 rounded bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
                   >
-                    -
+                    <Minus className="w-5 h-5" />
                   </button>
-                  <span className="text-lg font-semibold">{quantity}</span>
+                  <span className="text-xl font-semibold w-8 text-center">{quantity}</span>
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                    className="w-10 h-10 rounded bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
                   >
-                    +
+                    <Plus className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -300,13 +289,13 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
               <div className="flex space-x-4">
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+                  className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
                 >
                   Add to Cart - {formatPrice(selectedItem.price_sgd * quantity)}
                 </button>
