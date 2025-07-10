@@ -12,9 +12,7 @@ interface PrinterConfig {
   id?: string;
   restaurant_id: string;
   printer_name: string;
-  printer_type: 'network' | 'usb' | 'bluetooth';
-  ip_address?: string;
-  port?: number;
+  printer_type: string;
   device_id?: string;
   printer_id?: string;
   is_default: boolean;
@@ -38,8 +36,6 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const [formData, setFormData] = useState<Partial<PrinterConfig>>({
     printer_name: '',
     printer_type: 'network',
-    ip_address: '',
-    port: 9100,
     device_id: '',
     printer_id: '',
     is_default: false,
@@ -271,9 +267,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const resetForm = () => {
     setFormData({
       printer_name: '',
-      printer_type: 'network',
-      ip_address: '',
-      port: 9100,
+      printer_type: 'network', // Keep this for database schema compatibility
       device_id: '',
       printer_id: '',
       is_default: false,
@@ -286,6 +280,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const [printing, setPrinting] = useState<string | null>(null);
   const [printError, setPrintError] = useState<{ [key: string]: string }>({});
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [testPrinting, setTestPrinting] = useState(false);
 
   const generateQRCodeHtml = (tableNumber: string, qrCodeUrl: string) => {
     return `
@@ -383,6 +378,93 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
       }));
     } finally {
       setPrinting(null);
+    }
+  };
+
+  const sendTestPrint = async () => {
+    if (!formData.device_id || !formData.printer_id) {
+      setError('Please enter both Device ID and Printer ID to send a test print');
+      return;
+    }
+    
+    try {
+      setTestPrinting(true);
+      setError(null);
+      
+      // Generate a simple test page
+      const testHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Printer Test</title>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+            h1 { font-size: 18px; margin-bottom: 10px; }
+            p { font-size: 14px; }
+            .test-box { border: 1px solid #000; padding: 10px; margin: 10px 0; }
+          </style>
+        </head>
+        <body>
+          <h1>Printer Test Page</h1>
+          <p>Restaurant: ${restaurant.name}</p>
+          <p>Printer: ${formData.printer_name || 'New Printer'}</p>
+          <p>Date: ${new Date().toLocaleString()}</p>
+          <div class="test-box">
+            <p>If you can read this, your printer is working correctly!</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const base64Content = btoa(testHtml);
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          deviceId: formData.device_id,
+          printerId: formData.printer_id,
+          content: base64Content,
+          options: {
+            mimeType: 'text/html',
+            copies: 1
+          },
+          jobName: 'Test Print'
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Test print failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Test print job failed');
+      }
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Test page sent to printer successfully!';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+      
+    } catch (err) {
+      console.error('Test print error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send test print');
+    } finally {
+      setTestPrinting(false);
     }
   };
 
@@ -530,7 +612,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Printer Name *
                   </label>
@@ -543,53 +625,6 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
                     placeholder="Kitchen Printer"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Connection Type *
-                  </label>
-                  <select
-                    required
-                    value={formData.printer_type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, printer_type: e.target.value as 'network' | 'usb' | 'bluetooth' }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="network">Network (IP)</option>
-                    <option value="usb">USB</option>
-                    <option value="bluetooth">Bluetooth</option>
-                  </select>
-                </div>
-
-                {formData.printer_type === 'network' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        IP Address *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.ip_address}
-                        onChange={(e) => setFormData(prev => ({ ...prev, ip_address: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="192.168.1.100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Port
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.port}
-                        onChange={(e) => setFormData(prev => ({ ...prev, port: parseInt(e.target.value) }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="9100"
-                      />
-                    </div>
-                  </>
-                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -643,6 +678,30 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
                     </button>
                   </div>
                 </div>
+              </div>
+              
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={sendTestPrint}
+                  disabled={testPrinting || !formData.device_id || !formData.printer_id}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center"
+                >
+                  {testPrinting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      Sending Test Print...
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="h-4 w-4 mr-2" />
+                      Send Test Print
+                    </>
+                  )}
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  Test the printer connection before saving
+                </p>
               </div>
 
               <div className="flex items-center space-x-4 mt-4">
@@ -716,9 +775,6 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
                     <h4 className="font-medium text-gray-900">{config.printer_name}</h4>
                     <div className="text-sm text-gray-600">
                       <span className="capitalize">{config.printer_type}</span>
-                      {config.printer_type === 'network' && config.ip_address && (
-                        <span> • {config.ip_address}:{config.port}</span>
-                      )}
                       {config.device_id && (
                         <span> • Device: {config.device_id}</span>
                       )}
