@@ -231,14 +231,6 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     setPrinting(table.id);
     setPrintError(null);
     
-    // Get API configuration from localStorage
-    const apiUrl = localStorage.getItem('print_api_url');
-    const apiKey = localStorage.getItem('print_api_key');
-    
-    if (!apiUrl || !apiKey) {
-      throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
-    }
-    
     try {
       const printer = printerConfigs.find(p => p.id === selectedPrinter);
       if (!printer) throw new Error('Selected printer not found');
@@ -247,8 +239,14 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       const base64Content = btoa(qrCodeHtml);
       
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Authentication required');
+      if (!session) throw new Error('No active session');
+      
+      // Get API configuration from localStorage
+      const apiUrl = localStorage.getItem('print_api_url');
+      const apiKey = localStorage.getItem('print_api_key');
+      
+      if (!apiUrl || !apiKey) {
+        throw new Error('Print API not configured. Please set up API settings in Printer Configuration.');
       }
       
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
