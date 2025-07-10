@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant } from '../types/database';
-import { Printer, Settings, RefreshCw, Plus, Edit2, Trash2, Check, X, Wifi, Usb, Bluetooth } from 'lucide-react';
+import { Printer, Settings, RefreshCw, Plus, Edit2, Trash2, Check, X, ZapIcon } from 'lucide-react';
 import { useRestaurantData } from '../hooks/useRestaurantData';
 
 interface PrinterConfigurationProps {
@@ -12,7 +12,7 @@ interface PrinterConfig {
   id?: string;
   restaurant_id: string;
   printer_name: string;
-  printer_type: string;
+  printer_type?: string;
   device_id?: string;
   printer_id?: string;
   is_default: boolean;
@@ -35,7 +35,6 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<PrinterConfig>>({
     printer_name: '',
-    printer_type: 'network',
     device_id: '',
     printer_id: '',
     is_default: false,
@@ -267,7 +266,6 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const resetForm = () => {
     setFormData({
       printer_name: '',
-      printer_type: 'network', // Keep this for database schema compatibility
       device_id: '',
       printer_id: '',
       is_default: false,
@@ -471,11 +469,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
   const getConnectionIcon = (type: string) => {
     switch (type) {
       case 'network':
-        return <Wifi className="h-4 w-4" />;
-      case 'usb':
-        return <Usb className="h-4 w-4" />;
-      case 'bluetooth':
-        return <Bluetooth className="h-4 w-4" />;
+        return <Printer className="h-4 w-4" />;
       default:
         return <Printer className="h-4 w-4" />;
     }
@@ -681,11 +675,19 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
               </div>
               
               <div className="mt-4">
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center mb-2">
+                    <ZapIcon className="h-4 w-4 text-blue-600 mr-2" />
+                    <h4 className="font-medium text-blue-800">Test Print</h4>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Send a test page to verify your printer is working correctly.
+                  </p>
                 <button
                   type="button"
                   onClick={sendTestPrint}
                   disabled={testPrinting || !formData.device_id || !formData.printer_id}
-                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center"
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
                 >
                   {testPrinting ? (
                     <>
@@ -699,9 +701,7 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
                     </>
                   )}
                 </button>
-                <p className="text-xs text-gray-500 mt-1">
-                  Test the printer connection before saving
-                </p>
+                </div>
               </div>
 
               <div className="flex items-center space-x-4 mt-4">
@@ -772,24 +772,23 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
                 <div className="flex items-center space-x-2">
                   {getConnectionIcon(config.printer_type)}
                   <div>
-                    <h4 className="font-medium text-gray-900">{config.printer_name}</h4>
+                    <h4 className="font-medium text-gray-900">
+                      {config.printer_name}
+                      {config.is_default && (
+                        <span className="ml-2 text-xs font-medium text-blue-600">(Default)</span>
+                      )}
+                    </h4>
                     <div className="text-sm text-gray-600">
-                      <span className="capitalize">{config.printer_type}</span>
                       {config.device_id && (
-                        <span> • Device: {config.device_id}</span>
+                        <span>Device ID: {config.device_id}</span>
                       )}
                       {config.printer_id && (
-                        <span> • Printer: {config.printer_id}</span>
+                        <span> • Printer ID: {config.printer_id}</span>
                       )}
                     </div>
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  {config.is_default && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      Default
-                    </span>
-                  )}
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                     config.is_active 
                       ? 'bg-green-100 text-green-800' 
@@ -801,6 +800,35 @@ export function PrinterConfiguration({ restaurant }: PrinterConfigurationProps) 
               </div>
               
               <div className="flex items-center space-x-2">
+                {!config.is_default && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        // First, unset any existing default
+                        await supabase
+                          .from('printer_configs')
+                          .update({ is_default: false })
+                          .eq('restaurant_id', restaurant.id)
+                          .eq('is_default', true);
+                        
+                        // Then set this one as default
+                        await supabase
+                          .from('printer_configs')
+                          .update({ is_default: true })
+                          .eq('id', config.id!);
+                          
+                        await fetchPrinterConfigs();
+                      } catch (err) {
+                        console.error('Error setting default printer:', err);
+                        setError('Failed to set default printer');
+                      }
+                    }}
+                    className="p-2 text-gray-400 hover:text-blue-600"
+                    title="Set as default"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                )}
                 <button
                   onClick={() => handleEdit(config)}
                   className="p-2 text-gray-400 hover:text-gray-600"
