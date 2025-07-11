@@ -95,12 +95,12 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         `)
         .eq('session_token', activeToken)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (sessionError) throw sessionError;
       if (!sessionData) {
-        console.error('No session data found for token:', activeToken);
-        throw new Error('Invalid or expired session');
+        setError('Invalid or expired session. Please scan the QR code again.');
+        return;
       }
       
       console.log('Session data found:', sessionData);

@@ -190,7 +190,7 @@ export interface Order {
   total_sgd: number;
   discount_applied: boolean;
   triggering_user_id: string | null;
-  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid';
+  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid' | 'completed';
   notes: string | null;
   created_at: string;
   updated_at: string;

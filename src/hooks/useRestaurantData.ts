@@ -112,30 +112,53 @@ export function useRestaurantData(restaurantSlug?: string) {
   };
 
   const subscribeToRealtime = () => {
+    // Helper to check if only updated_at has changed
+    const hasSignificantChange = (oldRecord: any, newRecord: any) => {
+      if (!oldRecord || !newRecord) return true; // Always refetch if old record is missing
+      for (const key in newRecord) {
+        if (key !== 'updated_at' && oldRecord[key] !== newRecord[key]) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     const tablesChannel = supabase
       .channel('restaurant_tables_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, 
-        () => {
-          console.log('Table status changed, refreshing data...');
-          fetchRestaurantData(restaurantSlug);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' && !hasSignificantChange(payload.old, payload.new)) {
+            console.log('Table updated_at changed, but no significant data change. Skipping refetch.');
+            return;
+          }
+          console.log('Table data changed, refreshing data...');
+          fetchRestaurantData(restaurantSlug); // Refetch all data for consistency
         })
       .subscribe();
 
     const bookingsChannel = supabase
       .channel('bookings_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, 
-        () => {
-          console.log('Booking changed, refreshing data...');
-          fetchRestaurantData(restaurantSlug);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' && !hasSignificantChange(payload.old, payload.new)) {
+            console.log('Booking updated_at changed, but no significant data change. Skipping refetch.');
+            return;
+          }
+          console.log('Booking data changed, refreshing data...');
+          fetchRestaurantData(restaurantSlug); // Refetch all data for consistency
         })
       .subscribe();
 
     const waitingChannel = supabase
       .channel('waiting_list_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'waiting_list' }, 
-        () => {
-          console.log('Waiting list changed, refreshing data...');
-          fetchRestaurantData(restaurantSlug);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'waiting_list' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' && !hasSignificantChange(payload.old, payload.new)) {
+            console.log('Waiting list updated_at changed, but no significant data change. Skipping refetch.');
+            return;
+          }
+          console.log('Waiting list data changed, refreshing data...');
+          fetchRestaurantData(restaurantSlug); // Refetch all data for consistency
         })
       .subscribe();
 

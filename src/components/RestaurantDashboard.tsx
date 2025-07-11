@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { useRestaurantData } from '../hooks/useRestaurantData';
 import { TableGridWithOrders } from './TableGridWithOrders';
 import { WalkInLogger } from './WalkInLogger';
@@ -27,6 +28,7 @@ export function RestaurantDashboard() {
     assignTableToBooking, 
     promoteFromWaitingList,
     cancelWaitingListEntry,
+    markTableOccupiedWithSession,
     refetch 
   } = useRestaurantData();
   
@@ -34,6 +36,8 @@ export function RestaurantDashboard() {
   const [showWalkInLogger, setShowWalkInLogger] = useState(false);
   const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics' | 'orders' | 'menu' | 'loyalty'>('bookings');
   const [refreshing, setRefreshing] = useState(false);
+  const [newOrderCount, setNewOrderCount] = useState(0);
+  const [showConfirmDialog, setShowConfirmDialog] = useState<{ table: RestaurantTable; action: 'occupied' | 'available' } | null>(null);
 
   const handleManualRefresh = async () => {
     setRefreshing(true);
@@ -59,6 +63,30 @@ export function RestaurantDashboard() {
     } catch (error) {
       console.error('Error cancelling waiting list entry:', error);
       throw error;
+    }
+  };
+
+  const handleTableStatusToggle = async (table: RestaurantTable, newStatus: 'occupied' | 'available') => {
+    setShowConfirmDialog({ table, action: newStatus });
+  };
+
+  const confirmTableStatusChange = async () => {
+    if (!showConfirmDialog) return;
+
+    const { table, action } = showConfirmDialog;
+    
+    try {
+      if (action === 'occupied') {
+        await markTableOccupiedWithSession(table, 2);
+      } else {
+        await updateTableStatus(table.id, 'available');
+      }
+      await refetch();
+    } catch (error) {
+      console.error('Error updating table status:', error);
+      alert('Failed to update table status. Please try again.');
+    } finally {
+      setShowConfirmDialog(null);
     }
   };
 
@@ -123,13 +151,71 @@ export function RestaurantDashboard() {
     );
   }
 
-  const handleMarkOccupied = (table: RestaurantTable) => {
-    setSelectedTable(table);
-    setShowWalkInLogger(true);
+  const handleMarkOccupied = async (table: RestaurantTable) => {
+    try {
+      await markTableOccupiedWithSession(table, 2); // Default party size
+      // Force data refresh after walk-in
+      await refetch();
+    } catch (error) {
+      console.error('Error marking table occupied:', error);
+      alert('Failed to mark table occupied. Please try again.');
+    }
+  };
+
+  const handleMarkPaid = async (table: RestaurantTable) => {
+    try {
+      // Deactivate QR session and mark orders as paid
+      await deactivateTableQRSession(table.id);
+      
+      // Set table to available
+      await updateTableStatus(table.id, 'available');
+      
+      // Complete any active bookings
+      await supabase
+        .from('bookings')
+        .update({ status: 'completed' })
+        .eq('table_id', table.id)
+        .in('status', ['seated', 'confirmed']);
+
+      await refetch();
+    } catch (error) {
+      console.error('Error marking table paid:', error);
+      alert('Failed to mark table as paid. Please try again.');
+    }
+  };
+
+  const deactivateTableQRSession = async (tableId: string) => {
+    // Mark all orders for this table as paid
+    const { data: sessions } = await supabase
+      .from('order_sessions')
+      .select('id')
+      .eq('table_id', tableId)
+      .eq('is_active', true);
+
+    if (sessions && sessions.length > 0) {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'paid' })
+        .eq('session_id', sessions[0].id)
+        .neq('status', 'paid');
+
+      if (error) throw error;
+    }
+
+    // Deactivate QR session
+    await supabase
+      .from('order_sessions')
+      .update({ is_active: false })
+      .eq('table_id', tableId);
   };
 
   const handleTableStatusUpdate = async (table: RestaurantTable, status: RestaurantTable['status']) => {
     try {
+      // If marking as available, also deactivate any QR sessions
+      if (status === 'available') {
+        await deactivateTableQRSession(table.id);
+      }
+      
       await updateTableStatus(table.id, status);
     } catch (err) {
       console.error('Failed to update table status:', err);
@@ -157,15 +243,14 @@ export function RestaurantDashboard() {
 
   // Show all active bookings instead of just today's
   const activeBookings = bookings.filter(booking => 
-    ['pending', 'confirmed', 'seated'].includes(booking.status)
+    ['pending', 'confirmed', 'seated'].includes(booking.status) && !booking.is_walk_in
   );
   
   const todaysBookings = bookings.filter(booking => 
-    booking.booking_date === new Date().toISOString().split('T')[0]
+    booking.booking_date === new Date().toISOString().split('T')[0] && !booking.is_walk_in
   );
 
   const pendingBookings = todaysBookings.filter(b => b.status === 'pending');
-  const unassignedBookings = todaysBookings.filter(b => !b.table_id && ['pending', 'confirmed'].includes(b.status));
   const waitlistBookings = todaysBookings.filter(b => b.was_on_waitlist);
 
   const stats = {
@@ -173,7 +258,6 @@ export function RestaurantDashboard() {
     availableTables: tables.filter(t => t.status === 'available').length,
     occupiedTables: tables.filter(t => t.status === 'occupied').length,
     pendingBookings: pendingBookings.length,
-    unassignedBookings: unassignedBookings.length,
     waitingCustomers: waitingList.length,
     waitlistBookings: waitlistBookings.length
   };
@@ -254,18 +338,6 @@ export function RestaurantDashboard() {
 
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
-              <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 font-bold text-sm">!</span>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Unassigned</p>
-                <p className="text-xl font-bold text-orange-600">{stats.unassignedBookings}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
               <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
                 <AlertCircle className="w-4 h-4 text-purple-600" />
               </div>
@@ -321,7 +393,7 @@ export function RestaurantDashboard() {
               }`}
             >
               <ChefHat className="w-4 h-4 inline mr-1" />
-              Orders
+              Orders ({newOrderCount})
             </button>
             <button
               onClick={() => setActiveTab('menu')}
@@ -397,7 +469,10 @@ export function RestaurantDashboard() {
         )}
 
         {activeTab === 'orders' && (
-          <StaffOrderManagement restaurant={restaurant} />
+          <StaffOrderManagement 
+            restaurant={restaurant} 
+            onOrderCountChange={setNewOrderCount}
+          />
         )}
 
         {activeTab === 'menu' && (
@@ -427,7 +502,9 @@ export function RestaurantDashboard() {
               restaurant={restaurant}
               tables={tables} 
               bookings={bookings}
-              onMarkOccupied={handleMarkOccupied}
+              onMarkOccupied={(table) => handleTableStatusToggle(table, 'occupied')}
+              onMarkAvailable={(table) => handleTableStatusToggle(table, 'available')}
+              onMarkPaid={handleMarkPaid}
               showOccupiedButton={true}
             />
             
@@ -454,6 +531,41 @@ export function RestaurantDashboard() {
           />
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Confirm Table Status Change
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to mark Table {showConfirmDialog.table.table_number} as{' '}
+                <strong>{showConfirmDialog.action}</strong>?
+              </p>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setShowConfirmDialog(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmTableStatusChange}
+                  className={`flex-1 px-4 py-2 rounded-md text-white transition-colors ${
+                    showConfirmDialog.action === 'occupied'
+                      ? 'bg-orange-600 hover:bg-orange-700'
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Walk-In Logger Modal */}
       {showWalkInLogger && selectedTable && (

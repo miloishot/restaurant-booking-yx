@@ -18,17 +18,26 @@ import {
 
 interface StaffOrderManagementProps {
   restaurant: Restaurant;
+  onOrderCountChange?: (count: number) => void;
 }
 
-export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) {
+export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOrderManagementProps) {
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
+  const [completedOrders, setCompletedOrders] = useState<OrderWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
 
+  // Notify parent component of order count changes
+  useEffect(() => {
+    const newOrderCount = orders.filter(o => o.status === 'pending').length;
+    onOrderCountChange?.(newOrderCount);
+  }, [orders, onOrderCountChange]);
+
   useEffect(() => {
     fetchOrders();
+    fetchCompletedOrders();
     subscribeToOrders();
   }, [restaurant.id]);
 
@@ -60,6 +69,36 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
       console.error('Error fetching orders:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCompletedOrders = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          session:order_sessions(
+            *,
+            table:restaurant_tables(*),
+            booking:bookings(*)
+          ),
+          items:order_items(
+            *,
+            menu_item:menu_items(*)
+          )
+        `)
+        .eq('restaurant_id', restaurant.id)
+        .in('status', ['completed', 'paid'])
+        .gte('created_at', today)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      setCompletedOrders(data || []);
+    } catch (err) {
+      console.error('Error fetching completed orders:', err);
     }
   };
 
@@ -105,7 +144,44 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
       // Show success notification
       const notification = document.createElement('div');
       notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = `Order status updated to ${status}`;
+      notification.textContent = `Order ${status === 'confirmed' ? 'accepted' : status === 'served' ? 'marked as served' : 'updated'}`;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+
+      await fetchOrders();
+      if (status === 'completed' || status === 'paid') {
+        await fetchCompletedOrders();
+      }
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      alert('Failed to update order status. Please try again.');
+    } finally {
+      setProcessingOrder(null);
+    }
+  };
+
+  const declineOrder = async (orderId: string) => {
+    setProcessingOrder(orderId);
+    
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Order declined';
       document.body.appendChild(notification);
       
       setTimeout(() => {
@@ -116,8 +192,8 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
 
       await fetchOrders();
     } catch (err) {
-      console.error('Error updating order status:', err);
-      alert('Failed to update order status. Please try again.');
+      console.error('Error declining order:', err);
+      alert('Failed to decline order. Please try again.');
     } finally {
       setProcessingOrder(null);
     }
@@ -130,10 +206,14 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'confirmed':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'preparing':
+        return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'ready':
         return 'bg-green-100 text-green-800 border-green-300';
-      case 'paid':
+      case 'served':
         return 'bg-gray-100 text-gray-800 border-gray-300';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300';
@@ -143,11 +223,15 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
-        return <AlertCircle className="w-4 h-4" />;
+        return <Clock className="w-4 h-4" />;
       case 'confirmed':
+        return <AlertCircle className="w-4 h-4" />;
+      case 'preparing':
+        return <ChefHat className="w-4 h-4" />;
+      case 'ready':
         return <CheckCircle className="w-4 h-4" />;
-      case 'paid':
-        return <CreditCard className="w-4 h-4" />;
+      case 'served':
+        return <Utensils className="w-4 h-4" />;
       default:
         return <Clock className="w-4 h-4" />;
     }
@@ -158,7 +242,7 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
       case 'pending':
         return 'confirmed';
       case 'confirmed':
-        return 'paid';
+        return 'completed';
       default:
         return null;
     }
@@ -167,9 +251,9 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
   const getNextStatusLabel = (currentStatus: string) => {
     switch (currentStatus) {
       case 'pending':
-        return 'Confirm Order';
+        return 'Accept Order';
       case 'confirmed':
-        return 'Mark Paid';
+        return 'Mark as Completed';
       default:
         return null;
     }
@@ -201,6 +285,12 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
               Order Management
             </h2>
             <p className="text-gray-600">Manage incoming orders and track preparation status</p>
+            {orders.filter(o => o.status === 'pending').length > 0 && (
+              <div className="mt-2 flex items-center text-red-600">
+                <AlertCircle className="w-4 h-4 mr-1" />
+                <span className="font-medium">{orders.filter(o => o.status === 'pending').length} new orders awaiting acceptance</span>
+              </div>
+            )}
           </div>
           
           <button
@@ -214,124 +304,161 @@ export function StaffOrderManagement({ restaurant }: StaffOrderManagementProps) 
         </div>
       </div>
 
-      {/* Orders List */}
-      {orders.length === 0 ? (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg p-12 text-center border border-blue-200">
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ChefHat className="w-10 h-10 text-blue-600" />
+      {/* New Orders Section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          New Orders ({orders.filter(o => o.status === 'pending').length})
+        </h3>
+        
+        {orders.filter(o => o.status === 'pending').length === 0 ? (
+          <div className="text-center py-8">
+            <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+            <p className="text-gray-600">No new orders</p>
           </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-3">No Active Orders</h3>
-          <p className="text-gray-600 text-lg mb-4">Your kitchen is all caught up!</p>
-          <p className="text-sm text-blue-600">New orders will appear here when customers place them via QR code</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-          {orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="p-6 border-b border-gray-100">
-                <div className="flex justify-between items-start mb-2">
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {orders.filter(o => o.status === 'pending').map((order) => (
+              <div key={order.id} className="border-2 border-yellow-200 rounded-xl p-6 bg-yellow-50">
+                {/* Order card content */}
+                <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="font-bold text-xl text-gray-800">#{order.order_number}</h3>
-                    <div className="flex items-center text-sm text-gray-500 mt-2">
+                    <h4 className="font-bold text-lg">#{order.order_number}</h4>
+                    <div className="flex items-center text-sm text-gray-600 mt-2">
                       <MapPin className="w-3 h-3 mr-1" />
                       Table {order.session?.table?.table_number}
-                      {order.session?.booking && (
-                        <>
-                          <span className="mx-2">•</span>
-                          <Users className="w-3 h-3 mr-1" />
-                          {order.session.booking.party_size} guests
-                        </>
-                      )}
                     </div>
                   </div>
-                  
-                  <div className={`px-3 py-2 rounded-full text-sm font-semibold border-2 ${getStatusColor(order.status)}`}>
-                    <div className="flex items-center">
-                      {getStatusIcon(order.status)}
-                      <span className="ml-2 capitalize">{order.status}</span>
-                    </div>
-                  </div>
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                    New Order
+                  </span>
                 </div>
                 
-                <div className="flex items-center text-xs text-gray-400 mt-3">
-                  <Clock className="w-3 h-3 mr-1" />
-                  <span>Ordered at {format(new Date(order.created_at), 'h:mm a')}</span>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                {/* Order Items */}
-                <div className="space-y-3 mb-6">
+                {/* Order items */}
+                <div className="space-y-2 mb-4">
                   {order.items?.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-b-0">
-                      <div className="flex items-center">
-                        <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full mr-3">
-                          {item.quantity}
-                        </span>
-                        <span className="font-medium text-gray-800">{item.menu_item?.name}</span>
-                      </div>
-                      <span className="font-semibold text-green-600">{formatPrice(item.total_price_sgd)}</span>
+                    <div key={item.id} className="flex justify-between items-center">
+                      <span className="text-sm">{item.quantity}x {item.menu_item?.name}</span>
+                      <span className="text-sm font-medium">{formatPrice(item.total_price_sgd)}</span>
                     </div>
                   ))}
-                  {order.items && order.items.length > 3 && (
-                    <div className="text-center py-2">
-                      <span className="text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                        +{order.items.length - 3} more items
-                      </span>
-                    </div>
-                  )}
                 </div>
                 
-                {/* Loyalty Discount */}
-                {order.discount_applied && (
-                  <div className="flex items-center text-sm text-green-600 mb-4 bg-green-50 p-3 rounded-lg">
-                    <Tag className="w-3 h-3 mr-1" />
-                    <span className="font-medium">10% Loyalty Discount Applied</span>
-                  </div>
-                )}
-                
-                {/* Total */}
-                <div className="border-t border-gray-200 pt-4 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-700">Total</span>
-                    <span className="text-2xl font-bold text-green-600">{formatPrice(order.total_sgd)}</span>
-                  </div>
-                </div>
-                
-                {/* Actions */}
-                <div className="space-y-3">
+                <div className="flex space-x-2">
                   <button
-                    onClick={() => setSelectedOrder(order)}
-                    className="w-full flex items-center justify-center px-4 py-3 border-2 border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+                    onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                    disabled={processingOrder === order.id}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Details
+                    Accept
                   </button>
-                  
-                  {getNextStatus(order.status) && (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
-                      disabled={processingOrder === order.id}
-                      className={`w-full flex items-center justify-center px-4 py-3 rounded-lg text-sm font-semibold transition-all duration-200 disabled:opacity-50 ${
-                        order.status === 'pending' 
-                          ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
-                          : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
-                      }`}
-                    >
-                      {processingOrder === order.id ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                      ) : (
-                        getStatusIcon(getNextStatus(order.status)!)
-                      )}
-                      <span className="ml-2 font-bold">{getNextStatusLabel(order.status)}</span>
-                    </button>
-                  )}
+                  <button
+                    onClick={() => declineOrder(order.id)}
+                    disabled={processingOrder === order.id}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* In Progress Orders Section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          In Progress ({orders.filter(o => o.status === 'confirmed').length})
+        </h3>
+        
+        {orders.filter(o => o.status === 'confirmed').length === 0 ? (
+          <div className="text-center py-8">
+            <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No orders in progress</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {orders.filter(o => o.status === 'confirmed').map((order) => (
+              <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-white shadow-sm">
+                {/* Existing order card content with updated actions */}
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-bold text-lg">#{order.order_number}</h4>
+                    <div className="flex items-center text-sm text-gray-600 mt-2">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Table {order.session?.table?.table_number}
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+                    {order.status}
+                  </span>
+                </div>
+                
+                {/* Order items */}
+                <div className="space-y-2 mb-4">
+                  {order.items?.slice(0, 3).map((item) => (
+                    <div key={item.id} className="flex justify-between items-center">
+                      <span className="text-sm">{item.quantity}x {item.menu_item?.name}</span>
+                      <span className="text-sm font-medium">{formatPrice(item.total_price_sgd)}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                {getNextStatus(order.status) && (
+                  <button
+                    onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
+                    disabled={processingOrder === order.id}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {getNextStatusLabel(order.status)}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Completed Orders Section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Completed Today ({completedOrders.length})
+        </h3>
+        
+        {completedOrders.length === 0 ? (
+          <div className="text-center py-8">
+            <Utensils className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No completed orders today</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {completedOrders.map((order) => (
+              <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-gray-50">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-bold text-lg">#{order.order_number}</h4>
+                    <div className="flex items-center text-sm text-gray-600 mt-2">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Table {order.session?.table?.table_number}
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    Served
+                  </span>
+                </div>
+                
+                <div className="text-sm text-gray-600">
+                  Completed: {format(new Date(order.updated_at), 'MMM d, h:mm a')}
+                </div>
+                
+                <div className="mt-2 font-semibold text-green-600">
+                  {formatPrice(order.total_sgd)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Order Detail Modal */}
       {selectedOrder && (

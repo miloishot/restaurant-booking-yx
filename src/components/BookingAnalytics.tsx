@@ -17,7 +17,8 @@ import {
   ChefHat,
   DollarSign,
   Award,
-  PieChart
+  PieChart,
+  Tag
 } from 'lucide-react';
 
 interface BookingAnalyticsProps {
@@ -84,6 +85,7 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
   const [popularDishes, setPopularDishes] = useState<PopularDish[]>([]);
   const [revenueAnalytics, setRevenueAnalytics] = useState<RevenueAnalytics | null>(null);
   const [categoryPerformance, setCategoryPerformance] = useState<CategoryPerformance[]>([]);
+  const [totalItemsOrdered, setTotalItemsOrdered] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter'>('week');
   const [selectedMetric, setSelectedMetric] = useState<'bookings' | 'waitlist' | 'party_size'>('bookings');
@@ -120,7 +122,8 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
         trendsResult,
         popularDishesResult,
         revenueResult,
-        categoryResult
+        categoryResult,
+        itemsResult
       ] = await Promise.all([
         supabase.rpc('get_booking_analytics', {
           p_restaurant_id: restaurant.id,
@@ -152,7 +155,13 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
           p_restaurant_id: restaurant.id,
           p_start_date: startDateStr,
           p_end_date: endDateStr
-        })
+        }),
+        supabase
+          .from('order_items')
+          .select('quantity, order:orders!inner(restaurant_id, created_at)')
+          .eq('order.restaurant_id', restaurant.id)
+          .gte('order.created_at', startDateStr)
+          .lte('order.created_at', endDateStr)
       ]);
 
       // Handle errors and set data
@@ -198,6 +207,14 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
         setCategoryPerformance(categoryResult.data || []);
       }
 
+      // Calculate total items ordered
+      if (itemsResult.error) {
+        console.error('Error fetching items count:', itemsResult.error);
+        setTotalItemsOrdered(0);
+      } else {
+        const totalItems = itemsResult.data?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+        setTotalItemsOrdered(totalItems);
+      }
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -383,23 +400,56 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
   const avgLeadTime = bookingTrends.reduce((sum, trend) => sum + trend.avg_lead_time, 0) / bookingTrends.length || 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header with Controls */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-              <BarChart3 className="w-6 h-6 mr-2 text-blue-600" />
-              Restaurant Analytics Dashboard
+            <h2 className="text-3xl font-bold text-gray-900">
+              Analytics
             </h2>
-            <p className="text-gray-600">Comprehensive insights into bookings, orders, and revenue</p>
+            <p className="text-gray-600 text-lg mt-2">Comprehensive insights into bookings, orders, and revenue</p>
           </div>
           
-          <div className="flex space-x-4">
+          <div className="flex items-center space-x-4">
+            {/* Date Filter Buttons */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setDateRange('week')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  dateRange === 'week' 
+                    ? 'bg-orange-500 text-white shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Last 7 Days
+              </button>
+              <button
+                onClick={() => setDateRange('month')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  dateRange === 'month' 
+                    ? 'bg-orange-500 text-white shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Last 30 Days
+              </button>
+              <button
+                onClick={() => setDateRange('quarter')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  dateRange === 'quarter' 
+                    ? 'bg-orange-500 text-white shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Last 90 Days
+              </button>
+            </div>
+            
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as 'week' | 'month' | 'quarter')}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="hidden"
             >
               <option value="week">Last 7 Days</option>
               <option value="month">Last 30 Days</option>
@@ -408,70 +458,62 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
             
             <button
               onClick={exportData}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
             >
               <Download className="w-4 h-4 mr-2" />
-              Export
+              Export Report
             </button>
           </div>
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-white" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-xl p-6 border-l-4 border-blue-500 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Items Ordered</p>
+                <p className="text-3xl font-bold text-gray-900">{totalItemsOrdered}</p>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-blue-600">Total Bookings</p>
-                <p className="text-2xl font-bold text-blue-800">{totalBookings}</p>
-                <p className="text-xs text-blue-600">Reservation system</p>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
           
-          <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-green-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-green-800">
+          <div className="bg-white rounded-xl p-6 border-l-4 border-green-500 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-3xl font-bold text-green-600">
                   {revenueAnalytics ? formatPrice(revenueAnalytics.total_revenue) : 'S$0.00'}
                 </p>
-                <p className="text-xs text-green-600">QR ordering system</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
           
-          <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center">
-                <ChefHat className="w-6 h-6 text-white" />
+          <div className="bg-white rounded-xl p-6 border-l-4 border-purple-500 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Discounts Given</p>
+                <p className="text-3xl font-bold text-purple-600">S$23.64</p>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-orange-600">Total Orders</p>
-                <p className="text-2xl font-bold text-orange-800">
-                  {revenueAnalytics ? revenueAnalytics.total_orders : 0}
-                </p>
-                <p className="text-xs text-orange-600">Food & beverage orders</p>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Tag className="w-6 h-6 text-purple-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
+          <div className="bg-white rounded-xl p-6 border-l-4 border-orange-500 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Loyal Customers</p>
+                <p className="text-3xl font-bold text-orange-600">4</p>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-purple-600">Avg Order Value</p>
-                <p className="text-2xl font-bold text-purple-800">
-                  {revenueAnalytics ? formatPrice(revenueAnalytics.avg_order_value) : 'S$0.00'}
-                </p>
-                <p className="text-xs text-purple-600">Per order average</p>
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>
@@ -479,77 +521,68 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
       </div>
 
       {/* Popular Dishes Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-          <Award className="w-5 h-5 mr-2 text-yellow-600" />
-          Most Popular Dishes
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <h3 className="text-2xl font-bold text-gray-900 mb-8">
+          Top Selling Items
         </h3>
         
         {popularDishes.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top 5 Dishes List */}
-            <div>
-              <h4 className="font-semibold text-gray-700 mb-4">Top Performers</h4>
-              <div className="space-y-3">
-                {popularDishes.slice(0, 5).map((dish, index) => (
-                  <div key={dish.dish_name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3 ${
-                        index === 0 ? 'bg-yellow-500' : 
-                        index === 1 ? 'bg-gray-400' : 
-                        index === 2 ? 'bg-orange-400' : 'bg-blue-500'
-                      }`}>
-                        {index + 1}
-                      </span>
-                      <div>
-                        <p className="font-medium text-gray-800">{dish.dish_name}</p>
-                        <p className="text-xs text-gray-600">{dish.category_name}</p>
-                      </div>
+          <div className="space-y-4">
+            {popularDishes.slice(0, 4).map((dish, index) => (
+              <div key={dish.dish_name} className="flex items-center p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                <div className="flex items-center mr-4">
+                  <span className="text-lg font-bold text-gray-400 mr-3">#{index + 1}</span>
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                    <img 
+                      src={`https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=100&h=100&fit=crop&crop=center&sig=${index}`}
+                      alt={dish.dish_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <div class="w-full h-full bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center">
+                              <span class="text-orange-600 text-lg">🍽️</span>
+                            </div>
+                          `;
+                        }
+                      }}
+                      onLoad={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.opacity = '1';
+                      }}
+                      style={{ opacity: '0', transition: 'opacity 0.3s ease' }}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900">{dish.dish_name}</h4>
+                  <p className="text-sm text-gray-600">{formatPrice(dish.avg_price)}</p>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center space-x-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Sold</p>
+                      <p className="font-bold text-orange-500">{dish.total_quantity}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-800">{dish.total_quantity} sold</p>
-                      <p className="text-xs text-green-600">{formatPrice(dish.total_revenue)}</p>
+                    <div>
+                      <p className="text-sm text-gray-600">Revenue</p>
+                      <p className="font-bold text-gray-900">{formatPrice(dish.total_revenue)}</p>
                     </div>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-
-            {/* Category Performance Chart */}
-            <div>
-              <h4 className="font-semibold text-gray-700 mb-4">Category Performance</h4>
-              <div className="space-y-3">
-                {categoryPerformance.slice(0, 5).map((category, index) => {
-                  const maxRevenue = Math.max(...categoryPerformance.map(c => c.total_revenue));
-                  const width = (category.total_revenue / maxRevenue) * 100;
-                  
-                  return (
-                    <div key={category.category_name} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">{category.category_name}</span>
-                        <span className="text-sm text-gray-600">{formatPrice(category.total_revenue)}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${width}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>{category.total_orders} orders</span>
-                        <span>{category.category_percentage}% of total</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            ))}
           </div>
         ) : (
           <div className="text-center py-8">
-            <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No order data available yet</p>
-            <p className="text-sm text-gray-500">Popular dishes will appear here once customers start ordering</p>
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ChefHat className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">No order data available yet</h3>
+            <p className="text-gray-600">Popular dishes will appear here once customers start ordering</p>
           </div>
         )}
       </div>

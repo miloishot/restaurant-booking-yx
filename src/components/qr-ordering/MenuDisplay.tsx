@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MenuCategory, MenuItem } from '../../types/database';
-import { Plus, Minus, Info, Leaf, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, Info, Leaf, AlertTriangle, ShoppingCart, Star } from 'lucide-react';
 
 interface MenuDisplayProps {
   categories: MenuCategory[];
@@ -92,24 +92,24 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="flex flex-col lg:flex-row gap-8">
       {/* Category Sidebar */}
-      <div className="lg:w-56 flex-shrink-0">
-        <div className="bg-white rounded-lg shadow p-4 sticky top-24">
-          <h3 className="font-semibold text-gray-800 mb-4">Categories</h3>
-          <nav className="space-y-2">
+      <div className="lg:w-64 flex-shrink-0">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-24">
+          <h3 className="font-bold text-lg text-gray-900 mb-6">Categories</h3>
+          <nav className="space-y-3">
             {categories.map(category => (
               <button
                 key={category.id}
                 onClick={() => setActiveCategory(category.id)}
-                className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${
                   activeCategory === category.id
-                    ? 'bg-orange-50 text-orange-700 font-medium border-l-4 border-orange-500'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-orange-50 text-orange-700 font-semibold border-l-4 border-orange-500 shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                {category.name}
-                <span className="text-xs text-gray-500 block">
+                <span className="block">{category.name}</span>
+                <span className="text-xs text-gray-500 block mt-1">
                   {getItemsByCategory(category.id).length} items
                 </span>
               </button>
@@ -125,16 +125,16 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
             key={category.id}
             className={`${activeCategory === category.id ? 'block' : 'hidden'} space-y-6`}
           >
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">{category.name}</h2>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">{category.name}</h2>
               {category.description && (
-                <p className="text-gray-600">{category.description}</p>
+                <p className="text-lg text-gray-600">{category.description}</p>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {getItemsByCategory(category.id).map(item => (
-                <div key={item.id} className="bg-white rounded-lg shadow overflow-hidden transition-all duration-200 hover:shadow-lg">
+                <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                   {item.image_url ? (
                     <img
                       src={item.image_url}
@@ -142,73 +142,60 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
                       className="w-full h-48 object-cover"
                     />
                   ) : (
-                    <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <div className="w-full h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
                           <span className="text-2xl">🍽️</span>
                         </div>
-                        <p className="text-gray-500 text-sm font-medium">{item.name}</p>
+                        <p className="text-gray-600 text-sm font-medium">{item.name}</p>
                       </div>
                     </div>
                   )}
                   
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-gray-800">{item.name}</h3>
-                      <span className="text-lg font-bold text-orange-500 ml-2">
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="font-bold text-lg text-gray-900">{item.name}</h3>
+                      <span className="text-xl font-bold text-orange-500 ml-3">
                         {formatPrice(item.price_sgd)}
                       </span>
                     </div>
                     
                     {item.description && (
-                      <p className="text-gray-600 text-sm mb-2">{item.description}</p>
+                      <p className="text-gray-600 text-sm mb-3 leading-relaxed">{item.description}</p>
                     )}
                     
                     {/* Dietary badges */}
-                    <div className="flex flex-wrap gap-1 mb-3">
+                    <div className="flex flex-wrap gap-2 mb-4">
                       {getDietaryBadges(item)}
                     </div>
                     
                     {getItemQuantityInCart(item.id) > 0 ? (
-                      <div className="flex items-center justify-between mt-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">In cart</span>
-                        <div className="flex items-center">
+                      <div className="flex items-center justify-center space-x-0">
+                        <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
                           <button
                             onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) - 1)}
-                            className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                            className="w-12 h-12 flex items-center justify-center text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors rounded-l-lg"
                           >
-                            <Minus className="w-4 h-4" />
+                            <Minus className="w-5 h-5" />
                           </button>
-                          <input
-                            type="number"
-                            min="1"
-                            value={getItemQuantityInCart(item.id)}
-                            onChange={(e) => handleQuantityChange(item, parseInt(e.target.value) || 1)}
-                            className="w-12 mx-2 text-center border border-gray-200 rounded p-1"
-                          />
+                          <div className="w-12 h-12 flex items-center justify-center bg-white border-l border-r border-gray-200 font-semibold text-gray-900">
+                            {getItemQuantityInCart(item.id)}
+                          </div>
                           <button
                             onClick={() => handleQuantityChange(item, getItemQuantityInCart(item.id) + 1)}
-                            className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
+                            className="w-12 h-12 flex items-center justify-center bg-orange-500 text-white hover:bg-orange-600 transition-colors rounded-r-lg"
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-5 h-5" />
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex justify-between items-center mt-3">
-                        <button
-                          onClick={() => setSelectedItem(item)}
-                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center transition-colors"
-                        >
-                          <Info className="w-4 h-4 mr-1" />
-                          Details
-                        </button>
-                        
+                      <div className="space-y-3">
                         <button
                           onClick={() => onAddToCart(item, 1)}
-                          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
+                          className="w-full flex items-center justify-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
                         >
-                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          <Plus className="w-5 h-5 mr-2" />
                           Add to Cart
                         </button>
                       </div>
@@ -223,63 +210,59 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
 
       {/* Item Detail Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-90vh overflow-y-auto">
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-90vh overflow-y-auto">
+            <div className="p-8">
               {selectedItem.image_url && (
                 <img
                   src={selectedItem.image_url}
                   alt={selectedItem.name}
-                  className="w-full h-64 object-cover rounded-lg mb-4"
+                  className="w-full h-64 object-cover rounded-xl mb-6"
                 />
               )}
               
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold text-gray-800">{selectedItem.name}</h2>
-                <span className="text-xl font-bold text-orange-500">
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">{selectedItem.name}</h2>
+                <span className="text-2xl font-bold text-orange-500">
                   {formatPrice(selectedItem.price_sgd)}
                 </span>
               </div>
               
               {selectedItem.description && (
-                <p className="text-gray-600 mb-4">{selectedItem.description}</p>
+                <p className="text-gray-600 mb-6 leading-relaxed">{selectedItem.description}</p>
               )}
               
               {/* Dietary information */}
-              <div className="mb-4">
-                <div className="flex flex-wrap gap-2 mb-2">
+              <div className="mb-6">
+                <div className="flex flex-wrap gap-2 mb-3">
                   {getDietaryBadges(selectedItem)}
                 </div>
                 
                 {selectedItem.allergens && selectedItem.allergens.length > 0 && (
-                  <div className="text-sm text-orange-600">
+                  <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded-lg">
                     <strong>Allergens:</strong> {selectedItem.allergens.join(', ')}
                   </div>
                 )}
               </div>
               
               {/* Quantity selector */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Quantity
                 </label>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center justify-center space-x-4">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                    className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
                   >
                     <Minus className="w-5 h-5" />
                   </button>
-                  <input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                    className="w-16 text-center border border-gray-300 rounded p-2"
-                  />
+                  <div className="w-16 h-12 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 font-bold text-lg">
+                    {quantity}
+                  </div>
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
+                    className="w-12 h-12 rounded-lg bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 transition-colors"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
@@ -287,15 +270,15 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
               </div>
               
               {/* Special instructions */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="mb-8">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Special Instructions (Optional)
                 </label>
                 <textarea
                   value={specialInstructions}
                   onChange={(e) => setSpecialInstructions(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   placeholder="Any special requests or modifications..."
                 />
               </div>
@@ -303,15 +286,15 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
               <div className="flex space-x-4">
                 <button
                   onClick={() => setSelectedItem(null)}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
                 >
                   Close
                 </button>
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors flex items-center justify-center"
+                  className="flex-1 px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center font-semibold"
                 >
-                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  <Plus className="w-5 h-5 mr-2" />
                   Add to Cart - {formatPrice(selectedItem.price_sgd * quantity)}
                 </button>
               </div>

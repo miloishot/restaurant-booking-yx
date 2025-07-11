@@ -170,11 +170,11 @@ export function CustomerBooking({ restaurantSlug }: CustomerBookingProps) {
                           : 'bg-white text-gray-700 border-gray-300 hover:border-green-300'
                     }`}
                   >
-                    <div className="font-medium">{day.display}</div>
+                    <div className="font-medium text-sm leading-tight">{day.display}</div>
                     {isClosed ? (
-                      <div className="text-xs mt-1">Closed</div>
+                      <div className="text-xs mt-1 text-red-500 font-medium">Closed</div>
                     ) : dayHours ? (
-                      <div className="text-xs mt-1">
+                      <div className="text-xs mt-1 leading-tight">
                         {dayHours.opening_time.slice(0, 5)} - {dayHours.closing_time.slice(0, 5)}
                       </div>
                     ) : null}
@@ -208,20 +208,20 @@ export function CustomerBooking({ restaurantSlug }: CustomerBookingProps) {
                 <p className="text-gray-600">Please select a different date.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 {timeSlots.map(slot => (
                   <button
                     key={slot.time}
                     onClick={() => slot.available && handleTimeSlotSelect(slot.time)}
                     disabled={!slot.available}
-                    className={`p-3 rounded-lg border-2 text-center transition-all ${
+                    className={`p-4 rounded-lg border-2 text-center transition-all min-h-[70px] flex flex-col justify-center ${
                       slot.available
                         ? 'bg-white text-gray-700 border-gray-300 hover:border-purple-300 hover:bg-purple-50'
                         : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                     }`}
                   >
-                    <div className="font-medium">{formatTimeSlot(slot.time)}</div>
-                    <div className="text-xs mt-1">
+                    <div className="font-medium text-sm">{formatTimeSlot(slot.time)}</div>
+                    <div className="text-xs mt-1 text-gray-500">
                       {slot.available ? 'Available' : 'Booked'}
                     </div>
                   </button>
