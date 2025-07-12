@@ -304,7 +304,6 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       }
 
       setOrderConfirmed(true);
-      setCart([]);
       setShowCart(false);
 
     } catch (err) {
@@ -378,7 +377,14 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   }
 
   if (orderConfirmed) {
-    return <OrderConfirmation onContinue={() => setOrderConfirmed(false)} />;
+    return (
+      <OrderConfirmation 
+        onContinue={() => {
+          setOrderConfirmed(false);
+          // Don't clear the cart here, keep it until payment
+        }} 
+      />
+    );
   }
 
   return (

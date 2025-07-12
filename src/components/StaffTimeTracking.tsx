@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, Employee, TimeEntry } from '../types/database';
-import { Clock, Users, Plus, Calendar, BarChart3, User, Lock, CheckCircle, XCircle, LogIn, LogOut } from 'lucide-react';
+import { Clock, Users, Plus, Calendar, BarChart3, User, Lock, CheckCircle, XCircle, LogIn, LogOut, RefreshCw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 
 interface StaffTimeTrackingProps {
@@ -14,6 +14,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [loading, setLoading] = useState(true);
   const [showAddEmployee, setShowAddEmployee] = useState(false);  
   const [selectedAction, setSelectedAction] = useState<{type: 'in' | 'out', employee: Employee} | null>(null);
+  const [showPunchModal, setShowPunchModal] = useState<'in' | 'out' | null>(null);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -248,7 +249,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-800 flex items-center">
@@ -266,56 +267,10 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
             Add Employee
           </button>
         </div>
-
-        {/* Punch In/Out Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => setShowPunchModal('in')}
-            className="flex items-center justify-center px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Clock className="w-5 h-5 mr-2" />
-            Punch In
-          </button>
-          
-          <button
-            onClick={() => setShowPunchModal('out')}
-            className="flex items-center justify-center px-6 py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            <Clock className="w-5 h-5 mr-2" />
-            Punch Out
-          </button>
-        </div>
-      </div>
-
-      {/* Currently Active */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Currently Active</h3>
-        {getActiveEmployees().length === 0 ? (
-          <p className="text-gray-600">No employees currently punched in</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {getActiveEmployees().map((entry) => (
-              <div key={entry.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-semibold text-green-800">{entry.employee?.name}</h4>
-                    <p className="text-sm text-green-600">ID: {entry.employee_id}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-green-600">Punched in:</p>
-                    <p className="font-medium text-green-800">
-                      {format(new Date(entry.punch_in_time), 'h:mm a')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Date Range Filter */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-800">Time Records</h3>
           
@@ -347,6 +302,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                 />
               </div>
             )}
+            <RefreshCw className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600" onClick={() => fetchTimeEntries()} />
           </div>
         </div>
 
@@ -383,6 +339,97 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Staff List with Punch In/Out Buttons */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Staff</h3>
+          
+          {employees.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No employees found</p>
+              <button
+                onClick={() => setShowAddEmployee(true)}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Add Employee
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 border rounded-lg">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Employee ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {employees.map((employee) => {
+                    const isPunchedIn = isEmployeePunchedIn(employee.employee_id);
+                    return (
+                      <tr key={employee.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">{employee.employee_id}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {isPunchedIn ? (
+                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                              Inactive
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setSelectedAction({ type: 'in', employee })}
+                              disabled={isPunchedIn}
+                              className={`px-3 py-1 rounded text-white ${
+                                isPunchedIn 
+                                  ? 'bg-gray-300 cursor-not-allowed' 
+                                  : 'bg-blue-600 hover:bg-blue-700'
+                              }`}
+                            >
+                              Punch In
+                            </button>
+                            <button
+                              onClick={() => setSelectedAction({ type: 'out', employee })}
+                              disabled={!isPunchedIn}
+                              className={`px-3 py-1 rounded text-white ${
+                                !isPunchedIn 
+                                  ? 'bg-gray-300 cursor-not-allowed' 
+                                  : 'bg-red-600 hover:bg-red-700'
+                              }`}
+                            >
+                              Punch Out
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Time Entries Table */}
