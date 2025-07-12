@@ -27,7 +27,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         .eq('employee_id', employeeId)
         .eq('password', password)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (employeeError || !employee) {
         throw new Error('Invalid employee ID or password');
