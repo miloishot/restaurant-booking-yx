@@ -1,11 +1,16 @@
 import React from 'react';
-import { CheckCircle, Clock, ChefHat } from 'lucide-react';
+import { CheckCircle, Clock, ChefHat, CreditCard } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 interface OrderConfirmationProps {
   onContinue: () => void;
+  isPaymentSuccess?: boolean;
 }
 
-export function OrderConfirmation({ onContinue }: OrderConfirmationProps) {
+export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirmationProps) {
+  const location = useLocation();
+  const isSuccess = isPaymentSuccess || location.pathname.includes('/success');
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
@@ -14,24 +19,52 @@ export function OrderConfirmation({ onContinue }: OrderConfirmationProps) {
             <CheckCircle className="w-12 h-12 text-green-600" />
           </div>
           
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            Order Sent!
-          </h1>
+          {isSuccess ? (
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">
+              Payment Successful!
+            </h1>
+          ) : (
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">
+              Order Sent!
+            </h1>
+          )}
           
-          <p className="text-gray-600 mb-8">
-            Your order has been successfully sent to the kitchen. You can continue browsing 
-            the menu or wait for your delicious food to arrive!
-          </p>
+          {isSuccess ? (
+            <p className="text-gray-600 mb-8">
+              Your payment has been processed successfully. Your order has been sent to the kitchen.
+              Thank you for your order!
+            </p>
+          ) : (
+            <p className="text-gray-600 mb-8">
+              Your order has been successfully sent to the kitchen. You can continue browsing 
+              the menu or wait for your delicious food to arrive!
+            </p>
+          )}
           
           <div className="space-y-4 mb-8">
-            <div className="flex items-center justify-center text-blue-600">
-              <ChefHat className="w-5 h-5 mr-2" />
-              <span className="text-sm">Kitchen has been notified</span>
-            </div>
-            <div className="flex items-center justify-center text-orange-600">
-              <Clock className="w-5 h-5 mr-2" />
-              <span className="text-sm">Estimated preparation time: 15-25 minutes</span>
-            </div>
+            {isSuccess ? (
+              <>
+                <div className="flex items-center justify-center text-blue-600">
+                  <CreditCard className="w-5 h-5 mr-2" />
+                  <span className="text-sm">Payment completed</span>
+                </div>
+                <div className="flex items-center justify-center text-green-600">
+                  <ChefHat className="w-5 h-5 mr-2" />
+                  <span className="text-sm">Kitchen has been notified</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-center text-blue-600">
+                  <ChefHat className="w-5 h-5 mr-2" />
+                  <span className="text-sm">Kitchen has been notified</span>
+                </div>
+                <div className="flex items-center justify-center text-orange-600">
+                  <Clock className="w-5 h-5 mr-2" />
+                  <span className="text-sm">Estimated preparation time: 15-25 minutes</span>
+                </div>
+              </>
+            )}
           </div>
           
           <div className="space-y-3">

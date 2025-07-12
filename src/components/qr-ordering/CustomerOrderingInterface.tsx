@@ -8,6 +8,7 @@ import { LoyaltyInput } from './LoyaltyInput';
 import { OrderConfirmation } from './OrderConfirmation';
 import { CustomerAuth } from './CustomerAuth';
 import { ShoppingCart, ArrowLeft, Users, Clock, MapPin, User, LogOut } from 'lucide-react';
+import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 
 interface CustomerOrderingInterfaceProps {
   sessionToken?: string;
@@ -33,7 +34,9 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   const [showCustomerAuth, setShowCustomerAuth] = useState(false);
   const [customerUser, setCustomerUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { createCheckoutSession } = useStripeCheckout();
 
   useEffect(() => {
     if (activeToken) {
@@ -311,6 +314,31 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     }
   };
 
+  const handleCheckout = async () => {
+    if (!session || cart.length === 0) return;
+    
+    try {
+      setCheckoutLoading(true);
+      
+      // Create a checkout session with Stripe
+      await createCheckoutSession({
+        priceId: '', // Not needed for cart items
+        mode: 'payment',
+        successUrl: `${window.location.origin}/order/success`,
+        cancelUrl: `${window.location.origin}/order/${activeToken}`,
+        cart_items: cart,
+        table_id: session.table_id,
+        session_id: session.id
+      });
+      
+    } catch (err) {
+      console.error('Error creating checkout session:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create checkout session');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -462,6 +490,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         loyaltyDiscount={loyaltyDiscount}
         onSubmitOrder={submitOrder}
         loading={loading}
+        onCheckout={handleCheckout}
       />
       {/* Customer Auth Modal */}
       {showCustomerAuth && (

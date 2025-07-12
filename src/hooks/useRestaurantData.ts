@@ -173,16 +173,7 @@ export function useRestaurantData(restaurantSlug?: string) {
     try {
       // If marking table as available, also complete any active walk-in bookings
       if (status === 'available') {
-        // Deactivate any QR sessions for this table
-        const { error: sessionError } = await supabase
-          .from('order_sessions')
-          .update({ is_active: false })
-          .eq('table_id', tableId)
-          .eq('is_active', true);
-
-        if (sessionError) {
-          console.warn('Could not deactivate QR session:', sessionError);
-        }
+        await deactivateTableQRSession(tableId);
 
         const { error: completeBookingError } = await supabase
           .from('bookings')
@@ -216,6 +207,26 @@ export function useRestaurantData(restaurantSlug?: string) {
       return { success: true };
     } catch (error) {
       console.error('Error updating table status:', error);
+      throw error;
+    }
+  };
+
+  const deactivateTableQRSession = async (tableId: string) => {
+    try {
+      // Deactivate any QR sessions for this table
+      const { error: sessionError } = await supabase
+        .from('order_sessions')
+        .update({ is_active: false })
+        .eq('table_id', tableId)
+        .eq('is_active', true);
+
+      if (sessionError) {
+        console.warn('Could not deactivate QR session:', sessionError);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deactivating QR session:', error);
       throw error;
     }
   };
@@ -672,6 +683,7 @@ export function useRestaurantData(restaurantSlug?: string) {
     loading,
     error,
     updateTableStatus,
+    deactivateTableQRSession,
     updateBookingStatus,
     assignTableToBooking,
     promoteFromWaitingList,

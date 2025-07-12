@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import Stripe from 'npm:stripe@17.7.0';
+import Stripe from 'npm:stripe@latest';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
 const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
@@ -43,13 +43,12 @@ Deno.serve(async (req) => {
       return corsResponse({ error: 'Method not allowed' }, 405);
     }
 
-    const { price_id, success_url, cancel_url, mode } = await req.json();
+    const { price_id, success_url, cancel_url, mode, cart_items, table_id, session_id } = await req.json();
 
     const error = validateParameters(
-      { price_id, success_url, cancel_url, mode },
+      { success_url, cancel_url, mode },
       {
         cancel_url: 'string',
-        price_id: 'string',
         success_url: 'string',
         mode: { values: ['payment', 'subscription'] },
       },
@@ -72,6 +71,47 @@ Deno.serve(async (req) => {
 
     if (!user) {
       return corsResponse({ error: 'User not found' }, 404);
+    }
+
+    // For restaurant orders, we don't need to check for existing customer
+    if (mode === 'payment' && cart_items && cart_items.length > 0) {
+      // Create a new customer for this order
+      const newCustomer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id,
+        },
+      });
+
+      // Create line items from cart
+      const line_items = cart_items.map((item: any) => ({
+        price_data: {
+          currency: 'sgd',
+          product_data: {
+            name: item.menu_item.name,
+            description: item.menu_item.description || undefined,
+          },
+          unit_amount: Math.round(item.menu_item.price_sgd * 100), // Convert to cents
+        },
+        quantity: item.quantity,
+      }));
+
+      // Create checkout session for restaurant order
+      const session = await stripe.checkout.sessions.create({
+        customer: newCustomer.id,
+        payment_method_types: ['card'],
+        line_items,
+        mode: 'payment',
+        success_url: `${success_url}?session_id={CHECKOUT_SESSION_ID}&table_id=${table_id}&session_id=${session_id}`,
+        cancel_url: `${cancel_url}?table_id=${table_id}&session_id=${session_id}`,
+        metadata: {
+          table_id,
+          session_id,
+          user_id: user.id,
+        },
+      });
+
+      return corsResponse({ sessionId: session.id, url: session.url });
     }
 
     const { data: customer, error: getCustomerError } = await supabase
@@ -148,6 +188,10 @@ Deno.serve(async (req) => {
       customerId = customer.customer_id;
 
       if (mode === 'subscription') {
+        if (!price_id) {
+          return corsResponse({ error: 'price_id is required for subscription mode' }, 400);
+        }
+        
         // Verify subscription exists for existing customer
         const { data: subscription, error: getSubscriptionError } = await supabase
           .from('stripe_subscriptions')
@@ -178,19 +222,26 @@ Deno.serve(async (req) => {
     }
 
     // create Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: price_id,
-          quantity: 1,
-        },
-      ],
-      mode,
-      success_url,
-      cancel_url,
-    });
+    let session;
+    if (mode === 'subscription') {
+      if (!price_id) {
+        return corsResponse({ error: 'price_id is required for subscription mode' }, 400);
+      }
+      
+      session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: price_id,
+            quantity: 1,
+          },
+        ],
+        mode,
+        success_url,
+        cancel_url,
+      });
+    }
 
     console.log(`Created checkout session ${session.id} for customer ${customerId}`);
 
@@ -207,6 +258,8 @@ type Expectations<T> = { [K in keyof T]: ExpectedType };
 function validateParameters<T extends Record<string, any>>(values: T, expected: Expectations<T>): string | undefined {
   for (const parameter in values) {
     const expectation = expected[parameter];
+    if (!expectation) continue; // Skip validation for parameters not in expected
+    
     const value = values[parameter];
 
     if (expectation === 'string') {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { CartItem, LoyaltyDiscount } from '../../types/database';
-import { X, Plus, Minus, ShoppingCart, CreditCard, Tag, Trash2 } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, CreditCard, Tag, Trash2, ArrowRight } from 'lucide-react';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -14,6 +14,7 @@ interface CartSidebarProps {
   loyaltyDiscount: LoyaltyDiscount | null;
   onSubmitOrder: () => void;
   loading: boolean;
+  onCheckout?: () => void;
 }
 
 export function CartSidebar({
@@ -27,7 +28,8 @@ export function CartSidebar({
   total,
   loyaltyDiscount,
   onSubmitOrder,
-  loading
+  loading,
+  onCheckout
 }: CartSidebarProps) {
   const formatPrice = (price: number) => {
     return `S$${price.toFixed(2)}`;
@@ -158,18 +160,32 @@ export function CartSidebar({
               </div>
 
               {/* Submit Order Button */}
-              <button
-                onClick={onSubmitOrder}
-                disabled={loading || cart.length === 0}
-                className="w-full flex items-center justify-center px-4 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                ) : (
-                  <ShoppingCart className="w-5 h-5 mr-2" />
+              <div className="flex flex-col space-y-3">
+                <button
+                  onClick={onSubmitOrder}
+                  disabled={loading || cart.length === 0}
+                  className="w-full flex items-center justify-center px-4 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                  )}
+                  {loading ? 'Sending Order...' : 'Place Order'}
+                </button>
+                
+                {onCheckout && (
+                  <button
+                    onClick={onCheckout}
+                    disabled={loading || cart.length === 0}
+                    className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <CreditCard className="w-5 h-5 mr-2" />
+                    Pay with Card
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </button>
                 )}
-                {loading ? 'Sending Order...' : 'Place Order'}
-              </button>
+              </div>
               
               <p className="text-xs text-gray-500 text-center">
                 Your order will be sent to the kitchen for preparation

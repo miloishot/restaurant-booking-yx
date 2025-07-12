@@ -9,6 +9,9 @@ import { CustomerBooking } from './components/CustomerBooking';
 import { CustomerOrderingInterface } from './components/qr-ordering/CustomerOrderingInterface';
 import { LogOut, User } from 'lucide-react';
 
+// Add success route for Stripe payments
+import { OrderConfirmation } from './components/qr-ordering/OrderConfirmation';
+
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
   const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantData();
@@ -63,6 +66,7 @@ function App() {
       <Routes>
         {/* QR Ordering Route */}
         <Route path="/order/:token" element={<CustomerOrderingInterface />} />
+        <Route path="/order/success" element={<OrderConfirmation onContinue={() => window.location.href = '/'} isPaymentSuccess={true} />} />
         
         {/* Main App Routes */}
         <Route path="/*" element={

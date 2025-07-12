@@ -1,12 +1,25 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-interface CheckoutParams {
+interface BaseCheckoutParams {
   priceId: string;
   mode: 'payment' | 'subscription';
   successUrl: string;
   cancelUrl: string;
 }
+
+interface SubscriptionCheckoutParams extends BaseCheckoutParams {
+  mode: 'subscription';
+}
+
+interface PaymentCheckoutParams extends BaseCheckoutParams {
+  mode: 'payment';
+  cart_items?: any[];
+  table_id?: string;
+  session_id?: string;
+}
+
+type CheckoutParams = SubscriptionCheckoutParams | PaymentCheckoutParams;
 
 export function useStripeCheckout() {
   const [loading, setLoading] = useState(false);
@@ -31,12 +44,7 @@ export function useStripeCheckout() {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          price_id: params.priceId,
-          success_url: params.successUrl,
-          cancel_url: params.cancelUrl,
-          mode: params.mode,
-        }),
+        body: JSON.stringify(params),
       });
 
       if (!response.ok) {

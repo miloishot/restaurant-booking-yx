@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import Stripe from 'npm:stripe@17.7.0';
+import Stripe from 'npm:stripe@latest';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
 const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY')!;
@@ -62,6 +62,39 @@ async function handleEvent(event: Stripe.Event) {
 
   if (!('customer' in stripeData)) {
     return;
+  }
+  
+  // Handle restaurant order payments
+  if (event.type === 'checkout.session.completed') {
+    const session = stripeData as Stripe.Checkout.Session;
+    
+    // Check if this is a restaurant order payment (has table_id and session_id in metadata)
+    if (session.metadata?.table_id && session.metadata?.session_id) {
+      try {
+        console.log(`Processing restaurant order payment for table ${session.metadata.table_id}`);
+        
+        // Mark all orders for this session as paid
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({ 
+            status: 'paid',
+            updated_at: new Date().toISOString()
+          })
+          .eq('session_id', session.metadata.session_id)
+          .neq('status', 'paid');
+        
+        if (orderError) {
+          console.error('Error updating order status:', orderError);
+        } else {
+          console.log(`Successfully marked orders as paid for session ${session.metadata.session_id}`);
+        }
+        
+        return;
+      } catch (error) {
+        console.error('Error processing restaurant order payment:', error);
+        return;
+      }
+    }
   }
 
   // for one time payments, we only listen for the checkout.session.completed event

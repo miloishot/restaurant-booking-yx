@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, RestaurantTable, OrderSession } from '../types/database';
-import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer, Receipt } from 'lucide-react';
+import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer, Receipt, CreditCard } from 'lucide-react';
 
 interface QRCodeGeneratorProps {
   restaurant: Restaurant;
@@ -32,6 +32,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const [printing, setPrinting] = useState<string | null>(null);
   const [printingReceipt, setPrintingReceipt] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [printReceiptError, setPrintReceiptError] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchTableSessions();
@@ -345,22 +346,51 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     }
   };
 
-  const printReceipt = async (table: TableWithOrders) => {
+  const printReceipt = async (table: TableWithSession) => {
+    // First, fetch orders for this table
+    const { data: sessions } = await supabase
+      .from('order_sessions')
+      .select('id')
+      .eq('table_id', table.id)
+      .eq('is_active', true);
+      
+    if (!sessions || sessions.length === 0) {
+      alert('No active session found for this table');
+      return;
+    }
+    
+    const { data: orders } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        items:order_items(
+          *,
+          menu_item:menu_items(*)
+        )
+      `)
+      .eq('session_id', sessions[0].id)
+      .neq('status', 'paid');
+      
+    if (!orders || orders.length === 0) {
+      alert('No unpaid orders found for this table');
+      return;
+    }
+    
     if (!table.activeOrders || table.activeOrders.length === 0) {
       alert('No orders found for this table');
       return;
     }
 
     try {
-      setPrintingReceipt(table.id);
-      setPrintError(prev => ({ ...prev, [table.id]: '' }));
+      setPrintingReceipt(table.id); 
+      setPrintReceiptError(prev => ({ ...prev, [table.id]: '' }));
 
       const printer = printerConfigs.find(p => p.id === selectedPrinter);
       if (!printer) throw new Error('Selected printer not found');
 
       // Calculate totals
-      const subtotal = table.activeOrders.reduce((sum, order) => sum + order.subtotal_sgd, 0);
-      const discount = table.activeOrders.reduce((sum, order) => sum + order.discount_sgd, 0);
+      const subtotal = orders.reduce((sum, order) => sum + order.subtotal_sgd, 0);
+      const discount = orders.reduce((sum, order) => sum + order.discount_sgd, 0);
       const netSubtotal = subtotal - discount;
       const gst = netSubtotal * 0.09; // 9% GST
       const total = netSubtotal + gst;
@@ -464,7 +494,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
             </div>
             
             <div class="items">
-              ${table.activeOrders.map(order => 
+              ${orders.map(order => 
                 order.items?.map(item => `
                   <div class="item">
                     <div class="item-name">${item.quantity}x ${item.menu_item?.name}</div>
@@ -550,7 +580,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       
     } catch (error) {
       console.error('Error printing receipt:', error);
-      setPrintError(prev => ({ 
+      setPrintReceiptError(prev => ({ 
         ...prev, 
         [table.id]: error instanceof Error ? error.message : 'Failed to print receipt' 
       }));
@@ -690,7 +720,9 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                     <Download className="w-4 h-4 mr-1" />
                     Download
                   </button>
-                  
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 mt-2">
                   {printerConfigs.length > 0 && selectedPrinter && (
                     <button
                       onClick={() => printQRCode(table)}
@@ -701,17 +733,15 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                       {printing === table.id ? 'Printing...' : 'Print'}
                     </button>
                   )}
-                
-                {table.activeOrders && table.activeOrders.length > 0 && (
+                  
                   <button
                     onClick={() => printReceipt(table)}
                     disabled={printingReceipt === table.id}
-                    className="flex items-center justify-center px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
                   >
                     <Receipt className="w-4 h-4 mr-1" />
-                    {printingReceipt === table.id ? 'Printing...' : 'Print Receipt'}
+                    {printingReceipt === table.id ? 'Printing...' : 'Print Bill'}
                   </button>
-                )}
                 </div>
 
                 <button
@@ -744,10 +774,10 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       </div>
 
       {/* Print Error Message */}
-      {printError && (
+      {(printError || Object.values(printReceiptError).some(e => e)) && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <h4 className="font-semibold text-red-800 mb-2">Print Error</h4>
-          <p className="text-red-700 text-sm">{printError}</p>
+          <p className="text-red-700 text-sm">{printError || Object.values(printReceiptError).find(e => e)}</p>
           <p className="text-sm text-red-600 mt-2">Please check that your printer is properly configured and the Electron client is running.</p>
         </div>
       )}
