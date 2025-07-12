@@ -107,6 +107,30 @@ export interface PrinterConfig {
   updated_at: string;
 }
 
+export interface Employee {
+  id: string;
+  restaurant_id: string;
+  employee_id: string;
+  name: string;
+  password: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  restaurant_id: string;
+  employee_id: string;
+  punch_in_time: string;
+  punch_out_time: string | null;
+  total_hours: number | null;
+  date: string;
+  created_at: string;
+  updated_at: string;
+  employee?: Employee;
+}
+
 export interface TimeSlot {
   time: string;
   available: boolean;

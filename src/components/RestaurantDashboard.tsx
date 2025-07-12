@@ -11,6 +11,8 @@ import { StaffOrderManagement } from './qr-ordering/StaffOrderManagement';
 import { MenuManagement } from './MenuManagement';
 import { QRCodeGenerator } from './QRCodeGenerator';
 import { LoyaltyManagement } from './LoyaltyManagement';
+import { RestaurantSetup } from './RestaurantSetup';
+import { StaffTimeTracking } from './StaffTimeTracking';
 import { RestaurantTable } from '../types/database';
 import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown } from 'lucide-react';
 
@@ -34,7 +36,7 @@ export function RestaurantDashboard() {
   
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
   const [showWalkInLogger, setShowWalkInLogger] = useState(false);
-  const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics' | 'orders' | 'menu' | 'loyalty'>('bookings');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics' | 'orders' | 'menu' | 'loyalty' | 'setup' | 'staff'>('bookings');
   const [refreshing, setRefreshing] = useState(false);
   const [newOrderCount, setNewOrderCount] = useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ table: RestaurantTable; action: 'occupied' | 'available' } | null>(null);
@@ -417,6 +419,28 @@ export function RestaurantDashboard() {
               Loyalty
             </button>
             <button
+              onClick={() => setActiveTab('setup')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'setup'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Building className="w-4 h-4 inline mr-1" />
+              Setup
+            </button>
+            <button
+              onClick={() => setActiveTab('staff')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'staff'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Clock className="w-4 h-4 inline mr-1" />
+              Staff Time
+            </button>
+            <button
               onClick={() => setActiveTab('analytics')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'analytics'
@@ -484,6 +508,14 @@ export function RestaurantDashboard() {
         
         {activeTab === 'loyalty' && (
           <LoyaltyManagement restaurant={restaurant} />
+        )}
+        
+        {activeTab === 'setup' && (
+          <RestaurantSetup />
+        )}
+        
+        {activeTab === 'staff' && (
+          <StaffTimeTracking restaurant={restaurant} />
         )}
         
         {activeTab === 'analytics' && (

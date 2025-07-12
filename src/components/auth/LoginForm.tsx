@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -8,7 +8,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
-  const [email, setEmail] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,20 +19,56 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setLoading(true);
     setError(null);
 
-    // Debug logging for production
-    console.log('Login attempt - Environment check:', {
-      hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
-      hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-      urlPreview: import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...'
-    });
-    
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // First, verify employee credentials
+      const { data: employee, error: employeeError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('password', password)
+        .eq('is_active', true)
+        .single();
+
+      if (employeeError || !employee) {
+        throw new Error('Invalid employee ID or password');
+      }
+
+      // Create a session using the employee's restaurant owner account
+      const { data: restaurant, error: restaurantError } = await supabase
+        .from('restaurants')
+        .select('owner_id')
+        .eq('id', employee.restaurant_id)
+        .single();
+
+      if (restaurantError || !restaurant) {
+        throw new Error('Restaurant not found');
+      }
+
+      // Sign in as the restaurant owner (for now, we'll use a simplified approach)
+      // In a production system, you'd want a more sophisticated employee session management
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: `employee-${employeeId}@restaurant.local`,
+        password: password,
       });
 
-      if (error) throw error;
+      // If employee email doesn't exist, create it
+      if (signInError && signInError.message.includes('Invalid login credentials')) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: `employee-${employeeId}@restaurant.local`,
+          password: password,
+          options: {
+            data: {
+              employee_id: employeeId,
+              restaurant_id: employee.restaurant_id,
+              name: employee.name
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+      } else if (signInError) {
+        throw signInError;
+      }
 
       onSuccess();
     } catch (err) {
@@ -47,41 +83,31 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     <div className="w-full max-w-md mx-auto">
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
-          <p className="text-gray-600 mt-2">Sign in to your account</p>
+          <h2 className="text-3xl font-bold text-gray-800">Employee Login</h2>
+          <p className="text-gray-600 mt-2">Enter your employee credentials</p>
         </div>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-700 text-sm">{error}</p>
-            {error.includes('fetch') && (
-              <div className="mt-2 text-xs text-red-600">
-                <p>This might be a network or configuration issue. Please check:</p>
-                <ul className="list-disc list-inside mt-1">
-                  <li>Your internet connection</li>
-                  <li>Supabase environment variables are set correctly</li>
-                  <li>Supabase project is active and accessible</li>
-                </ul>
-              </div>
-            )}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
+            <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700 mb-2">
+              Employee ID
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
-                id="email"
-                type="email"
+                id="employeeId"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your email"
+                placeholder="Enter your employee ID"
               />
             </div>
           </div>
@@ -134,7 +160,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
               onClick={onSwitchToSignup}
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
-              Sign up
+              Contact Administrator
             </button>
           </p>
         </div>

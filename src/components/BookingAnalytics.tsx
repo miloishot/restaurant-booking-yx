@@ -87,12 +87,14 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
   const [categoryPerformance, setCategoryPerformance] = useState<CategoryPerformance[]>([]);
   const [totalItemsOrdered, setTotalItemsOrdered] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<'week' | 'month' | 'quarter'>('week');
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'quarter' | 'custom'>('week');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [selectedMetric, setSelectedMetric] = useState<'bookings' | 'waitlist' | 'party_size'>('bookings');
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, [restaurant.id, dateRange]);
+  }, [restaurant.id, dateRange, customStartDate, customEndDate]);
 
   const fetchAnalyticsData = async () => {
     setLoading(true);
@@ -101,6 +103,9 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
       let startDate: Date;
       
       switch (dateRange) {
+        case 'today':
+          startDate = new Date();
+          break;
         case 'week':
           startDate = subDays(endDate, 7);
           break;
@@ -110,10 +115,23 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
         case 'quarter':
           startDate = subDays(endDate, 90);
           break;
+        case 'custom':
+          if (customStartDate && customEndDate) {
+            startDate = new Date(customStartDate);
+          } else {
+            startDate = subDays(endDate, 7); // Default to week if custom dates not set
+          }
+          break;
+        default:
+          startDate = subDays(endDate, 7);
       }
 
-      const startDateStr = format(startDate, 'yyyy-MM-dd');
-      const endDateStr = format(endDate, 'yyyy-MM-dd');
+      const startDateStr = dateRange === 'custom' && customStartDate 
+        ? customStartDate 
+        : format(startDate, 'yyyy-MM-dd');
+      const endDateStr = dateRange === 'custom' && customEndDate 
+        ? customEndDate 
+        : format(endDate, 'yyyy-MM-dd');
 
       // Fetch all analytics data in parallel
       const [
@@ -415,6 +433,16 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
             {/* Date Filter Buttons */}
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
+                onClick={() => setDateRange('today')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  dateRange === 'today' 
+                    ? 'bg-orange-500 text-white shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Today
+              </button>
+              <button
                 onClick={() => setDateRange('week')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   dateRange === 'week' 
@@ -422,7 +450,7 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Last 7 Days
+                Week
               </button>
               <button
                 onClick={() => setDateRange('month')}
@@ -432,7 +460,7 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Last 30 Days
+                Month
               </button>
               <button
                 onClick={() => setDateRange('quarter')}
@@ -442,19 +470,37 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Last 90 Days
+                Quarter
+              </button>
+              <button
+                onClick={() => setDateRange('custom')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  dateRange === 'custom' 
+                    ? 'bg-orange-500 text-white shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Custom
               </button>
             </div>
             
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as 'week' | 'month' | 'quarter')}
-              className="hidden"
-            >
-              <option value="week">Last 7 Days</option>
-              <option value="month">Last 30 Days</option>
-              <option value="quarter">Last 90 Days</option>
-            </select>
+            {dateRange === 'custom' && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <span className="text-gray-600">to</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+            )}
             
             <button
               onClick={exportData}
