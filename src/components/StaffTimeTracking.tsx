@@ -15,7 +15,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [showAddEmployee, setShowAddEmployee] = useState(false);  
   const [selectedAction, setSelectedAction] = useState<{type: 'in' | 'out', employee: Employee} | null>(null);
   const [showPunchModal, setShowPunchModal] = useState<'in' | 'out' | null>(null);
-  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -71,6 +71,15 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         case 'month':
           startDate = format(startOfMonth(today), 'yyyy-MM-dd');
           endDate = format(endOfMonth(today), 'yyyy-MM-dd');
+          break;
+        case 'custom':
+          if (customStartDate && customEndDate) {
+            startDate = customStartDate;
+            endDate = customEndDate;
+          } else {
+            startDate = format(today, 'yyyy-MM-dd');
+            endDate = format(today, 'yyyy-MM-dd');
+          }
           break;
         default:
           startDate = customStartDate || format(today, 'yyyy-MM-dd');
@@ -224,6 +233,11 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
     return entries.reduce((total, entry) => total + (entry.total_hours || 0), 0);
   };
 
+  const calculateEmployeeHours = (employeeId: string) => {
+    const employeeEntries = timeEntries.filter(entry => entry.employee_id === employeeId);
+    return calculateTotalHours(employeeEntries);
+  };
+
   const isEmployeePunchedIn = (employeeId: string) => {
     const today = format(new Date(), 'yyyy-MM-dd');
     return timeEntries.some(entry => 
@@ -277,12 +291,13 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
           <div className="flex items-center space-x-4">
             <select
               value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as 'today' | 'week' | 'month')}
+              onChange={(e) => setDateRange(e.target.value as 'today' | 'week' | 'month' | 'custom')}
               className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="today">Today</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
+              <option value="custom">Custom Range</option>
             </select>
             
             {dateRange === 'custom' && (
@@ -368,6 +383,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                       Employee ID
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Hours
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -387,6 +405,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                           <div className="text-sm text-gray-500">{employee.employee_id}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{formatHours(calculateEmployeeHours(employee.employee_id))}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           {isPunchedIn ? (
                             <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                               Active
@@ -397,7 +418,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                           <div className="flex space-x-2">
                             <button
                               onClick={() => setSelectedAction({ type: 'in', employee })}
