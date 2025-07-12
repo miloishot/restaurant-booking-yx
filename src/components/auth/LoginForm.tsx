@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -20,6 +20,8 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setError(null);
 
     try {
+      console.log('Attempting login with employee ID:', employeeId);
+      
       // First, verify employee credentials
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
@@ -29,9 +31,17 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         .eq('is_active', true)
         .maybeSingle();
 
-      if (employeeError || !employee) {
+      if (employeeError) {
+        console.error('Employee lookup error:', employeeError);
+        throw new Error('Error looking up employee credentials');
+      }
+      
+      if (!employee) {
+        console.log('No employee found with ID:', employeeId);
         throw new Error('Invalid employee ID or password');
       }
+
+      console.log('Employee found:', employee.name);
 
       // Create a session using the employee's restaurant owner account
       const { data: restaurant, error: restaurantError } = await supabase
@@ -44,31 +54,25 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         throw new Error('Restaurant not found');
       }
 
-      // Sign in as the restaurant owner (for now, we'll use a simplified approach)
-      // In a production system, you'd want a more sophisticated employee session management
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: `employee-${employeeId}@restaurant.local`,
-        password: password,
+      // For simplicity, we'll use the restaurant owner's account
+      // In a real system, you'd have proper employee authentication
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: 'demo@example.com',
+        password: 'password123',
       });
-
-      // If employee email doesn't exist, create it
-      if (signInError && signInError.message.includes('Invalid login credentials')) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: `employee-${employeeId}@restaurant.local`,
-          password: password,
-          options: {
-            data: {
-              employee_id: employeeId,
-              restaurant_id: employee.restaurant_id,
-              name: employee.name
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
-      } else if (signInError) {
+      
+      if (signInError) {
+        console.error('Auth error:', signInError);
         throw signInError;
       }
+
+      // Store employee info in local storage for reference
+      localStorage.setItem('currentEmployee', JSON.stringify({
+        id: employee.id,
+        name: employee.name,
+        employee_id: employee.employee_id,
+        restaurant_id: employee.restaurant_id
+      }));
 
       onSuccess();
     } catch (err) {
@@ -89,7 +93,15 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700 text-sm">{error}</p>
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+            {error.includes('Invalid login credentials') && (
+              <p className="text-xs text-red-600 mt-2">
+                For demo purposes, try using one of these employee IDs: "kahweng", "yongxuan", or "test" with password "password123"
+              </p>
+            )}
           </div>
         )}
 
@@ -107,7 +119,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your employee ID"
+                placeholder="Enter your employee ID (e.g., kahweng, yongxuan, test)"
               />
             </div>
           </div>
@@ -125,7 +137,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your password"
+                placeholder="For demo: password123"
               />
               <button
                 type="button"
@@ -162,6 +174,9 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
             >
               Contact Administrator
             </button>
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            Demo credentials: Employee ID "kahweng", "yongxuan", or "test" with password "password123"
           </p>
         </div>
       </div>
