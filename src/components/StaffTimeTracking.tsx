@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, Employee, TimeEntry } from '../types/database';
-import { Clock, Users, Plus, Calendar, BarChart3, User, Lock, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Users, Plus, Calendar, BarChart3, User, Lock, CheckCircle, XCircle, LogIn, LogOut } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 
 interface StaffTimeTrackingProps {
@@ -12,15 +12,13 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddEmployee, setShowAddEmployee] = useState(false);
-  const [showPunchModal, setShowPunchModal] = useState<'in' | 'out' | null>(null);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [showAddEmployee, setShowAddEmployee] = useState(false);  
+  const [selectedAction, setSelectedAction] = useState<{type: 'in' | 'out', employee: Employee} | null>(null);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
   const [punchForm, setPunchForm] = useState({
-    employeeId: '',
     password: ''
   });
 
@@ -113,18 +111,11 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
     }, 3000);
   };
 
-  const handlePunchIn = async () => {
+  const handlePunchIn = async (employee: Employee) => {
     try {
-      const { data: employee, error: employeeError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('restaurant_id', restaurant.id)
-        .eq('employee_id', punchForm.employeeId)
-        .eq('is_active', true)
-        .single();
-
-      if (employeeError || !employee) {
-        throw new Error('Invalid employee ID');
+      // Verify password
+      if (employee.password !== punchForm.password) {
+        throw new Error('Invalid password');
       }
 
       // Check if already punched in today
@@ -133,7 +124,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .from('time_entries')
         .select('*')
         .eq('restaurant_id', restaurant.id)
-        .eq('employee_id', punchForm.employeeId)
+        .eq('employee_id', employee.employee_id)
         .eq('date', today)
         .is('punch_out_time', null)
         .maybeSingle();
@@ -146,7 +137,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .from('time_entries')
         .insert({
           restaurant_id: restaurant.id,
-          employee_id: punchForm.employeeId,
+          employee_id: employee.employee_id,
           punch_in_time: new Date().toISOString(),
           date: today
         });
@@ -154,27 +145,19 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       if (error) throw error;
 
       showNotification(`${employee.name} punched in successfully!`);
-      setShowPunchModal(null);
-      setPunchForm({ employeeId: '', password: '' });
+      setSelectedAction(null);
+      setPunchForm({ password: '' });
       fetchTimeEntries();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Punch in failed', 'error');
     }
   };
 
-  const handlePunchOut = async () => {
+  const handlePunchOut = async (employee: Employee) => {
     try {
-      const { data: employee, error: employeeError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('restaurant_id', restaurant.id)
-        .eq('employee_id', punchForm.employeeId)
-        .eq('password', punchForm.password)
-        .eq('is_active', true)
-        .single();
-
-      if (employeeError || !employee) {
-        throw new Error('Invalid employee ID or password');
+      // Verify password
+      if (employee.password !== punchForm.password) {
+        throw new Error('Invalid password');
       }
 
       // Find today's punch in entry
@@ -183,7 +166,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .from('time_entries')
         .select('*')
         .eq('restaurant_id', restaurant.id)
-        .eq('employee_id', punchForm.employeeId)
+        .eq('employee_id', employee.employee_id)
         .eq('date', today)
         .is('punch_out_time', null)
         .maybeSingle();
@@ -202,8 +185,8 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       if (error) throw error;
 
       showNotification(`${employee.name} punched out successfully!`);
-      setShowPunchModal(null);
-      setPunchForm({ employeeId: '', password: '' });
+      setSelectedAction(null);
+      setPunchForm({ password: '' });
       fetchTimeEntries();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Punch out failed', 'error');
@@ -238,6 +221,15 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const calculateTotalHours = (entries: TimeEntry[]) => {
     return entries.reduce((total, entry) => total + (entry.total_hours || 0), 0);
+  };
+
+  const isEmployeePunchedIn = (employeeId: string) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return timeEntries.some(entry => 
+      entry.employee_id === employeeId && 
+      entry.date === today && 
+      entry.punch_out_time === null
+    );
   };
 
   const formatHours = (hours: number) => {
@@ -476,76 +468,73 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         )}
       </div>
 
-      {/* Punch In/Out Modal */}
-      {showPunchModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                Punch {showPunchModal === 'in' ? 'In' : 'Out'}
-              </h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Employee ID
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={punchForm.employeeId}
-                      onChange={(e) => setPunchForm({ ...punchForm, employeeId: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter employee ID"
-                    />
-                  </div>
+    {/* Punch In/Out Modal */}
+    {selectedAction && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              Punch {selectedAction.type === 'in' ? 'In' : 'Out'}: {selectedAction.employee.name}
+            </h3>
+            
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center text-blue-800 mb-2">
+                <User className="w-4 h-4 mr-2" />
+                <span className="font-medium">Employee Details</span>
+              </div>
+              <p className="text-sm text-blue-700">
+                <strong>Name:</strong> {selectedAction.employee.name}<br />
+                <strong>ID:</strong> {selectedAction.employee.employee_id}
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="password"
+                    value={punchForm.password}
+                    onChange={(e) => setPunchForm({ password: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter password"
+                    autoFocus
+                  />
                 </div>
-
-                {showPunchModal === 'out' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type="password"
-                        value={punchForm.password}
-                        onChange={(e) => setPunchForm({ ...punchForm, password: e.target.value })}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter password"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
+            </div>
 
-              <div className="flex space-x-4 mt-6">
-                <button
-                  onClick={() => {
-                    setShowPunchModal(null);
-                    setPunchForm({ employeeId: '', password: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={showPunchModal === 'in' ? handlePunchIn : handlePunchOut}
-                  className={`flex-1 px-4 py-2 rounded text-white ${
-                    showPunchModal === 'in' 
-                      ? 'bg-blue-600 hover:bg-blue-700' 
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                >
-                  Punch {showPunchModal === 'in' ? 'In' : 'Out'}
-                </button>
-              </div>
+            <div className="flex space-x-4 mt-6">
+              <button
+                onClick={() => {
+                  setSelectedAction(null);
+                  setPunchForm({ password: '' });
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => selectedAction.type === 'in' 
+                  ? handlePunchIn(selectedAction.employee) 
+                  : handlePunchOut(selectedAction.employee)
+                }
+                className={`flex-1 px-4 py-2 rounded text-white ${
+                  selectedAction.type === 'in' 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                Punch {selectedAction.type === 'in' ? 'In' : 'Out'}
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* Add Employee Modal */}
       {showAddEmployee && (
@@ -585,50 +574,93 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Password
                   </label>
-                  <input
-                    type="password"
-                    value={employeeForm.password}
-                    onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter employee password"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Admin Password
-                  </label>
-                  <input
-                    type="password"
-                    value={employeeForm.adminPassword}
-                    onChange={(e) => setEmployeeForm({ ...employeeForm, adminPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter admin password (TGS123)"
-                  />
-                </div>
-              </div>
-
-              <div className="flex space-x-4 mt-6">
-                <button
-                  onClick={() => {
-                    setShowAddEmployee(false);
-                    setEmployeeForm({ name: '', employeeId: '', password: '', adminPassword: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddEmployee}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Add Employee
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Employee
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {employees.map((employee) => {
+              const isPunchedIn = isEmployeePunchedIn(employee.employee_id);
+              const activeEntry = timeEntries.find(entry => 
+                entry.employee_id === employee.employee_id && 
+                entry.date === format(new Date(), 'yyyy-MM-dd') && 
+                entry.punch_out_time === null
+              );
+              
+              return (
+                <tr key={employee.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">{employee.employee_id}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {isPunchedIn ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Active since {activeEntry ? format(new Date(activeEntry.punch_in_time), 'h:mm a') : ''}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        Inactive
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => {
+                          setSelectedAction({type: 'in', employee});
+                          setPunchForm({password: ''});
+                        }}
+                        disabled={isPunchedIn}
+                        className={`inline-flex items-center px-3 py-1 rounded text-sm ${
+                          isPunchedIn 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        <LogIn className="w-3 h-3 mr-1" />
+                        Punch In
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedAction({type: 'out', employee});
+                          setPunchForm({password: ''});
+                        }}
+                        disabled={!isPunchedIn}
+                        className={`inline-flex items-center px-3 py-1 rounded text-sm ${
+                          !isPunchedIn 
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                            : 'bg-red-600 text-white hover:bg-red-700'
+                        }`}
+                      >
+                        <LogOut className="w-3 h-3 mr-1" />
+                        Punch Out
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
