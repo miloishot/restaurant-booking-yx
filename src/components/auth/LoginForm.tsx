@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { User, Lock, Eye, EyeOff, LogIn, AlertCircle } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn, AlertCircle, Info } from 'lucide-react';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -20,14 +20,13 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setError(null);
 
     try {
-      console.log('Attempting login with employee ID:', employeeId);
+      console.log('Attempting login with employee ID:', employeeId, 'and password length:', password.length);
       
       // First, verify employee credentials
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, restaurant_id, employee_id, name, password')
         .eq('employee_id', employeeId)
-        .eq('password', password)
         .eq('is_active', true)
         .maybeSingle();
 
@@ -36,12 +35,12 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         throw new Error('Error looking up employee credentials');
       }
       
-      if (!employee) {
+      if (!employee || employee.password !== password) {
         console.log('No employee found with ID:', employeeId);
         throw new Error('Invalid employee ID or password');
       }
 
-      console.log('Employee found:', employee.name);
+      console.log('Employee found and password matched:', employee.name);
 
       // Create a session using the employee's restaurant owner account
       const { data: restaurant, error: restaurantError } = await supabase
@@ -95,13 +94,19 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex items-center">
               <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-              <p className="text-red-700 text-sm">{error}</p>
+              <p className="text-red-700 text-sm font-medium">{error}</p>
             </div>
-            {error.includes('Invalid login credentials') && (
-              <p className="text-xs text-red-600 mt-2">
-                For demo purposes, try using one of these employee IDs: "kahweng", "yongxuan", or "test" with password "password123"
-              </p>
-            )}
+            <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+              <div className="flex items-start">
+                <Info className="w-4 h-4 text-blue-600 mr-2 mt-0.5" />
+                <div className="text-xs text-blue-700">
+                  <p className="font-medium">Demo Credentials:</p>
+                  <p>Employee ID: <code className="bg-blue-100 px-1 py-0.5 rounded">kahweng</code> Password: <code className="bg-blue-100 px-1 py-0.5 rounded">Eisgrade1!</code></p>
+                  <p>Employee ID: <code className="bg-blue-100 px-1 py-0.5 rounded">yongxuan</code> Password: <code className="bg-blue-100 px-1 py-0.5 rounded">Qwerasdf1@3$</code></p>
+                  <p>Employee ID: <code className="bg-blue-100 px-1 py-0.5 rounded">test</code> Password: <code className="bg-blue-100 px-1 py-0.5 rounded">password123</code></p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -116,10 +121,11 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
                 id="employeeId"
                 type="text"
                 required
+                autoComplete="off"
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your employee ID (e.g., kahweng, yongxuan, test)"
+                placeholder="Enter your employee ID"
               />
             </div>
           </div>
@@ -134,10 +140,11 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 required
+                autoComplete="off"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="For demo: password123"
+                placeholder="Enter your password"
               />
               <button
                 type="button"
@@ -168,14 +175,14 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             <button
-              onClick={onSwitchToSignup}
+              onClick={() => {
+                setEmployeeId('kahweng');
+                setPassword('Eisgrade1!');
+              }}
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
-              Contact Administrator
+              Use Demo Credentials
             </button>
-          </p>
-          <p className="text-xs text-gray-500 mt-2">
-            Demo credentials: Employee ID "kahweng", "yongxuan", or "test" with password "password123"
           </p>
         </div>
       </div>
