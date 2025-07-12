@@ -173,6 +173,17 @@ export function useRestaurantData(restaurantSlug?: string) {
     try {
       // If marking table as available, also complete any active walk-in bookings
       if (status === 'available') {
+        // Deactivate any QR sessions for this table
+        const { error: sessionError } = await supabase
+          .from('order_sessions')
+          .update({ is_active: false })
+          .eq('table_id', tableId)
+          .eq('is_active', true);
+
+        if (sessionError) {
+          console.warn('Could not deactivate QR session:', sessionError);
+        }
+
         const { error: completeBookingError } = await supabase
           .from('bookings')
           .update({ 

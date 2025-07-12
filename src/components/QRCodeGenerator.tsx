@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, RestaurantTable, OrderSession } from '../types/database';
-import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer } from 'lucide-react';
+import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer, Receipt } from 'lucide-react';
 
 interface QRCodeGeneratorProps {
   restaurant: Restaurant;
@@ -30,6 +30,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const [printerConfigs, setPrinterConfigs] = useState<PrinterConfig[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string | null>(null);
   const [printing, setPrinting] = useState<string | null>(null);
+  const [printingReceipt, setPrintingReceipt] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -344,6 +345,220 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     }
   };
 
+  const printReceipt = async (table: TableWithOrders) => {
+    if (!table.activeOrders || table.activeOrders.length === 0) {
+      alert('No orders found for this table');
+      return;
+    }
+
+    try {
+      setPrintingReceipt(table.id);
+      setPrintError(prev => ({ ...prev, [table.id]: '' }));
+
+      const printer = printerConfigs.find(p => p.id === selectedPrinter);
+      if (!printer) throw new Error('Selected printer not found');
+
+      // Calculate totals
+      const subtotal = table.activeOrders.reduce((sum, order) => sum + order.subtotal_sgd, 0);
+      const discount = table.activeOrders.reduce((sum, order) => sum + order.discount_sgd, 0);
+      const netSubtotal = subtotal - discount;
+      const gst = netSubtotal * 0.09; // 9% GST
+      const total = netSubtotal + gst;
+
+      // Generate receipt HTML
+      const receiptHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Receipt - Table ${table.table_number}</title>
+          <style>
+            body { 
+              font-family: monospace; 
+              margin: 0;
+              padding: 10px;
+              width: 100%;
+              font-size: 12px;
+            }
+            .receipt {
+              width: 100%;
+              max-width: 300px;
+              margin: 0 auto;
+            }
+            .header {
+              text-align: center;
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 10px;
+              border-bottom: 1px dashed #000;
+              padding-bottom: 10px;
+            }
+            .table-info {
+              text-align: center;
+              font-size: 14px;
+              font-weight: bold;
+              margin: 10px 0;
+            }
+            .datetime {
+              text-align: center;
+              font-size: 10px;
+              margin-bottom: 15px;
+            }
+            .items {
+              margin: 15px 0;
+            }
+            .item {
+              display: flex;
+              justify-content: space-between;
+              margin: 5px 0;
+              font-size: 11px;
+            }
+            .item-name {
+              flex: 1;
+              padding-right: 10px;
+            }
+            .item-price {
+              text-align: right;
+              min-width: 60px;
+            }
+            .divider {
+              border-top: 1px dashed #000;
+              margin: 10px 0;
+            }
+            .totals {
+              margin: 10px 0;
+            }
+            .total-line {
+              display: flex;
+              justify-content: space-between;
+              margin: 3px 0;
+              font-size: 11px;
+            }
+            .total-line.final {
+              font-weight: bold;
+              font-size: 12px;
+              border-top: 1px solid #000;
+              padding-top: 5px;
+              margin-top: 8px;
+            }
+            .footer {
+              text-align: center;
+              font-size: 10px;
+              margin-top: 15px;
+              border-top: 1px dashed #000;
+              padding-top: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="header">
+              ${restaurant.name}
+            </div>
+            
+            <div class="table-info">
+              TABLE ${table.table_number}
+            </div>
+            
+            <div class="datetime">
+              ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+            </div>
+            
+            <div class="items">
+              ${table.activeOrders.map(order => 
+                order.items?.map(item => `
+                  <div class="item">
+                    <div class="item-name">${item.quantity}x ${item.menu_item?.name}</div>
+                    <div class="item-price">$${item.total_price_sgd.toFixed(2)}</div>
+                  </div>
+                `).join('') || ''
+              ).join('')}
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="totals">
+              <div class="total-line">
+                <span>Subtotal:</span>
+                <span>$${subtotal.toFixed(2)}</span>
+              </div>
+              ${discount > 0 ? `
+                <div class="total-line">
+                  <span>Discount:</span>
+                  <span>-$${discount.toFixed(2)}</span>
+                </div>
+                <div class="total-line">
+                  <span>Net Subtotal:</span>
+                  <span>$${netSubtotal.toFixed(2)}</span>
+                </div>
+              ` : ''}
+              <div class="total-line">
+                <span>GST (9%):</span>
+                <span>$${gst.toFixed(2)}</span>
+              </div>
+              <div class="total-line final">
+                <span>TOTAL:</span>
+                <span>$${total.toFixed(2)}</span>
+              </div>
+            </div>
+            
+            <div class="footer">
+              Thank you for dining with us!<br>
+              Please pay at the counter
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const base64Content = btoa(receiptHtml);
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          deviceId: printer.device_id,
+          printerId: printer.printer_id,
+          content: base64Content,
+          options: {
+            mimeType: 'text/html',
+            copies: 1
+          },
+          jobName: `Receipt - Table ${table.table_number}`
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to print receipt');
+      }
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `Receipt printed for Table ${table.table_number}!`;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error printing receipt:', error);
+      setPrintError(prev => ({ 
+        ...prev, 
+        [table.id]: error instanceof Error ? error.message : 'Failed to print receipt' 
+      }));
+    } finally {
+      setPrintingReceipt(null);
+    }
+  };
+
   const openOrderingPage = (url: string) => {
     window.open(url, '_blank');
   };
@@ -486,6 +701,17 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                       {printing === table.id ? 'Printing...' : 'Print'}
                     </button>
                   )}
+                
+                {table.activeOrders && table.activeOrders.length > 0 && (
+                  <button
+                    onClick={() => printReceipt(table)}
+                    disabled={printingReceipt === table.id}
+                    className="flex items-center justify-center px-3 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition-colors disabled:opacity-50"
+                  >
+                    <Receipt className="w-4 h-4 mr-1" />
+                    {printingReceipt === table.id ? 'Printing...' : 'Print Receipt'}
+                  </button>
+                )}
                 </div>
 
                 <button
