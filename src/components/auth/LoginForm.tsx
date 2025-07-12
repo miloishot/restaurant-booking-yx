@@ -140,12 +140,12 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
                 placeholder="For demo: password123"
               />
               <button
-              <button
-                onClick={onSwitchToSignup}
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                Contact Administrator
-              Demo credentials: Employee ID "kahweng" (password: Eisgrade1!), "yongxuan" (password: Qwerasdf1@3$), or "test" (password: password123)
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
