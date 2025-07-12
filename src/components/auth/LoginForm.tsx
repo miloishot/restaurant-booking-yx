@@ -57,8 +57,8 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
       // For simplicity, we'll use the restaurant owner's account
       // In a real system, you'd have proper employee authentication
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: 'demo@example.com',
-        password: 'password123',
+        email: 'demo@example.com', // This is just for demo purposes
+        password: 'password123',    // In production, use proper employee authentication
       });
       
       if (signInError) {
@@ -140,12 +140,12 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
                 placeholder="For demo: password123"
               />
               <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              <button
+                onClick={onSwitchToSignup}
+                className="text-blue-600 hover:text-blue-700 font-medium"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
+                Contact Administrator
+              Demo credentials: Employee ID "kahweng" (password: Eisgrade1!), "yongxuan" (password: Qwerasdf1@3$), or "test" (password: password123)
             </div>
           </div>
 
