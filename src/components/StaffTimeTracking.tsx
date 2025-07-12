@@ -136,7 +136,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .eq('employee_id', punchForm.employeeId)
         .eq('date', today)
         .is('punch_out_time', null)
-        .single();
+        .maybeSingle();
 
       if (existingEntry) {
         throw new Error('Employee is already punched in');
@@ -186,7 +186,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .eq('employee_id', punchForm.employeeId)
         .eq('date', today)
         .is('punch_out_time', null)
-        .single();
+        .maybeSingle();
 
       if (entryError || !entry) {
         throw new Error('No active punch in found for today');
