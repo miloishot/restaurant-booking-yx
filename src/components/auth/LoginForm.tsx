@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { User, Lock, Eye, EyeOff, LogIn, AlertCircle, Info } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn, AlertCircle, Info, Loader2 } from 'lucide-react';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -20,27 +20,40 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setError(null);
 
     try {
-      console.log('Attempting login with employee ID:', employeeId, 'and password length:', password.length);
-      
-      // First, verify employee credentials
+      // First, get the employee record without checking password
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
         .select('id, restaurant_id, employee_id, name, password')
         .eq('employee_id', employeeId)
         .eq('is_active', true)
         .maybeSingle();
-
+      
       if (employeeError) {
         console.error('Employee lookup error:', employeeError);
         throw new Error('Error looking up employee credentials');
       }
-      
-      if (!employee || employee.password !== password) {
-        console.log('No employee found with ID:', employeeId);
+
+      if (!employee) {
         throw new Error('Invalid employee ID or password');
       }
 
-      console.log('Employee found and password matched:', employee.name);
+      // Verify password using the database function
+      const { data: isValidPassword, error: verifyError } = await supabase
+        .rpc('verify_password', {
+          password: password,
+          hashed_password: employee.password
+        });
+
+      if (verifyError) {
+        console.error('Password verification error:', verifyError);
+        throw new Error('Error verifying password');
+      }
+
+      if (!isValidPassword) {
+        throw new Error('Invalid employee ID or password');
+      }
+
+      console.log('Employee found and password verified:', employee.name);
 
       // Create a session using the employee's restaurant owner account
       const { data: restaurant, error: restaurantError } = await supabase
@@ -162,7 +175,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
             className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
                 <LogIn className="w-5 h-5 mr-2" />
@@ -176,8 +189,8 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
           <p className="text-gray-600">
             <button
               onClick={() => {
-                setEmployeeId('kahweng');
-                setPassword('Eisgrade1!');
+                setEmployeeId('test');
+                setPassword('password123');
               }}
               className="text-blue-600 hover:text-blue-700 font-medium"
             >

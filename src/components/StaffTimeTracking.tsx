@@ -125,7 +125,18 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const handlePunchIn = async (employee: Employee) => {
     try {
       // Verify password
-      if (employee.password !== punchForm.password) {
+      const { data: isValid, error: verifyError } = await supabase
+        .rpc('verify_password', {
+          password: punchForm.password,
+          hashed_password: employee.password
+        });
+
+      if (verifyError) {
+        console.error('Password verification error:', verifyError);
+        throw new Error('Error verifying password');
+      }
+
+      if (!isValid) {
         throw new Error('Invalid password');
       }
 
@@ -167,7 +178,18 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const handlePunchOut = async (employee: Employee) => {
     try {
       // Verify password
-      if (employee.password !== punchForm.password) {
+      const { data: isValid, error: verifyError } = await supabase
+        .rpc('verify_password', {
+          password: punchForm.password,
+          hashed_password: employee.password
+        });
+
+      if (verifyError) {
+        console.error('Password verification error:', verifyError);
+        throw new Error('Error verifying password');
+      }
+
+      if (!isValid) {
         throw new Error('Invalid password');
       }
 
@@ -210,6 +232,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         throw new Error('Invalid admin password');
       }
 
+      // Password will be hashed by the database trigger
       const { error } = await supabase
         .from('employees')
         .insert({
