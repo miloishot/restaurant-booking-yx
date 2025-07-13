@@ -20,16 +20,19 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setError(null);
 
     try {
-      // First, get the employee record without checking password
+      // First, get the employee record
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
-        .select('id, restaurant_id, employee_id, name, password')
+        .select('id, restaurant_id, employee_id, name, password, is_active')
         .eq('employee_id', employeeId)
         .eq('is_active', true)
-        .maybeSingle();
+        .single();
       
       if (employeeError) {
         console.error('Employee lookup error:', employeeError);
+        if (employeeError.code === 'PGRST116') {
+          throw new Error('Invalid employee ID or password');
+        }
         throw new Error('Error looking up employee credentials');
       }
 
@@ -38,7 +41,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
       }
 
       // Verify password using the database function
-      const { data: isValidPassword, error: verifyError } = await supabase
+      const { data: passwordValid, error: verifyError } = await supabase
         .rpc('verify_password', {
           password: password,
           hashed_password: employee.password
@@ -46,16 +49,16 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
 
       if (verifyError) {
         console.error('Password verification error:', verifyError);
-        throw new Error('Error verifying password');
+        throw new Error('Invalid employee ID or password');
       }
 
-      if (!isValidPassword) {
+      if (!passwordValid) {
         throw new Error('Invalid employee ID or password');
       }
 
       console.log('Employee found and password verified:', employee.name);
 
-      // Create a session using the employee's restaurant owner account
+      // Get restaurant owner for authentication
       const { data: restaurant, error: restaurantError } = await supabase
         .from('restaurants')
         .select('owner_id')
@@ -66,11 +69,10 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         throw new Error('Restaurant not found');
       }
 
-      // For simplicity, we'll use the restaurant owner's account
-      // In a real system, you'd have proper employee authentication
+      // Sign in with demo account (in production, implement proper employee sessions)
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: 'demo@example.com', // This is just for demo purposes
-        password: 'password123',    // In production, use proper employee authentication
+        email: 'demo@example.com',
+        password: 'password123',
       });
       
       if (signInError) {
@@ -89,7 +91,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
       onSuccess();
     } catch (err) {
       console.error('Login error details:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during login');
+      setError(err instanceof Error ? err.message : 'Invalid employee ID or password');
     } finally {
       setLoading(false);
     }
