@@ -112,7 +112,7 @@ export interface Employee {
   restaurant_id: string;
   employee_id: string;
   name: string;
-  password: string;
+  user_id: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;

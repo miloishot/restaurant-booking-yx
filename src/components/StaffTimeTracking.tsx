@@ -124,20 +124,11 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const handlePunchIn = async (employee: Employee) => {
     try {
-      // Verify password
-      const { data: isValid, error: verifyError } = await supabase
-        .rpc('verify_password', {
-          password: punchForm.password,
-          hashed_password: employee.password
-        });
-
-      if (verifyError) {
-        console.error('Password verification error:', verifyError);
-        throw new Error('Error verifying password');
-      }
-
-      if (!isValid) {
-        throw new Error('Invalid password');
+      // Get the current authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user || user.id !== employee.user_id) {
+        throw new Error('You are not authorized to punch in for this employee');
       }
 
       // Check if already punched in today
@@ -177,20 +168,11 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const handlePunchOut = async (employee: Employee) => {
     try {
-      // Verify password
-      const { data: isValid, error: verifyError } = await supabase
-        .rpc('verify_password', {
-          password: punchForm.password,
-          hashed_password: employee.password
-        });
-
-      if (verifyError) {
-        console.error('Password verification error:', verifyError);
-        throw new Error('Error verifying password');
-      }
-
-      if (!isValid) {
-        throw new Error('Invalid password');
+      // Get the current authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user || user.id !== employee.user_id) {
+        throw new Error('You are not authorized to punch out for this employee');
       }
 
       // Find today's punch in entry
@@ -232,14 +214,27 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         throw new Error('Invalid admin password');
       }
 
-      // Password will be hashed by the database trigger
+      // First, create a user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: `${employeeForm.employeeId}@example.com`,
+        password: employeeForm.password,
+        email_confirm: true,
+        user_metadata: {
+          employee_id: employeeForm.employeeId,
+          name: employeeForm.name
+        }
+      });
+      
+      if (authError) throw authError;
+      
+      // Then create the employee record linked to the auth user
       const { error } = await supabase
         .from('employees')
         .insert({
           restaurant_id: restaurant.id,
           employee_id: employeeForm.employeeId,
           name: employeeForm.name,
-          password: employeeForm.password
+          user_id: authData.user.id
         });
 
       if (error) throw error;
@@ -756,6 +751,22 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter unique employee ID"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={`${employeeForm.employeeId}@example.com`}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Email will be generated automatically"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Email will be automatically generated based on employee ID
+                  </p>
                 </div>
 
                 <div>

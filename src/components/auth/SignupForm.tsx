@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Mail, Lock, Eye, EyeOff, User, UserPlus } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, UserPlus, Building } from 'lucide-react';
 
 interface SignupFormProps {
   onSuccess: () => void;
@@ -10,6 +10,8 @@ interface SignupFormProps {
 export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [restaurantName, setRestaurantName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -33,19 +35,42 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
       return;
     }
 
-    // Debug logging for production
-    console.log('Attempting signup with Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.substring(0, 30) + '...');
-
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: undefined, // Disable email confirmation
+          data: {
+            name,
+            restaurant_name: restaurantName
+          }
         },
       });
 
       if (error) throw error;
+
+      // Create restaurant for the new user
+      if (data.user) {
+        const slug = restaurantName
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+          
+        const { error: restaurantError } = await supabase
+          .from('restaurants')
+          .insert({
+            name: restaurantName,
+            slug,
+            owner_id: data.user.id,
+            time_slot_duration_minutes: 15
+          });
+          
+        if (restaurantError) {
+          console.error('Error creating restaurant:', restaurantError);
+        }
+      }
 
       onSuccess();
     } catch (err) {
@@ -81,6 +106,42 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              Your Name
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                id="name"
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter your full name"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="restaurantName" className="block text-sm font-medium text-gray-700 mb-2">
+              Restaurant Name
+            </label>
+            <div className="relative">
+              <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                id="restaurantName"
+                type="text"
+                required
+                value={restaurantName}
+                onChange={(e) => setRestaurantName(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter your restaurant name"
+              />
+            </div>
+          </div>
+          
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
