@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useRestaurantData } from '../hooks/useRestaurantData';
+import { useAuth } from '../hooks/useAuth';
 import { TableGridWithOrders } from './TableGridWithOrders';
 import { WalkInLogger } from './WalkInLogger';
 import { BookingList } from './BookingList';
@@ -15,8 +16,10 @@ import { RestaurantSetup } from './RestaurantSetup';
 import { StaffTimeTracking } from './StaffTimeTracking';
 import { RestaurantTable } from '../types/database';
 import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown } from 'lucide-react';
+import { StaffManagement } from './StaffManagement';
 
 export function RestaurantDashboard() {
+  const { employeeProfile } = useAuth();
   const { 
     restaurant, 
     tables, 
@@ -36,7 +39,7 @@ export function RestaurantDashboard() {
   
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null);
   const [showWalkInLogger, setShowWalkInLogger] = useState(false);
-  const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics' | 'orders' | 'menu' | 'loyalty' | 'setup' | 'staff'>('bookings');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics' | 'orders' | 'menu' | 'loyalty' | 'setup' | 'staff' | 'staffManagement'>('bookings');
   const [refreshing, setRefreshing] = useState(false);
   const [newOrderCount, setNewOrderCount] = useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ table: RestaurantTable; action: 'occupied' | 'available' } | null>(null);
@@ -269,7 +272,7 @@ export function RestaurantDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" key={restaurant.id}>
           <div className="flex justify-between items-center h-16">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">{restaurant.name}</h1>
@@ -442,6 +445,19 @@ export function RestaurantDashboard() {
               <Clock className="w-4 h-4 inline mr-1" />
               Staff Time
             </button>
+            {(employeeProfile?.role === 'owner' || employeeProfile?.role === 'manager') && (
+              <button
+                onClick={() => setActiveTab('staffManagement')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'staffManagement'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Users className="w-4 h-4 inline mr-1" />
+                Staff Management
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('analytics')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -518,6 +534,10 @@ export function RestaurantDashboard() {
         
         {activeTab === 'staff' && (
           <StaffTimeTracking restaurant={restaurant} />
+        )}
+
+        {activeTab === 'staffManagement' && (
+          <StaffManagement restaurant={restaurant} />
         )}
         
         {activeTab === 'analytics' && (

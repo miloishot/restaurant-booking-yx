@@ -33,10 +33,12 @@ export function useRestaurantData(restaurantSlug?: string) {
       
       // Fetch restaurant
       let restaurantQuery = supabase.from('restaurants').select('*');
+      let isRestaurantQueryFiltered = false;
       
       if (slug) {
         // Public booking page - fetch by slug
         restaurantQuery = restaurantQuery.eq('slug', slug);
+        isRestaurantQueryFiltered = true;
       } else {
         // Staff dashboard - fetch user's restaurant based on their employee record or if they are an owner
         if (user) {
@@ -49,11 +51,13 @@ export function useRestaurantData(restaurantSlug?: string) {
             
           if (!employeeError && employee?.restaurant_id) {
             console.log('Found restaurant from employee record:', employee.restaurant_id);
-            restaurantQuery = restaurantQuery.eq('id', employee.restaurant_id);
+            restaurantQuery = restaurantQuery.eq('id', employee.restaurant_id); 
+            isRestaurantQueryFiltered = true;
           } else {
             console.log('No employee record found, checking if user is restaurant owner');
             // If no employee record or no restaurant_id, check if they are an owner directly
-            restaurantQuery = restaurantQuery.eq('owner_id', user.id);
+            restaurantQuery = restaurantQuery.eq('owner_id', user.id); 
+            isRestaurantQueryFiltered = true;
           }
         }
       }
@@ -63,8 +67,9 @@ export function useRestaurantData(restaurantSlug?: string) {
       
       if (!user && !slug) {
         // For demo purposes, fetch first restaurant if no user and no slug
-        restaurantQuery = restaurantQuery.limit(1);
-      } else if (user && !slug && !isRestaurantQueryFiltered) {
+        restaurantQuery = restaurantQuery.limit(1); 
+        isRestaurantQueryFiltered = true;
+      } else if (user && !slug && !isRestaurantQueryFiltered) { 
         // If user is logged in but no specific restaurant was found,
         // and no slug was provided, it means the user is not linked to a restaurant yet.
         // In this case, we might want to show an empty state or redirect to setup.
@@ -73,10 +78,11 @@ export function useRestaurantData(restaurantSlug?: string) {
         // For robustness, if no restaurant is found, the component should handle it.
         // The current logic for `restaurantQuery` should already handle this by setting `eq('id', employeeData.restaurant_id)` or `eq('owner_id', user.id)`.
         // If neither matches, `restaurantData` will be null, and the component will show "Restaurant Not Found".
-        restaurantQuery = restaurantQuery.limit(1);
+        restaurantQuery = restaurantQuery.limit(1); 
+        isRestaurantQueryFiltered = true;
       }
 
-      const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
+      const { data: restaurantData, error: restaurantError } = await restaurantQuery.maybeSingle();
 
       if (restaurantError) {
         if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
