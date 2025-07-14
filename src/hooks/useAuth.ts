@@ -77,7 +77,7 @@ export function useAuth() {
             .from('restaurants')
             .select('id')
             .eq('owner_id', id)
-            .single();
+            .maybeSingle();
             
           if (restaurant) {
             // If user is a restaurant owner, create an employee profile
