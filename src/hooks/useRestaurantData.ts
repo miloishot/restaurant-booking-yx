@@ -67,12 +67,11 @@ export function useRestaurantData(restaurantSlug?: string) {
         // The current logic for `restaurantQuery` should already handle this by setting `eq('id', employeeData.restaurant_id)` or `eq('owner_id', user.id)`.
         // If neither matches, `restaurantData` will be null, and the component will show "Restaurant Not Found".
         restaurantQuery = restaurantQuery.limit(1);
-          .from('employees')
-          .select('id, restaurant_id, role')
-          .eq('id', user.id)
+      }
+
       const { data: restaurantData, error: restaurantError } = await restaurantQuery.maybeSingle();
 
-        if (!employeeError && employee && employee.restaurant_id) {
+      if (restaurantError) {
         if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
           setError('Restaurant not found or you do not have access. Please check your account settings.');
         } else {
