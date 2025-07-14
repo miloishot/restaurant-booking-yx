@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
 import { Restaurant } from '../types/database';
 import { 
   Gift, 
@@ -54,6 +55,7 @@ interface LoyaltyStats {
 }
 
 export function LoyaltyManagement({ restaurant }: LoyaltyManagementProps) {
+  const { employeeProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'codes' | 'members'>('overview');
   const [loyaltySettings, setLoyaltySettings] = useState<LoyaltySettings>({
     discount_threshold: 100,
@@ -150,6 +152,9 @@ export function LoyaltyManagement({ restaurant }: LoyaltyManagementProps) {
       setSaving(false);
     }
   };
+
+  // Check if user has permission to manage loyalty settings
+  const canManageSettings = employeeProfile?.role === 'owner' || employeeProfile?.role === 'manager';
 
   const formatPrice = (price: number) => `S$${price.toFixed(2)}`;
 
@@ -319,169 +324,197 @@ export function LoyaltyManagement({ restaurant }: LoyaltyManagementProps) {
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-6">Loyalty Program Configuration</h3>
-            
-            <div className="space-y-6">
-              {/* Basic Settings */}
-              <div>
-                <h4 className="text-md font-medium text-gray-800 mb-4">Basic Discount Settings</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Discount Threshold (SGD)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={loyaltySettings.discount_threshold}
-                      onChange={(e) => setLoyaltySettings({
-                        ...loyaltySettings,
-                        discount_threshold: parseFloat(e.target.value) || 0
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="100.00"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Minimum total spending required for discount eligibility
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Discount Percentage (%)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={loyaltySettings.discount_percentage}
-                      onChange={(e) => setLoyaltySettings({
-                        ...loyaltySettings,
-                        discount_percentage: parseInt(e.target.value) || 0
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="10"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Percentage discount for eligible customers
-                    </p>
-                  </div>
+            {!canManageSettings ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Settings className="w-8 h-8 text-red-600" />
                 </div>
-              </div>
-
-              {/* Points System */}
-              <div>
-                <h4 className="text-md font-medium text-gray-800 mb-4">Points System (Future Feature)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Points per Dollar
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={loyaltySettings.points_per_dollar}
-                      onChange={(e) => setLoyaltySettings({
-                        ...loyaltySettings,
-                        points_per_dollar: parseInt(e.target.value) || 0
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="1"
-                      disabled
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Welcome Bonus Points
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={loyaltySettings.welcome_bonus}
-                      onChange={(e) => setLoyaltySettings({
-                        ...loyaltySettings,
-                        welcome_bonus: parseInt(e.target.value) || 0
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="0"
-                      disabled
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Birthday Bonus Points
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={loyaltySettings.birthday_bonus}
-                      onChange={(e) => setLoyaltySettings({
-                        ...loyaltySettings,
-                        birthday_bonus: parseInt(e.target.value) || 0
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="0"
-                      disabled
-                    />
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  Points system is coming soon. Currently, only spending-based discounts are active.
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+                <p className="text-gray-600">
+                  Only restaurant owners and managers can configure loyalty program settings.
                 </p>
               </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold text-gray-800 mb-6">Loyalty Program Configuration</h3>
+                
+                <div className="space-y-6">
+                  {/* Basic Settings */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-800 mb-4">Basic Discount Settings</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Discount Threshold (SGD)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={loyaltySettings.discount_threshold}
+                          onChange={(e) => setLoyaltySettings({
+                            ...loyaltySettings,
+                            discount_threshold: parseFloat(e.target.value) || 0
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="100.00"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Minimum total spending required for discount eligibility
+                        </p>
+                      </div>
 
-              <div className="pt-4 border-t">
-                <button
-                  onClick={handleSaveSettings}
-                  disabled={saving}
-                  className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {saving ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  {saving ? 'Saving...' : 'Save Settings'}
-                </button>
-              </div>
-            </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Discount Percentage (%)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={loyaltySettings.discount_percentage}
+                          onChange={(e) => setLoyaltySettings({
+                            ...loyaltySettings,
+                            discount_percentage: parseInt(e.target.value) || 0
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="10"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Percentage discount for eligible customers
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Points System */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-800 mb-4">Points System (Future Feature)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Points per Dollar
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={loyaltySettings.points_per_dollar}
+                          onChange={(e) => setLoyaltySettings({
+                            ...loyaltySettings,
+                            points_per_dollar: parseInt(e.target.value) || 0
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="1"
+                          disabled
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Welcome Bonus Points
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={loyaltySettings.welcome_bonus}
+                          onChange={(e) => setLoyaltySettings({
+                            ...loyaltySettings,
+                            welcome_bonus: parseInt(e.target.value) || 0
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="0"
+                          disabled
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Birthday Bonus Points
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={loyaltySettings.birthday_bonus}
+                          onChange={(e) => setLoyaltySettings({
+                            ...loyaltySettings,
+                            birthday_bonus: parseInt(e.target.value) || 0
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="0"
+                          disabled
+                        />
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Points system is coming soon. Currently, only spending-based discounts are active.
+                    </p>
+                  </div>
+              
+                  <div className="pt-4 border-t">
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={saving}
+                      className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      {saving ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      {saving ? 'Saving...' : 'Save Settings'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {/* Discount Codes Tab */}
         {activeTab === 'codes' && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-800">Discount Codes</h3>
-              <button
-                onClick={() => setShowCodeForm(true)}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Code
-              </button>
-            </div>
-
-            <div className="text-center py-8">
-              <Tag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h4 className="text-lg font-semibold text-gray-800 mb-2">Discount Codes Coming Soon</h4>
-              <p className="text-gray-600 mb-4">
-                Create and manage promotional discount codes for your customers.
-              </p>
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 max-w-md mx-auto">
-                <h5 className="font-semibold text-blue-800 mb-2">Planned Features:</h5>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• Percentage and fixed amount discounts</li>
-                  <li>• Minimum order requirements</li>
-                  <li>• Usage limits and expiry dates</li>
-                  <li>• Customer-specific codes</li>
-                  <li>• Bulk code generation</li>
-                </ul>
+            {!canManageSettings ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Tag className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+                <p className="text-gray-600">
+                  Only restaurant owners and managers can manage discount codes.
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800">Discount Codes</h3>
+                  <button
+                    onClick={() => setShowCodeForm(true)}
+                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Code
+                  </button>
+                </div>
+
+                <div className="text-center py-8">
+                  <Tag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">Discount Codes Coming Soon</h4>
+                  <p className="text-gray-600 mb-4">
+                    Create and manage promotional discount codes for your customers.
+                  </p>
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 max-w-md mx-auto">
+                    <h5 className="font-semibold text-blue-800 mb-2">Planned Features:</h5>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li>• Percentage and fixed amount discounts</li>
+                      <li>• Minimum order requirements</li>
+                      <li>• Usage limits and expiry dates</li>
+                      <li>• Customer-specific codes</li>
+                      <li>• Bulk code generation</li>
+                    </ul>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
