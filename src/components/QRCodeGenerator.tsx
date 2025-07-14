@@ -378,10 +378,6 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       return;
     }
     
-    if (!table.activeOrders || table.activeOrders.length === 0) {
-      alert('No orders found for this table');
-      return;
-    }
 
     try {
       setPrintingReceipt(table.id); 
