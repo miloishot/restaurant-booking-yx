@@ -19,7 +19,7 @@ import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, Bar
 import { StaffManagement } from './StaffManagement';
 
 export function RestaurantDashboard() {
-  const { employeeProfile } = useAuth();
+  const { employeeProfile, loading: authLoading } = useAuth();
   const { 
     restaurant, 
     tables, 
@@ -97,7 +97,7 @@ export function RestaurantDashboard() {
     }
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -272,7 +272,7 @@ export function RestaurantDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" key={restaurant?.id || 'loading'}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" key={restaurant?.id || 'no-restaurant'}>
           <div className="flex justify-between items-center h-16">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">{restaurant?.name || 'Loading...'}</h1>

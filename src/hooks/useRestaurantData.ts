@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, RestaurantTable, BookingWithDetails, RestaurantOperatingHours, WaitingListWithDetails } from '../types/database';
 import { useAuth } from './useAuth';
@@ -10,15 +10,10 @@ export function useRestaurantData(restaurantSlug?: string) {
   const [waitingList, setWaitingList] = useState<WaitingListWithDetails[]>([]);
   const [operatingHours, setOperatingHours] = useState<RestaurantOperatingHours[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth(); // Get the authenticated user
+  const { user, employeeProfile, restaurantId, loading: authLoading } = useAuth(); // Get the authenticated user and restaurant ID
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchRestaurantData(restaurantSlug);
-    subscribeToRealtime();
-  }, [restaurantSlug]);
-
-  const fetchRestaurantData = async (slug?: string) => {
+  const fetchRestaurantData = useCallback(async (slug?: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -35,57 +30,57 @@ export function useRestaurantData(restaurantSlug?: string) {
       let restaurantQuery = supabase.from('restaurants').select('*');
       let isRestaurantQueryFiltered = false;
       let restaurantData: Restaurant | null = null;
+
+      // If we already have a restaurantId from the auth hook, use it directly
+      if (restaurantId && !slug) {
+        console.log('Using restaurantId from auth hook:', restaurantId);
+        try {
+          const { data: directRestaurant, error: directError } = await supabase
+            .from('restaurants')
+            .select('*')
+            .eq('id', restaurantId)
+            .single();
+            
+          if (!directError && directRestaurant) {
+            restaurantData = directRestaurant;
+            console.log('Successfully fetched restaurant using restaurantId from auth hook:', restaurantData.name);
+          } else {
+            console.error('Error fetching restaurant with ID from auth hook:', directError);
+          }
+        } catch (directFetchError) {
+          console.error('Direct restaurant fetch failed using restaurantId from auth hook:', directFetchError);
+        }
+      }
       
-      if (slug) {
+      // If we don't have restaurant data yet and a slug is provided, fetch by slug
+      if (!restaurantData && slug) {
         // Public booking page - fetch by slug
         restaurantQuery = restaurantQuery.eq('slug', slug);
         isRestaurantQueryFiltered = true;
-      } else {
+      } 
+      // If we don't have restaurant data yet and no slug, but we have a user, try to find their restaurant
+      else if (!restaurantData && !slug && user && !authLoading) {
         // Staff dashboard - fetch user's restaurant based on their employee record or if they are an owner
-        if (user) {
-          // First try to get the restaurant directly from the employee record
-          const { data: employee, error: employeeError } = await supabase
-            .from('employees')
-            .select('restaurant_id, role')
-            .eq('id', user.id)
-            .maybeSingle();
-            
-          if (!employeeError && employee?.restaurant_id) {
-            console.log('Found restaurant from employee record:', employee.restaurant_id);
-            restaurantQuery = restaurantQuery.eq('id', employee.restaurant_id); 
-            
-            // Directly fetch the restaurant to avoid potential issues with query building
-            try {
-              const { data: directRestaurant, error: directError } = await supabase
-                .from('restaurants')
-                .select('*')
-                .eq('id', employee.restaurant_id)
-                .single();
-                
-              if (!directError && directRestaurant) {
-                restaurantData = directRestaurant;
-              }
-            } catch (directFetchError) {
-              console.error('Direct restaurant fetch failed:', directFetchError);
-            }
-            
-            isRestaurantQueryFiltered = true;
-          } else {
-            console.log('No employee record found, checking if user is restaurant owner');
-            // If no employee record or no restaurant_id, check if they are an owner directly
-            restaurantQuery = restaurantQuery.eq('owner_id', user.id); 
-            isRestaurantQueryFiltered = true;
-          }
+        // If we have an employee profile with a restaurant_id, use that
+        if (employeeProfile?.restaurant_id) {
+          console.log('Using restaurant_id from employee profile:', employeeProfile.restaurant_id);
+          restaurantQuery = restaurantQuery.eq('id', employeeProfile.restaurant_id);
+          isRestaurantQueryFiltered = true;
+        } else {
+          console.log('No employee profile with restaurant_id, checking if user is restaurant owner');
+          // If no employee record or no restaurant_id, check if they are an owner directly
+          restaurantQuery = restaurantQuery.eq('owner_id', user.id); 
+          isRestaurantQueryFiltered = true;
         }
       }
       // If no user and no slug, or if the user is not associated with a restaurant,
       // Only proceed with the query if we don't already have restaurant data
       if (!restaurantData) {
-        if (!user && !slug) {
+        if (!user && !slug && !authLoading) {
           // For demo purposes, fetch first restaurant if no user and no slug
           restaurantQuery = restaurantQuery.limit(1); 
           isRestaurantQueryFiltered = true;
-        } else if (user && !slug && !isRestaurantQueryFiltered) { 
+        } else if (user && !slug && !isRestaurantQueryFiltered && !authLoading) { 
           // If user is logged in but no specific restaurant was found,
           // and no slug was provided, it means the user is not linked to a restaurant yet.
           restaurantQuery = restaurantQuery.limit(1); 
@@ -203,9 +198,15 @@ export function useRestaurantData(restaurantSlug?: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, employeeProfile, restaurantId, authLoading]);
 
-  const subscribeToRealtime = () => {
+  useEffect(() => {
+    if (!authLoading) {
+      fetchRestaurantData(restaurantSlug);
+    }
+  }, [fetchRestaurantData, restaurantSlug, authLoading]);
+
+  useEffect(() => {
     // Helper to check if only updated_at has changed
     const hasSignificantChange = (oldRecord: any, newRecord: any) => {
       if (!oldRecord || !newRecord) return true; // Always refetch if old record is missing
@@ -261,7 +262,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       supabase.removeChannel(bookingsChannel);
       supabase.removeChannel(waitingChannel);
     };
-  };
+  }, [restaurant?.id, fetchRestaurantData]);
 
   const updateTableStatus = async (tableId: string, status: RestaurantTable['status']) => {
     try {
