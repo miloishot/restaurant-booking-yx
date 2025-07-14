@@ -214,32 +214,20 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         throw new Error('Invalid admin password');
       }
 
-      // First, create a user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: `${employeeForm.employeeId}@example.com`,
-        password: employeeForm.password,
-        email_confirm: true,
-        user_metadata: {
-          employee_id: employeeForm.employeeId,
-          name: employeeForm.name
-        }
-      });
-      
-      if (authError) throw authError;
-      
-      // Then create the employee record linked to the auth user
+      // Create the employee record without user_id initially
+      // The user_id will need to be set manually when the employee first logs in
       const { error } = await supabase
         .from('employees')
         .insert({
           restaurant_id: restaurant.id,
           employee_id: employeeForm.employeeId,
           name: employeeForm.name,
-          user_id: authData.user.id
+          user_id: null // Will be set when employee first authenticates
         });
 
       if (error) throw error;
 
-      showNotification('Employee added successfully!');
+      showNotification('Employee added successfully! They will need to sign up with their email to complete setup.');
       setShowAddEmployee(false);
       setEmployeeForm({ name: '', employeeId: '', password: '', adminPassword: '' });
       fetchEmployees();

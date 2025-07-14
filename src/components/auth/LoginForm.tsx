@@ -37,7 +37,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         throw signInError;
       }
 
-      // Fetch employee data for the authenticated user
+      // First check if this user has an employee record
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
         .select('id, restaurant_id, employee_id, name, is_active')
@@ -45,10 +45,57 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         .eq('is_active', true)
         .single();
       
-      if (employeeError || !employee) {
-        // If no employee record found or not active, sign out
+      if (employeeError && employeeError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, other errors are more serious
+        console.error('Employee lookup error:', employeeError);
+        throw new Error('Database error while looking up employee record');
+      }
+      
+      if (!employee) {
+        // Check if there's an employee record without user_id that matches this user's email
+        const userEmail = data.user.email;
+        if (userEmail) {
+          // Try to find employee by email pattern (employee_id@example.com)
+          const employeeId = userEmail.split('@')[0];
+          
+          const { data: unlinkedEmployee, error: unlinkError } = await supabase
+            .from('employees')
+            .select('id, restaurant_id, employee_id, name, is_active')
+            .eq('employee_id', employeeId)
+            .eq('is_active', true)
+            .is('user_id', null)
+            .single();
+          
+          if (unlinkedEmployee) {
+            // Link this employee record to the authenticated user
+            const { error: linkError } = await supabase
+              .from('employees')
+              .update({ user_id: data.user.id })
+              .eq('id', unlinkedEmployee.id);
+            
+            if (linkError) {
+              console.error('Error linking employee to user:', linkError);
+              throw new Error('Failed to link employee account');
+            }
+            
+            // Use the newly linked employee record
+            const linkedEmployee = { ...unlinkedEmployee, user_id: data.user.id };
+            
+            localStorage.setItem('currentEmployee', JSON.stringify({
+              id: linkedEmployee.id,
+              name: linkedEmployee.name,
+              employee_id: linkedEmployee.employee_id,
+              restaurant_id: linkedEmployee.restaurant_id
+            }));
+            
+            onSuccess();
+            return;
+          }
+        }
+        
+        // No employee record found, sign out
         await supabase.auth.signOut();
-        throw new Error('Employee account not found or inactive');
+        throw new Error('Employee account not found or inactive. Please contact your manager.');
       }
       
       // Store employee info in local storage for reference

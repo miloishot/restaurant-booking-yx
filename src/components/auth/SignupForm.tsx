@@ -71,6 +71,30 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
           console.error('Error creating restaurant:', restaurantError);
         }
       }
+            name: name,
+            employee_id: existingEmployee?.employee_id
+      // Check if there's an employee record waiting for this email
+      const employeeId = email.split('@')[0];
+      const { data: existingEmployee } = await supabase
+        .from('employees')
+        .select('id, restaurant_id, employee_id, name, is_active')
+        .eq('employee_id', employeeId)
+      // If there's an existing employee record, link it to the new user
+      if (existingEmployee && data.user) {
+        const { error: linkError } = await supabase
+          .from('employees')
+          .update({ user_id: data.user.id })
+          .eq('id', existingEmployee.id);
+        
+        if (linkError) {
+          console.error('Error linking employee to user:', linkError);
+          // Don't throw error here, user can still complete signup
+        }
+      }
+
+        .eq('is_active', true)
+        .is('user_id', null)
+        .single();
 
       onSuccess();
     } catch (err) {
