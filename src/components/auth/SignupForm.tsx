@@ -65,25 +65,40 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
             slug,
             owner_id: data.user.id, 
             time_slot_duration_minutes: 15
-          });
+          })
+          .select('id')
+          .single();
           
         if (restaurantError) {
           console.error('Error creating restaurant:', restaurantError);
+          throw restaurantError;
         }
         
-        // Create employee record for the restaurant owner in the consolidated 'employees' table
-        const { error: profileError } = await supabase
-          .from('employees') // Use the consolidated employees table
+        // Get the newly created restaurant's ID
+        const { data: restaurant } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('owner_id', data.user.id)
+          .single();
+        
+        if (!restaurant) {
+          throw new Error('Failed to retrieve restaurant data');
+        }
+        
+        // Create employee record for the restaurant owner
+        const { error: employeeError } = await supabase
+          .from('employees')
           .insert({
             id: data.user.id,
-            restaurant_id: (await supabase.from('restaurants').select('id').eq('owner_id', data.user.id).single()).data?.id, // Get the newly created restaurant's ID
+            restaurant_id: restaurant.id,
             role: 'owner',
-            name: name, // Use the name provided in signup form
+            name: name,
             is_active: true,
           });
           
-        if (profileError) {
-          console.error('Error creating employee record for owner:', profileError);
+        if (employeeError) {
+          console.error('Error creating employee record for owner:', employeeError);
+          throw employeeError;
         }
       }
 

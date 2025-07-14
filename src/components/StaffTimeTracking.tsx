@@ -14,13 +14,15 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
   const [selectedAction, setSelectedAction] = useState<{type: 'in' | 'out', employee: Employee} | null>(null);
+  const [punchForm, setPunchForm] = useState({ adminPassword: '' });
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
   const [employeeForm, setEmployeeForm] = useState({
     name: '',
-    employeeId: '', 
+    employeeId: '',
+    role: 'staff' as 'owner' | 'manager' | 'staff',
     adminPassword: '' 
   });
 
@@ -121,7 +123,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       const { data } = await supabase.auth.getUser();
       const user = data?.user;
       
-      if (!user || user.id !== employee.user_id) {
+      if (!user || user.id !== employee.id) {
         throw new Error('You are not authorized to punch in for this employee');
       }
 
@@ -165,7 +167,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       const { data } = await supabase.auth.getUser();
       const user = data?.user;
       
-      if (!user || user.id !== employee.user_id) {
+      if (!user || user.id !== employee.id) {
         throw new Error('You are not authorized to punch out for this employee');
       }
 
@@ -204,10 +206,8 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const handleDeleteEmployee = async (employee: Employee) => {
     try {
       // Delete the employee record directly from the consolidated employees table
-      const { error } = await supabase
-        .from('employees')
-        .delete()
-        .eq('id', employee.id); // Use the employee's UID (which is now the PK)
+      // This now deletes the employee's auth account as well
+      const { error } = await supabase.auth.admin.deleteUser(employee.id);
 
       if (error) throw error;
 
@@ -613,11 +613,11 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <input
-                      type="text"
-                      value=""
-                      readOnly
+                      type="password"
+                      value={punchForm.adminPassword}
+                      onChange={(e) => setPunchForm(prev => ({ ...prev, adminPassword: e.target.value }))}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Authentication via Supabase Auth"
+                      placeholder="Enter admin password to confirm"
                       autoFocus
                     />
                   </div>

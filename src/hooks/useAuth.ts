@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { Employee } from '../types/database'; // Use Employee interface
+import { Employee } from '../types/database';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
-  const [employeeProfile, setEmployeeProfile] = useState<Employee | null>(null); // Renamed to employeeProfile
+  const [employeeProfile, setEmployeeProfile] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,21 +39,21 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchEmployeeProfile = async (userId: string) => {
+  const fetchEmployeeProfile = async (id: string) => {
     try {
       const { data, error } = await supabase
-        .from('employees') // Fetch from employees table
+        .from('employees')
         .select('*')
-        .eq('id', userId)
+        .eq('id', id)
         .single();
         
       if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching user profile:', error);
+        console.error('Error fetching employee profile:', error);
       }
 
       setEmployeeProfile(data);
     } catch (err) {
-      console.error('Error in fetchUserProfile:', err);
+      console.error('Error in fetchEmployeeProfile:', err);
     } finally {
       setLoading(false);
     }

@@ -110,11 +110,10 @@ export interface PrinterConfig {
 export interface Employee {
   id: string;
   restaurant_id: string;
-  employee_id?: string; // Made optional
+  employee_id?: string | null;
+  name: string;
   role: 'owner' | 'manager' | 'staff';
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface TimeEntry {
@@ -129,14 +128,6 @@ export interface TimeEntry {
   updated_at: string;
   employee?: Employee;
 }
-
-export interface TimeSlot {
-  time: string;
-  available: boolean;
-  totalCapacity: number;
-  bookedCapacity: number;
-  availableCapacity: number;
-  waitingCount: number;
 }
 
 export interface AvailableTable {

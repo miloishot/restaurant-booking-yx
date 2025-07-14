@@ -37,18 +37,18 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
       }
 
       // After successful Supabase authentication, fetch the employee record from the consolidated 'employees' table
-      const { data: employeeRecord, error: employeeError } = await supabase
+      const { data: employee, error: employeeError } = await supabase
         .from('employees')
-        .select('*') // Select all columns for the employee record
+        .select('*')
         .eq('id', data.user.id)
         .single();
 
       if (employeeError && employeeError.code !== 'PGRST116') { // PGRST116 means "not found"
-        console.error('Employee record lookup error:', employeeError);
-        throw new Error('Database error while looking up employee record');
+        console.error('Employee lookup error:', employeeError);
+        throw new Error('Database error while looking up your employee record');
       }
 
-      if (!employeeRecord) {
+      if (!employee) {
         // If no employee record exists for this user, check if they are a restaurant owner
         // Check if user is a restaurant owner
         const { data: ownedRestaurant, error: restaurantError } = await supabase
@@ -64,11 +64,11 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
 
         if (ownedRestaurant) { // If they are an owner, create an employee record for them
           // Create an employee record for the restaurant owner in the consolidated 'employees' table
-          await supabase.from('user_profiles').insert({
+          await supabase.from('employees').insert({
             id: data.user.id, // Use the Supabase user's ID as the primary key
             restaurant_id: ownedRestaurant.id,
             role: 'owner',
-            name: data.user.email || 'Owner', // Use email as name if available, or default
+            name: data.user.email?.split('@')[0] || 'Owner', // Use email as name if available, or default
             is_active: true,
           });
           
@@ -78,7 +78,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         
         // No employee record found, sign out
         await supabase.auth.signOut();
-        throw new Error('No restaurant access found. Please contact your manager or create a new restaurant.');
+        throw new Error('No restaurant access found. Please contact your manager or create a new restaurant');
       }
 
       onSuccess(); // Proceed to dashboard if employeeRecord exists or was just created

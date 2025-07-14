@@ -9,7 +9,6 @@ import { CustomerBooking } from './components/CustomerBooking';
 import { CustomerOrderingInterface } from './components/qr-ordering/CustomerOrderingInterface';
 import { LogOut, User } from 'lucide-react';
 
-// Add success route for Stripe payments
 import { OrderConfirmation } from './components/qr-ordering/OrderConfirmation';
 
 function App() {
@@ -86,7 +85,7 @@ function App() {
                     <User className="w-4 h-4 mr-1" />
                     {user.email} 
                     {employeeProfile?.role && (
-                      <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full capitalize">
                         {employeeProfile.role}
                       </span>
                     )}
