@@ -15,7 +15,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
   const [selectedAction, setSelectedAction] = useState<{type: 'in' | 'out', employee: Employee} | null>(null);
-  const [punchForm, setPunchForm] = useState({ password: '' });
+  const [punchForm, setPunchForm] = useState({});
   const [showPunchModal, setShowPunchModal] = useState<'in' | 'out' | null>(null);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -23,8 +23,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const [employeeForm, setEmployeeForm] = useState({
     name: '',
-    employeeId: '',
-    adminPassword: ''
+    employeeId: '', 
+    role: 'staff' as 'owner' | 'manager' | 'staff',
+    adminPassword: '' 
   });
 
   useEffect(() => {
@@ -216,8 +217,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .from('employees')
         .insert({
           restaurant_id: restaurant.id,
-          employee_id: employeeForm.employeeId,
+          employee_id: employeeForm.employeeId, 
           name: employeeForm.name,
+          role: employeeForm.role,
           user_id: null, // Will be set when employee first authenticates
           is_active: true
         });
@@ -225,8 +227,8 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       if (error) throw error;
 
       showNotification('Employee added successfully! They will need to sign up with their email to complete setup.');
-      setShowAddEmployee(false);
-      setEmployeeForm({ name: '', employeeId: '', adminPassword: '' });
+      setShowAddEmployee(false); 
+      setEmployeeForm({ name: '', employeeId: '', role: 'staff', adminPassword: '' });
       fetchEmployees();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Failed to add employee', 'error');
@@ -250,7 +252,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
       showNotification(`${employee.name} has been removed successfully!`);
       setShowDeleteConfirm(null);
-      setEmployeeForm({ name: '', employeeId: '', adminPassword: '' });
+      setEmployeeForm({ name: '', employeeId: '', role: 'staff', adminPassword: '' });
       fetchEmployees();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Failed to remove employee', 'error');
@@ -659,7 +661,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
+                    Authentication
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -668,7 +670,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                       value=""
                       readOnly
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Authentication via Supabase"
+                      placeholder="Authentication via Supabase Auth"
                       autoFocus
                     />
                   </div>
@@ -737,6 +739,21 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={employeeForm.role}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, role: e.target.value as 'owner' | 'manager' | 'staff' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="manager">Manager</option>
+                    <option value="owner">Owner</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email
                   </label>
                   <input
@@ -769,7 +786,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                 <button
                   onClick={() => {
                     setShowAddEmployee(false);
-                    setEmployeeForm({ name: '', employeeId: '', adminPassword: '' });
+                    setEmployeeForm({ name: '', employeeId: '', role: 'staff', adminPassword: '' });
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
                 >

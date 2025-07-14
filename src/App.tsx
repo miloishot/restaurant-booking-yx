@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
+import { useAuth } from './hooks/useAuth'; 
 import { useSubscription } from './hooks/useSubscription';
 import { useRestaurantData } from './hooks/useRestaurantData';
 import { AuthPage } from './components/auth/AuthPage';
@@ -13,7 +13,7 @@ import { LogOut, User } from 'lucide-react';
 import { OrderConfirmation } from './components/qr-ordering/OrderConfirmation';
 
 function App() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, userProfile, loading: authLoading, signOut } = useAuth();
   const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantData();
   const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
 
@@ -84,7 +84,12 @@ function App() {
                 <div className="flex items-center space-x-2 border-l border-gray-200 pl-2">
                   <div className="flex items-center text-sm text-gray-600">
                     <User className="w-4 h-4 mr-1" />
-                    {user.email}
+                    {user.email} 
+                    {userProfile?.role && (
+                      <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        {userProfile.role}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={signOut}
