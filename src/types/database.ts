@@ -128,7 +128,6 @@ export interface TimeEntry {
   updated_at: string;
   employee?: Employee;
 }
-}
 
 export interface AvailableTable {
   table_id: string;
