@@ -47,7 +47,7 @@ export function useRestaurantData(restaurantSlug?: string) {
             // If no employee record or no restaurant_id, check if they are an owner directly
             restaurantQuery = restaurantQuery.eq('owner_id', user.id);
           }
-        } else {
+        }
       }
       // If no user and no slug, or if the user is not associated with a restaurant,
       // we might still want to fetch a default restaurant for demo purposes.
