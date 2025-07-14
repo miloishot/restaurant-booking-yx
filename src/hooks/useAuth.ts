@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { Employee } from '../types/database';
+import { Employee } from '../types/database'; 
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -42,17 +42,25 @@ export function useAuth() {
   const fetchEmployeeProfile = async (id: string) => {
     try {
       console.log('Fetching employee profile for user ID:', id);
+
+      // Check if Supabase is properly initialized
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        setLoading(false);
+        return;
+      }
       
       // Check if Supabase is properly configured
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
         console.error('Supabase configuration is missing. Please check your .env file.');
+        setLoading(false);
         return;
       }
       
       try {
         const { data, error } = await supabase
           .from('employees')
-          .select('id, restaurant_id, employee_id, name, role, is_active')
+          .select('id, restaurant_id, role, name, is_active')
           .eq('id', id)
           .maybeSingle();
         

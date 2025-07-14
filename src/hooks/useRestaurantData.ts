@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, RestaurantTable, BookingWithDetails, RestaurantOperatingHours, WaitingListWithDetails } from '../types/database';
-import { useAuth } from './useAuth'; // Import useAuth
+import { useAuth } from './useAuth';
 
 export function useRestaurantData(restaurantSlug?: string) {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -21,7 +21,15 @@ export function useRestaurantData(restaurantSlug?: string) {
   const fetchRestaurantData = async (slug?: string) => {
     try {
       setLoading(true);
-      setError(null);
+      setError(null); 
+      
+      // Check if Supabase is properly configured
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.error('Supabase configuration is missing. Please check your .env file.');
+        setError('Supabase configuration is missing. Please check your .env file.');
+        setLoading(false);
+        return;
+      }
       
       // Fetch restaurant
       let restaurantQuery = supabase.from('restaurants').select('*');
@@ -35,7 +43,7 @@ export function useRestaurantData(restaurantSlug?: string) {
           // First try to get the restaurant directly from the employee record
           const { data: employee, error: employeeError } = await supabase
             .from('employees')
-            .select('id, restaurant_id, role')
+            .select('restaurant_id')
             .eq('id', user.id)
             .single();
             
@@ -50,7 +58,6 @@ export function useRestaurantData(restaurantSlug?: string) {
         }
       }
       // If no user and no slug, or if the user is not associated with a restaurant,
-      // we might still want to fetch a default restaurant for demo purposes.
       // This part needs to be carefully considered based on desired app behavior.
       let isRestaurantQueryFiltered = false;
       
@@ -58,7 +65,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         // For demo purposes, fetch first restaurant if no user and no slug
         restaurantQuery = restaurantQuery.limit(1);
       } else if (user && !slug && !isRestaurantQueryFiltered) {
-        // If user is logged in but no specific restaurant was found via employee record or owner_id,
+        // If user is logged in but no specific restaurant was found,
         // and no slug was provided, it means the user is not linked to a restaurant yet.
         // In this case, we might want to show an empty state or redirect to setup.
         // For now, let's ensure we don't proceed with an empty query.
@@ -69,7 +76,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         restaurantQuery = restaurantQuery.limit(1);
       }
 
-      const { data: restaurantData, error: restaurantError } = await restaurantQuery.maybeSingle();
+      const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
 
       if (restaurantError) {
         if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
@@ -83,7 +90,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       setRestaurant(restaurantData);
       
       if (!restaurantData) {
-        console.warn('No restaurant data found. User:', user?.id);
+        console.warn('No restaurant data found for user:', user?.id);
         setError('No restaurant found. Please create a restaurant or contact support.');
         return;
       }
@@ -92,7 +99,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       const [tablesResult, hoursResult, bookingsResult, waitingResult] = await Promise.all([
         // Fetch tables
         supabase.from('restaurant_tables')
-          .select('*')
+          .select('id, restaurant_id, table_number, capacity, status, location_notes, created_at, updated_at')
           .eq('restaurant_id', restaurantData.id)
           .order('table_number'),
 
@@ -106,7 +113,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         // Fetch today's bookings with customer and table details
         supabase
           .from('bookings')
-          .select(`
+          .select(`id, restaurant_id, table_id, customer_id, booking_date, booking_time, party_size, status, notes, is_walk_in, assignment_method, was_on_waitlist, created_at, updated_at,
             *,
             customer:customers(*),
             restaurant_table:restaurant_tables(*)
@@ -118,7 +125,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         // Fetch waiting list
         supabase
           .from('waiting_list')
-          .select(`
+          .select(`id, restaurant_id, customer_id, requested_date, requested_time, party_size, status, priority_order, notes, created_at, updated_at,
             *,
             customer:customers(*)
           `)
@@ -140,7 +147,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       setWaitingList(waitingResult.data || []);
       
     } catch (err) {
-      console.error('Error fetching restaurant data:', err);
+      console.error('Error fetching restaurant data:', err instanceof Error ? err.message : err);
       setError(err instanceof Error ? err.message : 'An error occurred while loading restaurant data');
     } finally {
       setLoading(false);

@@ -44,7 +44,9 @@ export function RestaurantDashboard() {
   const handleManualRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetch();
+      console.log('Manual refresh triggered');
+      await refetch(); 
+      console.log('Manual refresh completed');
     } finally {
       setRefreshing(false);
     }
