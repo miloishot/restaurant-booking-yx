@@ -13,11 +13,10 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
-  const [selectedAction, setSelectedAction] = useState<{type: 'in' | 'out', employee: Employee} | null>(null);
-  const [punchForm, setPunchForm] = useState({ adminPassword: '' });
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const [employeeForm, setEmployeeForm] = useState({
     name: '',
@@ -138,11 +137,12 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const handlePunchIn = async (employee: Employee) => {
     try {
+      setError(null);
       // Get the current authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user || user.id !== employee.id) {
-        setError('You are not authorized to punch in for this employee');
+        showNotification('You are not authorized to punch in for this employee', 'error');
         return;
       }
 
@@ -174,7 +174,6 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       if (error) throw error;
 
       showNotification(`${employee.name} punched in successfully!`);
-      setSelectedAction(null);
       fetchTimeEntries();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Punch in failed', 'error');
@@ -183,11 +182,12 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const handlePunchOut = async (employee: Employee) => {
     try {
+      setError(null);
       // Get the current authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user || user.id !== employee.id) {
-        setError('You are not authorized to punch out for this employee');
+        showNotification('You are not authorized to punch out for this employee', 'error');
         return;
       }
 
@@ -216,7 +216,6 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       if (error) throw error;
 
       showNotification(`${employee.name} punched out successfully!`);
-      setSelectedAction(null);
       fetchTimeEntries();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Punch out failed', 'error');
@@ -482,10 +481,10 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => setSelectedAction({ type: 'in', employee })}
-                             disabled={isEmployeePunchedIn(employee.id)}
+                              onClick={() => handlePunchIn(employee)}
+                              disabled={isEmployeePunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
-                               isEmployeePunchedIn(employee.id) 
+                                isEmployeePunchedIn(employee.id) 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-blue-600 hover:bg-blue-700'
                               }`}
@@ -493,10 +492,10 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                               Punch In
                             </button>
                             <button
-                              onClick={() => setSelectedAction({ type: 'out', employee })}
-                             disabled={!isEmployeePunchedIn(employee.id)}
+                              onClick={() => handlePunchOut(employee)}
+                              disabled={!isEmployeePunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
-                               !isEmployeePunchedIn(employee.id) 
+                                !isEmployeePunchedIn(employee.id) 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-red-600 hover:bg-red-700'
                               }`}
@@ -604,71 +603,6 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
           </div>
         )}
       </div>
-
-      {/* Punch In/Out Modal */}
-      {selectedAction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                Punch {selectedAction.type === 'in' ? 'In' : 'Out'}: {selectedAction.employee.name}
-              </h3>
-              
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center text-blue-800 mb-2">
-                  <User className="w-4 h-4 mr-2" />
-                  <span className="font-medium">Employee Details</span>
-                </div>
-                <p className="text-sm text-blue-700">
-                  <strong>Name:</strong> {selectedAction.employee.name}<br />
-                  <strong>ID:</strong> {selectedAction.employee.employee_id}
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Authentication
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="password"
-                      value={punchForm.adminPassword}
-                      onChange={(e) => setPunchForm(prev => ({ ...prev, adminPassword: e.target.value }))}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter admin password to confirm"
-                      autoFocus
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-4 mt-6">
-                <button
-                  onClick={() => setSelectedAction(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => selectedAction.type === 'in' 
-                    ? handlePunchIn(selectedAction.employee) 
-                    : handlePunchOut(selectedAction.employee)
-                  }
-                  className={`flex-1 px-4 py-2 rounded text-white ${
-                    selectedAction.type === 'in' 
-                      ? 'bg-blue-600 hover:bg-blue-700' 
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                >
-                  Punch {selectedAction.type === 'in' ? 'In' : 'Out'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
