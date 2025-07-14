@@ -40,6 +40,41 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   useEffect(() => {
     fetchTableSessions();
     fetchPrinterConfigs();
+    
+    // Listen for QR code print events from markTableOccupiedWithSession
+    const handlePrintQrCode = (event: CustomEvent) => {
+      const { tableId, sessionToken } = event.detail;
+      
+      // Find the table and create a temporary table object with QR code URL
+      const table = tables.find(t => t.id === tableId);
+      if (table && sessionToken && selectedQrPrinter) {
+        const tempTable: TableWithSession = {
+          ...table,
+          session: { 
+            id: '', 
+            restaurant_id: restaurant.id, 
+            table_id: tableId, 
+            booking_id: null, 
+            session_token: sessionToken, 
+            is_active: true, 
+            created_at: '', 
+            updated_at: '' 
+          },
+          qrCodeUrl: `${window.location.origin}/order/${sessionToken}`
+        };
+        
+        // Print the QR code
+        setTimeout(() => {
+          printQRCode(tempTable);
+        }, 500);
+      }
+    };
+    
+    window.addEventListener('print-qr-code', handlePrintQrCode as EventListener);
+    
+    return () => {
+      window.removeEventListener('print-qr-code', handlePrintQrCode as EventListener);
+    };
   }, [restaurant.id, tables]);
 
   const fetchPrinterConfigs = async () => {
@@ -139,13 +174,27 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
 
       await fetchTableSessions();
       
-      // Auto-print the QR code after generation
-      const updatedTable = tablesWithSessions.find(t => t.id === table.id);
-      if (updatedTable && updatedTable.qrCodeUrl && selectedQrPrinter) {
-        // Wait a moment to ensure the table data is updated
-        setTimeout(() => {
-          printQRCode(updatedTable);
-        }, 500);
+      // Fetch the updated table data with the new session
+      const { data: updatedTableData } = await supabase
+        .from('order_sessions')
+        .select(`
+          *,
+          table:restaurant_tables(*)
+        `)
+        .eq('table_id', table.id)
+        .eq('is_active', true)
+        .single();
+      
+      if (updatedTableData && selectedQrPrinter) {
+        // Create a temporary table object with the QR code URL
+        const tempTable: TableWithSession = {
+          ...table,
+          session: updatedTableData,
+          qrCodeUrl: `${window.location.origin}/order/${updatedTableData.session_token}`
+        };
+        
+        // Print the QR code
+        await printQRCode(tempTable);
       }
     } catch (error) {
       console.error('Error generating QR session:', error);

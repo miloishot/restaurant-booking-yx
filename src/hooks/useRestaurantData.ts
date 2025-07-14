@@ -678,7 +678,7 @@ export function useRestaurantData(restaurantSlug?: string) {
   const markTableOccupiedWithSession = async (table: RestaurantTable, partySize?: number) => {
     try {
       // Create order session first
-      const sessionResult = await createOrderSession(table.id, null);
+      const { session: orderSession } = await createOrderSession(table.id, null);
       
       // Update table status to occupied
       const { error: tableError } = await supabase
@@ -723,21 +723,32 @@ export function useRestaurantData(restaurantSlug?: string) {
       if (bookingError) throw bookingError;
 
       // Update the order session with the booking ID
-      if (sessionResult.session) {
+      if (orderSession) {
         const { error: sessionUpdateError } = await supabase
           .from('order_sessions')
-          .update({ booking_id: newBooking.id })
-          .eq('id', sessionResult.session.id);
+          .update({ 
+            booking_id: newBooking.id 
+          })
+          .eq('id', orderSession.id);
 
         if (sessionUpdateError) {
           console.warn('Could not update session with booking ID:', sessionUpdateError);
         }
+        
+        // Trigger QR code printing via an event
+        const printEvent = new CustomEvent('print-qr-code', { 
+          detail: { 
+            tableId: table.id,
+            sessionToken: orderSession.session_token
+          }
+        });
+        window.dispatchEvent(printEvent);
       }
 
       // Force immediate refresh to ensure UI consistency
       await fetchRestaurantData(restaurantSlug);
       
-      return { success: true, session: sessionResult.session };
+      return { success: true, session: orderSession };
     } catch (error) {
       console.error('Error marking table occupied with session:', error);
       throw error;
