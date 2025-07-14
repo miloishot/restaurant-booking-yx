@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
 import { Restaurant, MenuCategory, MenuItem } from '../types/database';
 import { Plus, Edit2, Trash2, Save, X, Upload, Eye, EyeOff, ChefHat, Tag, DollarSign } from 'lucide-react';
 
@@ -8,6 +9,7 @@ interface MenuManagementProps {
 }
 
 export function MenuManagement({ restaurant }: MenuManagementProps) {
+  const { employeeProfile } = useAuth();
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -314,6 +316,9 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
     setShowItemForm(true);
   };
 
+  // Check if user has permission to manage menu
+  const canManageMenu = employeeProfile?.role === 'owner' || employeeProfile?.role === 'manager';
+
   const formatPrice = (price: number) => `S$${price.toFixed(2)}`;
 
   if (loading) {
@@ -325,6 +330,20 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
             <div className="h-4 bg-gray-200 rounded"></div>
             <div className="h-4 bg-gray-200 rounded w-5/6"></div>
           </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!canManageMenu) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-8">
+          <ChefHat className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+          <p className="text-gray-600">
+            Only restaurant owners and managers can access menu management.
+          </p>
         </div>
       </div>
     );
