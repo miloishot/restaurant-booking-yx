@@ -126,10 +126,10 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter your password"
-                onClick={() => {
-                  setEmail('test@example.com');
-                  setPassword('password123');
-                }}
+               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
