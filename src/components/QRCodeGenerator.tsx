@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, RestaurantTable, OrderSession } from '../types/database';
@@ -37,171 +37,6 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const [printError, setPrintError] = useState<string | null>(null);
   const [printReceiptError, setPrintReceiptError] = useState<Record<string, string>>({});
 
-  const generateQRCodeHtml = (tableNumber: string, qrCodeUrl: string) => {
-    return `
-      <html>
-        <head>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              margin: 0;
-              padding: 0;
-              text-align: center;
-            }
-            .container {
-              padding: 10px;
-            }
-<!DOCTYPE html>
-<html>
-<head>
-  <title>QR Code - Table ${tableNumber}</title>
-  <style>
-    body { 
-      font-family: monospace; 
-      text-align: center; 
-      margin: 0;
-      padding: 0;
-      width: 100%;
-    }
-    .receipt {
-      width: 100%;
-      max-width: 300px;
-      margin: 0 auto;
-      padding: 10px 0;
-    }
-    .header {
-      font-size: 14px;
-      font-weight: bold;
-      margin-bottom: 5px;
-      border-bottom: 1px dashed #000;
-      padding-bottom: 5px;
-    }
-    .table-info {
-      font-size: 18px;
-      font-weight: bold;
-      margin: 10px 0;
-    }
-    .qr-code { 
-      margin: 15px 0; 
-    }
-    .instructions {
-      font-size: 12px;
-      margin: 10px 0;
-    }
-    .timestamp {
-      font-size: 10px;
-      margin-top: 10px;
-      border-top: 1px dashed #000;
-      padding-top: 5px;
-    }
-    .divider {
-      border-top: 1px dashed #000;
-      margin: 10px 0;
-    }
-  </style>
-</head>
-<body>
-  <div class="receipt">
-    <div class="header">
-      ${restaurant.name}
-    </div>
-    
-    <div class="table-info">
-      TABLE ${tableNumber}
-    </div>
-    
-    <div class="qr-code">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}" alt="QR Code for Table ${tableNumber}" width="200" height="200" />
-    </div>
-    
-    <div class="instructions">
-      SCAN THIS CODE TO ORDER
-      FOOD & DRINKS DIRECTLY
-      FROM YOUR PHONE
-    </div>
-    
-    <div class="divider"></div>
-    
-    <div class="instructions">
-      No app download required
-      Just scan and browse our menu
-    </div>
-    
-    <div class="timestamp">
-      Printed: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-    </div>
-  </div>
-</body>
-</html>
-    `;
-  };
-
-  const printQRCode = useCallback(async (table: TableWithSession) => {
-    if (!table.qrCodeUrl || !selectedQrPrinter) return;
-    
-    setPrinting(table.id);
-    setPrintError(null);
-    
-    try {
-      const printer = printerConfigs.find(p => p.id === selectedQrPrinter);
-      if (!printer) throw new Error('Selected printer not found');
-      
-      // Generate QR code HTML with enhanced receipt format
-      const qrCodeHtml = generateQRCodeHtml(table.table_number, table.qrCodeUrl);
-      
-      const base64Content = btoa(qrCodeHtml);
-      
-      // Get current session for authorization
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Authentication required for printing');
-      }
-      
-      // Use Supabase Edge Function proxy for printing
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          restaurantId: restaurant.id,
-          deviceId: printer.device_id,
-          printerId: printer.printer_id,
-          content: base64Content,
-          options: {
-            mimeType: 'text/html',
-            copies: 1
-          },
-          jobName: `QR Code - Table ${table.table_number}`
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to print QR code');
-      }
-      
-      // Show success notification
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = `QR code for Table ${table.table_number} sent to printer!`;
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        if (document.body.contains(notification)) {
-          document.body.removeChild(notification);
-        }
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Error printing QR code:', error);
-      setPrintError(error instanceof Error ? error.message : 'Failed to print QR code');
-    } finally {
-      setPrinting(null);
-    }
-  }, [selectedQrPrinter, printerConfigs, restaurant.id, restaurant.name]);
-
   useEffect(() => {
     fetchTableSessions();
     fetchPrinterConfigs();
@@ -209,7 +44,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     // Listen for QR code print events from markTableOccupiedWithSession
     const handlePrintQrCode = (event: any) => {
       console.log('Received print-qr-code event with details:', event.detail);
-      const { tableId, sessionToken, tableNumber } = event.detail || {};
+      const { tableId, sessionToken, tableNumber } = event.detail;
       
       if (tableId && sessionToken) {
         console.log('Processing print request for table:', tableNumber || tableId);
@@ -257,7 +92,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       console.log('Removing print-qr-code event listener');
       window.removeEventListener('print-qr-code', handlePrintQrCode);
     };
-  }, [restaurant.id, selectedQrPrinter, printQRCode]);
+  }, [restaurant.id, selectedQrPrinter]);
 
   const fetchPrinterConfigs = async () => {
     try {
@@ -424,6 +259,171 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const generateQRCodeHtml = (tableNumber: string, qrCodeUrl: string) => {
+    return `
+      <html>
+        <head>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 0;
+              text-align: center;
+            }
+            .container {
+              padding: 10px;
+            }
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QR Code - Table ${tableNumber}</title>
+  <style>
+    body { 
+      font-family: monospace; 
+      text-align: center; 
+      margin: 0;
+      padding: 0;
+      width: 100%;
+    }
+    .receipt {
+      width: 100%;
+      max-width: 300px;
+      margin: 0 auto;
+      padding: 10px 0;
+    }
+    .header {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 5px;
+      border-bottom: 1px dashed #000;
+      padding-bottom: 5px;
+    }
+    .table-info {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .qr-code { 
+      margin: 15px 0; 
+    }
+    .instructions {
+      font-size: 12px;
+      margin: 10px 0;
+    }
+    .timestamp {
+      font-size: 10px;
+      margin-top: 10px;
+      border-top: 1px dashed #000;
+      padding-top: 5px;
+    }
+    .divider {
+      border-top: 1px dashed #000;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="receipt">
+    <div class="header">
+      ${restaurant.name}
+    </div>
+    
+    <div class="table-info">
+      TABLE ${tableNumber}
+    </div>
+    
+    <div class="qr-code">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}" alt="QR Code for Table ${tableNumber}" width="200" height="200" />
+    </div>
+    
+    <div class="instructions">
+      SCAN THIS CODE TO ORDER
+      FOOD & DRINKS DIRECTLY
+      FROM YOUR PHONE
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="instructions">
+      No app download required
+      Just scan and browse our menu
+    </div>
+    
+    <div class="timestamp">
+      Printed: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+    </div>
+  </div>
+</body>
+</html>
+    `;
+  };
+
+  const printQRCode = async (table: TableWithSession) => {
+    if (!table.qrCodeUrl || !selectedQrPrinter) return;
+    
+    setPrinting(table.id);
+    setPrintError(null);
+    
+    try {
+      const printer = printerConfigs.find(p => p.id === selectedQrPrinter);
+      if (!printer) throw new Error('Selected printer not found');
+      
+      // Generate QR code HTML with enhanced receipt format
+      const qrCodeHtml = generateQRCodeHtml(table.table_number, table.qrCodeUrl);
+      
+      const base64Content = btoa(qrCodeHtml);
+      
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Authentication required for printing');
+      }
+      
+      // Use Supabase Edge Function proxy for printing
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          deviceId: printer.device_id,
+          printerId: printer.printer_id,
+          content: base64Content,
+          options: {
+            mimeType: 'text/html',
+            copies: 1
+          },
+          jobName: `QR Code - Table ${table.table_number}`
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to print QR code');
+      }
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = `QR code for Table ${table.table_number} sent to printer!`;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error printing QR code:', error);
+      setPrintError(error instanceof Error ? error.message : 'Failed to print QR code');
+    } finally {
+      setPrinting(null);
+    }
   };
 
   const printReceipt = async (table: TableWithSession) => {
