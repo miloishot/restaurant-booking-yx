@@ -128,7 +128,6 @@ export interface TimeEntry {
   updated_at: string;
   temp_employee_id: string | null;
   employee?: Employee;
-  employee?: Employee;
 }
 
 export interface AvailableTable {
