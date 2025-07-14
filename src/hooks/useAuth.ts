@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { Employee } from '../types/database'; 
+import { Employee } from '../types/database';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -15,7 +15,10 @@ export function useAuth() {
       
       // If user exists, fetch their profile
       if (session?.user) {
-        fetchEmployeeProfile(session.user.id); // Call fetchEmployeeProfile
+        fetchEmployeeProfile(session.user.id).catch(err => {
+          console.error('Error fetching employee profile:', err);
+          // Don't set loading to false here, as we still want to show the user as logged in
+        });
       } else {
         setLoading(false);
       }
@@ -29,7 +32,11 @@ export function useAuth() {
       
       // If user exists, fetch their employee profile
       if (session?.user) {
-        fetchEmployeeProfile(session.user.id);
+        fetchEmployeeProfile(session.user.id).catch(err => {
+          console.error('Error fetching employee profile:', err);
+          // Continue with the user being logged in even if profile fetch fails
+          setLoading(false);
+        });
       } else {
         setEmployeeProfile(null);
         setLoading(false);
@@ -58,25 +65,89 @@ export function useAuth() {
       }
       
       try {
-        const { data, error } = await supabase
-          .from('employees')
-          .select('id, restaurant_id, role, name, is_active')
-          .eq('id', id)
-          .maybeSingle();
+        // Use a more resilient approach with error handling and timeout
+        const fetchWithTimeout = async () => {
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timed out')), 5000)
+          );
+          
+          try {
+            const result = await Promise.race([
+              supabase
+                .from('employees')
+                .select('id, restaurant_id, role, name, is_active')
+                .eq('id', id)
+                .maybeSingle(),
+              timeoutPromise
+            ]);
+            return result;
+          } catch (error) {
+            console.warn('Fetch timed out, using fallback approach');
+            // If timeout occurs, try a simpler query
+            return await supabase
+              .from('employees')
+              .select('id')
+              .eq('id', id)
+              .maybeSingle();
+          }
+        };
+        
+        const { data, error } = await fetchWithTimeout();
         
         if (error) {
           console.error('Error fetching employee profile:', error);
           if (error.code === 'PGRST116') {
             console.log('No employee profile found for this user');
           }
+        } else if (data) {
+          // If we only got the ID in the fallback query, fetch the full profile
+          if (Object.keys(data).length === 1 && data.id) {
+            try {
+              const { data: fullProfile } = await supabase
+                .from('employees')
+                .select('id, restaurant_id, role, name, is_active')
+                .eq('id', id)
+                .maybeSingle();
+                
+              setEmployeeProfile(fullProfile || { 
+                id, 
+                restaurant_id: null,
+                role: 'staff',
+                name: 'Unknown Employee',
+                is_active: true
+              });
+            } catch (err) {
+              console.error('Error fetching full profile:', err);
+              // Use minimal profile as fallback
+              setEmployeeProfile({ 
+                id, 
+                restaurant_id: null,
+                role: 'staff',
+                name: 'Unknown Employee',
+                is_active: true
+              });
+            }
+          } else {
+            setEmployeeProfile(data);
+          }
+        } else {
+          // No data found, set a minimal profile
+          setEmployeeProfile(null);
         }
-  
-        setEmployeeProfile(data || null);
       } catch (fetchError) {
         console.error('Fetch error in fetchEmployeeProfile:', fetchError);
+        // Set a minimal profile as fallback
+        setEmployeeProfile({ 
+          id, 
+          restaurant_id: null,
+          role: 'staff',
+          name: 'Unknown Employee',
+          is_active: true
+        });
       }
     } catch (err) {
       console.error('Error in fetchEmployeeProfile:', err);
+      // Don't rethrow the error, handle it gracefully
     } finally {
       setLoading(false);
     }

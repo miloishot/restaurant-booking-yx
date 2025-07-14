@@ -21,7 +21,7 @@ export function useRestaurantData(restaurantSlug?: string) {
   const fetchRestaurantData = async (slug?: string) => {
     try {
       setLoading(true);
-      setError(null); 
+      setError(null);
       
       // Check if Supabase is properly configured
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
@@ -34,6 +34,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       // Fetch restaurant
       let restaurantQuery = supabase.from('restaurants').select('*');
       let isRestaurantQueryFiltered = false;
+      let restaurantData = null;
       
       if (slug) {
         // Public booking page - fetch by slug
@@ -52,6 +53,22 @@ export function useRestaurantData(restaurantSlug?: string) {
           if (!employeeError && employee?.restaurant_id) {
             console.log('Found restaurant from employee record:', employee.restaurant_id);
             restaurantQuery = restaurantQuery.eq('id', employee.restaurant_id); 
+            
+            // Directly fetch the restaurant to avoid potential issues with query building
+            try {
+              const { data: directRestaurant, error: directError } = await supabase
+                .from('restaurants')
+                .select('*')
+                .eq('id', employee.restaurant_id)
+                .maybeSingle();
+                
+              if (!directError && directRestaurant) {
+                restaurantData = directRestaurant;
+              }
+            } catch (directFetchError) {
+              console.error('Direct restaurant fetch failed:', directFetchError);
+            }
+            
             isRestaurantQueryFiltered = true;
           } else {
             console.log('No employee record found, checking if user is restaurant owner');
@@ -62,38 +79,45 @@ export function useRestaurantData(restaurantSlug?: string) {
         }
       }
       // If no user and no slug, or if the user is not associated with a restaurant,
-      // This part needs to be carefully considered based on desired app behavior.
-      
-      if (!user && !slug) {
-        // For demo purposes, fetch first restaurant if no user and no slug
-        restaurantQuery = restaurantQuery.limit(1); 
-        isRestaurantQueryFiltered = true;
-      } else if (user && !slug && !isRestaurantQueryFiltered) { 
-        // If user is logged in but no specific restaurant was found,
-        // and no slug was provided, it means the user is not linked to a restaurant yet.
-        // In this case, we might want to show an empty state or redirect to setup.
-        // For now, let's ensure we don't proceed with an empty query.
-        // This scenario should ideally be handled by the login/signup flow ensuring a restaurant_id is set.
-        // For robustness, if no restaurant is found, the component should handle it.
-        // The current logic for `restaurantQuery` should already handle this by setting `eq('id', employeeData.restaurant_id)` or `eq('owner_id', user.id)`.
-        // If neither matches, `restaurantData` will be null, and the component will show "Restaurant Not Found".
-        restaurantQuery = restaurantQuery.limit(1); 
-        isRestaurantQueryFiltered = true;
-      }
-
-      const { data: restaurantData, error: restaurantError } = await restaurantQuery.maybeSingle();
-
-      if (restaurantError) {
-        if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
-          setError('Restaurant not found or you do not have access. Please check your account settings.');
-        } else {
-          throw restaurantError;
+      // Only proceed with the query if we don't already have restaurant data
+      if (!restaurantData) {
+        if (!user && !slug) {
+          // For demo purposes, fetch first restaurant if no user and no slug
+          restaurantQuery = restaurantQuery.limit(1); 
+          isRestaurantQueryFiltered = true;
+        } else if (user && !slug && !isRestaurantQueryFiltered) { 
+          // If user is logged in but no specific restaurant was found,
+          // and no slug was provided, it means the user is not linked to a restaurant yet.
+          restaurantQuery = restaurantQuery.limit(1); 
+          isRestaurantQueryFiltered = true;
         }
-        return;
+
+        // Only execute the query if we don't already have restaurant data
+        if (!restaurantData) {
+          try {
+            const { data: queryResult, error: restaurantError } = await restaurantQuery.maybeSingle();
+            
+            if (restaurantError) {
+              if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
+                setError('Restaurant not found or you do not have access. Please check your account settings.');
+              } else {
+                throw restaurantError;
+              }
+              return;
+            }
+            
+            restaurantData = queryResult;
+          } catch (queryError) {
+            console.error('Restaurant query failed:', queryError);
+            setError('Failed to fetch restaurant data. Please try again later.');
+            return;
+          }
+        }
       }
 
+      // Set the restaurant data we found
       setRestaurant(restaurantData);
-      
+
       if (!restaurantData) {
         console.warn('No restaurant data found for user:', user?.id);
         setError('No restaurant found. Please create a restaurant or contact support.');
@@ -101,55 +125,65 @@ export function useRestaurantData(restaurantSlug?: string) {
       }
 
       // Fetch all related data in parallel for better performance
-      const [tablesResult, hoursResult, bookingsResult, waitingResult] = await Promise.all([
-        // Fetch tables
-        supabase.from('restaurant_tables')
-          .select('id, restaurant_id, table_number, capacity, status, location_notes, created_at, updated_at')
-          .eq('restaurant_id', restaurantData.id)
-          .order('table_number'),
+      try {
+        const [tablesResult, hoursResult, bookingsResult, waitingResult] = await Promise.all([
+          // Fetch tables
+          supabase.from('restaurant_tables')
+            .select('id, restaurant_id, table_number, capacity, status, location_notes, created_at, updated_at')
+            .eq('restaurant_id', restaurantData.id)
+            .order('table_number'),
 
-        // Fetch operating hours
-        supabase
-          .from('restaurant_operating_hours')
-          .select('*')
-          .eq('restaurant_id', restaurantData.id)
-          .order('day_of_week'),
+          // Fetch operating hours
+          supabase
+            .from('restaurant_operating_hours')
+            .select('*')
+            .eq('restaurant_id', restaurantData.id)
+            .order('day_of_week'),
 
-        // Fetch today's bookings with customer and table details
-        supabase
-          .from('bookings')
-          .select(`id, restaurant_id, table_id, customer_id, booking_date, booking_time, party_size, status, notes, is_walk_in, assignment_method, was_on_waitlist, created_at, updated_at,
-            *,
-            customer:customers(*),
-            restaurant_table:restaurant_tables(*)
-          `)
-          .eq('restaurant_id', restaurantData.id)
-          .in('status', ['pending', 'confirmed', 'seated'])
-          .order('booking_time'),
+          // Fetch today's bookings with customer and table details
+          supabase
+            .from('bookings')
+            .select(`id, restaurant_id, table_id, customer_id, booking_date, booking_time, party_size, status, notes, is_walk_in, assignment_method, was_on_waitlist, created_at, updated_at,
+              *,
+              customer:customers(*),
+              restaurant_table:restaurant_tables(*)
+            `)
+            .eq('restaurant_id', restaurantData.id)
+            .in('status', ['pending', 'confirmed', 'seated'])
+            .order('booking_time'),
 
-        // Fetch waiting list
-        supabase
-          .from('waiting_list')
-          .select(`id, restaurant_id, customer_id, requested_date, requested_time, party_size, status, priority_order, notes, created_at, updated_at,
-            *,
-            customer:customers(*)
-          `)
-          .eq('restaurant_id', restaurantData.id)
-          .eq('requested_date', new Date().toISOString().split('T')[0])
-          .eq('status', 'waiting')
-          .order('priority_order', { ascending: true })
-      ]);
+          // Fetch waiting list
+          supabase
+            .from('waiting_list')
+            .select(`id, restaurant_id, customer_id, requested_date, requested_time, party_size, status, priority_order, notes, created_at, updated_at,
+              *,
+              customer:customers(*)
+            `)
+            .eq('restaurant_id', restaurantData.id)
+            .eq('requested_date', new Date().toISOString().split('T')[0])
+            .eq('status', 'waiting')
+            .order('priority_order', { ascending: true })
+        ]);
 
-      // Check for errors and set data
-      if (tablesResult.error) throw tablesResult.error;
-      if (hoursResult.error) throw hoursResult.error;
-      if (bookingsResult.error) throw bookingsResult.error;
-      if (waitingResult.error) throw waitingResult.error;
+        // Check for errors and set data
+        if (tablesResult.error) throw tablesResult.error;
+        if (hoursResult.error) throw hoursResult.error;
+        if (bookingsResult.error) throw bookingsResult.error;
+        if (waitingResult.error) throw waitingResult.error;
 
-      setTables(tablesResult.data || []);
-      setOperatingHours(hoursResult.data || []);
-      setBookings(bookingsResult.data || []);
-      setWaitingList(waitingResult.data || []);
+        setTables(tablesResult.data || []);
+        setOperatingHours(hoursResult.data || []);
+        setBookings(bookingsResult.data || []);
+        setWaitingList(waitingResult.data || []);
+      } catch (dataFetchError) {
+        console.error('Error fetching related data:', dataFetchError);
+        // Don't set error here, as we already have the restaurant data
+        // Just set empty arrays for the related data
+        setTables([]);
+        setOperatingHours([]);
+        setBookings([]);
+        setWaitingList([]);
+      }
       
     } catch (err) {
       console.error('Error fetching restaurant data:', err instanceof Error ? err.message : err);
