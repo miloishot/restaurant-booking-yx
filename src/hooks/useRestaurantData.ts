@@ -733,6 +733,7 @@ export function useRestaurantData(restaurantSlug?: string) {
 
         if (sessionUpdateError) {
           console.warn('Could not update session with booking ID:', sessionUpdateError);
+        }
       }
 
       // Force immediate refresh to ensure UI consistency
