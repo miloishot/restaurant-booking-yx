@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { stripeProducts } from '../../stripe-config';
+import { stripeProducts, formatStripePrice } from '../../stripe-config';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
 import { Check, Crown, Loader2 } from 'lucide-react';
 
@@ -14,6 +14,7 @@ export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
   const handleSubscribe = async (priceId: string) => {
     setProcessingPriceId(priceId);
     try {
+      console.log('Creating checkout session for price:', priceId);
       await createCheckoutSession({
         priceId,
         mode: 'subscription',
@@ -21,7 +22,8 @@ export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
         cancelUrl: `${window.location.origin}/subscription`,
       });
     } catch (error) {
-      console.error('Subscription error:', error);
+      console.error('Subscription checkout error:', error);
+      alert('Failed to create checkout session. Please try again later.');
     } finally {
       setProcessingPriceId(null);
     }
@@ -89,6 +91,10 @@ export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
                   <div className="flex items-center">
                     <Check className="w-5 h-5 text-green-500 mr-3" />
                     <span className="text-gray-700">Unlimited bookings & customers</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Check className="w-5 h-5 text-green-500 mr-3" />
+                    <span className="text-gray-700">QR code ordering system</span>
                   </div>
                   <div className="flex items-center">
                     <Check className="w-5 h-5 text-green-500 mr-3" />

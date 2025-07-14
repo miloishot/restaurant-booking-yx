@@ -316,6 +316,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   const handleCheckout = async () => {
     if (!session || cart.length === 0) return;
     
+    console.log('Starting checkout process');
     setError(null);
     try {
       setCheckoutLoading(true);
@@ -349,6 +350,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       if (orderError) throw orderError;
 
       // Create order items
+      console.log('Creating order items for order:', orderData.id);
       const orderItems = cart.map(item => ({
         order_id: orderData.id,
         menu_item_id: item.menu_item.id,
@@ -365,6 +367,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       if (itemsError) throw itemsError;
       
       // Now create a checkout session with Stripe
+      console.log('Creating Stripe checkout session');
       try {
         await createCheckoutSession({
           priceId: '', // Not needed for cart items
@@ -376,8 +379,9 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           session_id: session.id
         });
       } catch (stripeError) {
-        console.error('Stripe checkout error:', stripeError);
-        throw new Error(`Stripe checkout failed: ${stripeError instanceof Error ? stripeError.message : 'Unknown error'}`);
+        console.error('Stripe checkout error details:', stripeError);
+        const errorMessage = stripeError instanceof Error ? stripeError.message : 'Unknown error';
+        throw new Error(`Stripe checkout failed: ${errorMessage}`);
       }
       
     } catch (err) {
@@ -538,7 +542,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       <CartSidebar
         isOpen={showCart}
         onClose={() => setShowCart(false)}
-        cart={cart}
+        cart={cart.filter(item => item.quantity > 0)}
         onUpdateItem={updateCartItem}
         onRemoveItem={removeFromCart}
         subtotal={calculateSubtotal()}
@@ -546,8 +550,8 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         total={calculateTotal()}
         loyaltyDiscount={loyaltyDiscount}
         onSubmitOrder={submitOrder}
-        loading={loading}
-        onCheckout={handleCheckout}
+        loading={loading || checkoutLoading}
+        onCheckout={cart.length > 0 ? handleCheckout : undefined}
       />
       {/* Customer Auth Modal */}
       {showCustomerAuth && (

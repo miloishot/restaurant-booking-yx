@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle, Clock, ChefHat, CreditCard } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 interface OrderConfirmationProps {
   onContinue: () => void;
@@ -9,6 +9,9 @@ interface OrderConfirmationProps {
 
 export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirmationProps) {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get('session_id');
+  const orderId = searchParams.get('order_id');
   const isSuccess = isPaymentSuccess || location.pathname.includes('/success');
   
   return (
@@ -22,10 +25,12 @@ export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirm
           {isSuccess ? (
             <h1 className="text-3xl font-bold text-gray-800 mb-4">
               Payment Successful!
+              {sessionId && <div className="text-sm text-gray-500 mt-2">Session ID: {sessionId}</div>}
             </h1>
           ) : (
             <h1 className="text-3xl font-bold text-gray-800 mb-4">
               Order Sent!
+              {orderId && <div className="text-sm text-gray-500 mt-2">Order ID: {orderId}</div>}
             </h1>
           )}
           
@@ -51,6 +56,7 @@ export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirm
                 <div className="flex items-center justify-center text-green-600">
                   <ChefHat className="w-5 h-5 mr-2" />
                   <span className="text-sm">Kitchen has been notified</span>
+                  {orderId && <span className="text-xs ml-2">#{orderId.substring(0, 8)}</span>}
                 </div>
               </>
             ) : (
@@ -58,6 +64,7 @@ export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirm
                 <div className="flex items-center justify-center text-blue-600">
                   <ChefHat className="w-5 h-5 mr-2" />
                   <span className="text-sm">Kitchen has been notified</span>
+                  {orderId && <span className="text-xs ml-2">#{orderId.substring(0, 8)}</span>}
                 </div>
                 <div className="flex items-center justify-center text-orange-600">
                   <Clock className="w-5 h-5 mr-2" />
