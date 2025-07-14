@@ -43,15 +43,28 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     
     // Listen for QR code print events from markTableOccupiedWithSession
     const handlePrintQrCode = (event: any) => {
-      console.log('Received print-qr-code event:', event);
-      const { tableId, sessionToken } = event.detail;
+      console.log('Received print-qr-code event with details:', event.detail);
+      const { tableId, sessionToken, tableNumber } = event.detail;
       
-      // Find the table and create a temporary table object with QR code URL
-      const table = tables.find(t => t.id === tableId);
-      if (table && sessionToken) {
-        console.log('Found table for printing:', table.table_number);
+      if (tableId && sessionToken) {
+        console.log('Processing print request for table:', tableNumber || tableId);
+        
+        // Check if we have a QR printer selected
+        if (!selectedQrPrinter) {
+          console.warn('No QR printer selected for automatic printing');
+          return;
+        }
+        
+        // Create a temporary table object with QR code URL
         const tempTable: TableWithSession = {
-          ...table,
+          id: tableId,
+          restaurant_id: restaurant.id,
+          table_number: tableNumber || 'Unknown',
+          capacity: 0,
+          status: 'occupied',
+          location_notes: null,
+          created_at: '',
+          updated_at: '',
           session: { 
             id: '', 
             restaurant_id: restaurant.id, 
@@ -65,15 +78,9 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
           qrCodeUrl: `${window.location.origin}/order/${sessionToken}`
         };
         
-        if (selectedQrPrinter) {
-          console.log('Printing QR code for table:', table.table_number);
-          // Print the QR code
-          setTimeout(() => {
-            printQRCode(tempTable);
-          }, 500);
-        } else {
-          console.warn('No QR printer selected for automatic printing');
-        }
+        console.log('Printing QR code for table:', tempTable.table_number);
+        // Print the QR code immediately
+        printQRCode(tempTable);
       }
     };
     
@@ -85,7 +92,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       console.log('Removing print-qr-code event listener');
       window.removeEventListener('print-qr-code', handlePrintQrCode);
     };
-  }, [restaurant.id, tables, selectedQrPrinter]);
+  }, [restaurant.id, selectedQrPrinter]);
 
   const fetchPrinterConfigs = async () => {
     try {

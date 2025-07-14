@@ -92,11 +92,12 @@ export function useRestaurantData(restaurantSlug?: string) {
           try {
             const { data: queryResult, error: restaurantError } = await restaurantQuery.maybeSingle();
             
-            if (restaurantError) {
+            console.log('Dispatching print-qr-code event for table:', table.id, 'with session token:', orderSession.session_token);
               if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
                 setError('Restaurant not found or you do not have access. Please check your account settings.');
               } else {
-                throw restaurantError;
+                sessionToken: orderSession.session_token,
+                tableNumber: table.table_number
               }
               return;
             }
