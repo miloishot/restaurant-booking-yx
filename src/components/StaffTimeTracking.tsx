@@ -469,7 +469,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                           <div className="text-sm font-medium text-gray-900">{formatHours(calculateEmployeeHours(employee.employee_id))}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {isPunchedIn(employee.id) ? (
+                          {isEmployeePunchedIn(employee.id) ? (
                             <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                               Active
                             </span>
@@ -483,9 +483,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => setSelectedAction({ type: 'in', employee })}
-                              disabled={isPunchedIn(employee.id)}
+                             disabled={isEmployeePunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
-                                isPunchedIn(employee.id) 
+                               isEmployeePunchedIn(employee.id) 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-blue-600 hover:bg-blue-700'
                               }`}
@@ -494,9 +494,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                             </button>
                             <button
                               onClick={() => setSelectedAction({ type: 'out', employee })}
-                              disabled={!isPunchedIn(employee.id)}
+                             disabled={!isEmployeePunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
-                                !isPunchedIn(employee.id) 
+                               !isEmployeePunchedIn(employee.id) 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-red-600 hover:bg-red-700'
                               }`}
