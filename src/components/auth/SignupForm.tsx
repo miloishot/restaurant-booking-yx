@@ -94,6 +94,7 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
             role: 'owner',
             name: name,
             is_active: true,
+            employee_id: `owner-${Date.now().toString(36)}`, // Generate a unique employee ID
           });
           
         if (employeeError) {

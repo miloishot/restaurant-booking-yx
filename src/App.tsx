@@ -83,9 +83,9 @@ function App() {
                 <div className="flex items-center space-x-2 border-l border-gray-200 pl-2">
                   <div className="flex items-center text-sm text-gray-600">
                     <User className="w-4 h-4 mr-1" />
-                    {user.email} 
+                    {user.email}
                     {employeeProfile?.role && (
-                      <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full capitalize">
+                      <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
                         {employeeProfile.role}
                       </span>
                     )}

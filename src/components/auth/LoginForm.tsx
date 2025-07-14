@@ -41,9 +41,9 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         .from('employees')
         .select('*')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
 
-      if (employeeError && employeeError.code !== 'PGRST116') { // PGRST116 means "not found"
+      if (employeeError && employeeError.code !== 'PGRST116') {
         console.error('Employee lookup error:', employeeError);
         throw new Error('Database error while looking up your employee record');
       }
@@ -64,13 +64,18 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
 
         if (ownedRestaurant) { // If they are an owner, create an employee record for them
           // Create an employee record for the restaurant owner in the consolidated 'employees' table
-          await supabase.from('employees').insert({
+          const { error: insertError } = await supabase.from('employees').insert({
             id: data.user.id, // Use the Supabase user's ID as the primary key
             restaurant_id: ownedRestaurant.id,
             role: 'owner',
             name: data.user.email?.split('@')[0] || 'Owner', // Use email as name if available, or default
             is_active: true,
           });
+          
+          if (insertError) {
+            console.error('Error creating employee record:', insertError);
+            throw new Error('Failed to create employee record. Please try again.');
+          }
           
           onSuccess();
           return;

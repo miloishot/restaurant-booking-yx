@@ -32,16 +32,19 @@ export function useRestaurantData(restaurantSlug?: string) {
       } else {
         // Staff dashboard - fetch user's restaurant based on their employee record or if they are an owner
         if (user) {
-          const { data: employeeData, error: employeeError } = await supabase
-            .from('employees') // Query the consolidated employees table
-            .select('restaurant_id')
-            .eq('id', user.id) // user.id is the UID
+          // First try to get the restaurant directly from the employee record
+          const { data: employee, error: employeeError } = await supabase
+            .from('employees')
+            .select('restaurant_id, role')
+            .eq('id', user.id)
             .single();
-          if (employeeError) throw employeeError;
-          if (employeeData?.restaurant_id) {
-            restaurantQuery = restaurantQuery.eq('id', employeeData.restaurant_id);
+            
+          if (!employeeError && employee?.restaurant_id) {
+            console.log('Found restaurant from employee record:', employee.restaurant_id);
+            restaurantQuery = restaurantQuery.eq('id', employee.restaurant_id);
           } else {
-            // Fallback: if no employee record, check if they are an owner directly
+            console.log('No employee record found, checking if user is restaurant owner');
+            // If no employee record or no restaurant_id, check if they are an owner directly
             restaurantQuery = restaurantQuery.eq('owner_id', user.id);
           }
         } else {
@@ -84,8 +87,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       // Fetch all related data in parallel for better performance
       const [tablesResult, hoursResult, bookingsResult, waitingResult] = await Promise.all([
         // Fetch tables
-        supabase
-          .from('restaurant_tables')
+        supabase.from('restaurant_tables')
           .select('*')
           .eq('restaurant_id', restaurantData.id)
           .order('table_number'),

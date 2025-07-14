@@ -41,14 +41,18 @@ export function useAuth() {
 
   const fetchEmployeeProfile = async (id: string) => {
     try {
+      console.log('Fetching employee profile for user ID:', id);
       const { data, error } = await supabase
         .from('employees')
         .select('*')
         .eq('id', id)
         .single();
         
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching employee profile:', error);
+        if (error.code === 'PGRST116') {
+          console.log('No employee profile found for this user');
+        }
       }
 
       setEmployeeProfile(data);
@@ -67,6 +71,7 @@ export function useAuth() {
   return {
     user,
     employeeProfile, // Export employeeProfile
+    restaurantId: employeeProfile?.restaurant_id,
     loading,
     signOut,
   };

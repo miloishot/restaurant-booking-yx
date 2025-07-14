@@ -139,11 +139,11 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const handlePunchIn = async (employee: Employee) => {
     try {
       // Get the current authenticated user
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
+      const { data: { user } } = await supabase.auth.getUser();
       
       if (!user || user.id !== employee.id) {
-        throw new Error('You are not authorized to punch in for this employee');
+        setError('You are not authorized to punch in for this employee');
+        return;
       }
 
       // Check if already punched in today
@@ -165,7 +165,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .from('time_entries')
         .insert({
           restaurant_id: restaurant.id,
-          employee_id: employee.employee_id || employee.id,
+          employee_id: employee.employee_id || `emp-${employee.id.substring(0, 8)}`,
           temp_employee_id: employee.id,
           punch_in_time: new Date().toISOString(),
           date: today
@@ -184,11 +184,11 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const handlePunchOut = async (employee: Employee) => {
     try {
       // Get the current authenticated user
-      const { data } = await supabase.auth.getUser();
-      const user = data?.user;
+      const { data: { user } } = await supabase.auth.getUser();
       
       if (!user || user.id !== employee.id) {
-        throw new Error('You are not authorized to punch out for this employee');
+        setError('You are not authorized to punch out for this employee');
+        return;
       }
 
       // Find today's punch in entry
