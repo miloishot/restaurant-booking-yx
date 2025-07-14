@@ -111,7 +111,6 @@ export interface Employee {
   id: string;
   restaurant_id: string;
   employee_id: string;
-  name: string;
   user_id: string;
   is_active: boolean;
   created_at: string;
