@@ -44,7 +44,7 @@ export function useAuth() {
       console.log('Fetching employee profile for user ID:', id);
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, restaurant_id, employee_id, name, role, is_active')
         .eq('id', id)
         .single();
         

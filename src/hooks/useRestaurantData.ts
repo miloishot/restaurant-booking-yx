@@ -35,7 +35,7 @@ export function useRestaurantData(restaurantSlug?: string) {
           // First try to get the restaurant directly from the employee record
           const { data: employee, error: employeeError } = await supabase
             .from('employees')
-            .select('restaurant_id, role')
+            .select('id, restaurant_id, role')
             .eq('id', user.id)
             .single();
             
