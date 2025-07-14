@@ -457,7 +457,12 @@ export function RestaurantDashboard() {
                   activeTab === 'staffManagement'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
+                } ${
+                  employeeProfile?.role === 'staff' 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : ''
                 }`}
+                disabled={employeeProfile?.role === 'staff'}
               >
                 <Users className="w-4 h-4 inline mr-1" />
                 Staff Management
@@ -467,7 +472,12 @@ export function RestaurantDashboard() {
               onClick={() => setActiveTab('analytics')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'analytics'
-                  ? 'border-blue-500 text-blue-600'
+                } ${
+                  employeeProfile?.role === 'staff' 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : ''
+                }`}
+                disabled={employeeProfile?.role === 'staff'}
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -524,13 +534,41 @@ export function RestaurantDashboard() {
 
         {activeTab === 'menu' && (
           <div className="space-y-6">
-            <MenuManagement restaurant={restaurant} />
-            <QRCodeGenerator restaurant={restaurant} tables={tables} />
+            {employeeProfile?.role === 'staff' ? (
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ChefHat className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+                <p className="text-gray-600">
+                  Only restaurant owners and managers can access menu management and QR code settings.
+                </p>
+              </div>
+            ) : (
+              <>
+                <MenuManagement restaurant={restaurant} />
+                <QRCodeGenerator restaurant={restaurant} tables={tables} />
+              </>
+            )}
           </div>
         )}
         
         {activeTab === 'loyalty' && (
-          <LoyaltyManagement restaurant={restaurant} />
+          <>
+            {employeeProfile?.role === 'staff' ? (
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Crown className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+                <p className="text-gray-600">
+                  Only restaurant owners and managers can access loyalty program settings and discount codes.
+                </p>
+              </div>
+            ) : (
+              <LoyaltyManagement restaurant={restaurant} />
+            )}
+          </>
         )}
         
         {activeTab === 'setup' && (
