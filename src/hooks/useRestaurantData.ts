@@ -92,12 +92,11 @@ export function useRestaurantData(restaurantSlug?: string) {
           try {
             const { data: queryResult, error: restaurantError } = await restaurantQuery.maybeSingle();
             
-            console.log('Dispatching print-qr-code event for table:', table.id, 'with session token:', orderSession.session_token);
+            if (restaurantError) {
               if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
                 setError('Restaurant not found or you do not have access. Please check your account settings.');
               } else {
-                sessionToken: orderSession.session_token,
-                tableNumber: table.table_number
+                throw restaurantError;
               }
               return;
             }
@@ -263,7 +262,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       supabase.removeChannel(bookingsChannel);
       supabase.removeChannel(waitingChannel);
     };
-  }, [restaurant?.id, fetchRestaurantData]);
+  }, [restaurant?.id, fetchRestaurantData, restaurantSlug]);
 
   const updateTableStatus = async (tableId: string, status: RestaurantTable['status']) => {
     try {
