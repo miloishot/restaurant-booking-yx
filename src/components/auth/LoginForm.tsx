@@ -20,6 +20,11 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     setError(null);
 
     try {
+      // Check if Supabase is properly configured
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        throw new Error('Supabase configuration is missing. Please check your .env file and restart the application.');
+      }
+      
       // First, get the employee record
       // Sign in with Supabase Auth
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -58,6 +63,11 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     } catch (err) {
       console.error('Login error details:', err);
       setError(err instanceof Error ? err.message : 'Invalid employee ID or password');
+      
+      // Add more helpful error message for connection issues
+      if (err instanceof Error && err.message.includes('fetch')) {
+        setError('Connection to Supabase failed. Please check your internet connection and Supabase configuration in .env file.');
+      }
     } finally {
       setLoading(false);
     }

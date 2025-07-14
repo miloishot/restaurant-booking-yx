@@ -48,10 +48,13 @@ function App() {
           <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-left">
             <p className="font-medium text-gray-700 mb-1">Environment Status:</p>
             <p className="text-gray-600">
-              Supabase URL: {import.meta.env.VITE_SUPABASE_URL ? '✓ Configured' : '✗ Missing'}
+              Supabase URL: {import.meta.env.VITE_SUPABASE_URL ? '✓ Configured' : '✗ Missing - Add to .env file'}
             </p>
             <p className="text-gray-600">
-              Supabase Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ Configured' : '✗ Missing'}
+              Supabase Key: {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ Configured' : '✗ Missing - Add to .env file'}
+            </p>
+            <p className="text-xs mt-2 text-blue-600">
+              If values are missing, create or update your .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
             </p>
           </div>
         </div>
