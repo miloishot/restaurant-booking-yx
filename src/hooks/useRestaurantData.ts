@@ -34,7 +34,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       // Fetch restaurant
       let restaurantQuery = supabase.from('restaurants').select('*');
       let isRestaurantQueryFiltered = false;
-      let restaurantData = null;
+      let restaurantData: Restaurant | null = null;
       
       if (slug) {
         // Public booking page - fetch by slug
@@ -46,9 +46,9 @@ export function useRestaurantData(restaurantSlug?: string) {
           // First try to get the restaurant directly from the employee record
           const { data: employee, error: employeeError } = await supabase
             .from('employees')
-            .select('restaurant_id')
+            .select('restaurant_id, role')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
             
           if (!employeeError && employee?.restaurant_id) {
             console.log('Found restaurant from employee record:', employee.restaurant_id);
@@ -60,7 +60,7 @@ export function useRestaurantData(restaurantSlug?: string) {
                 .from('restaurants')
                 .select('*')
                 .eq('id', employee.restaurant_id)
-                .maybeSingle();
+                .single();
                 
               if (!directError && directRestaurant) {
                 restaurantData = directRestaurant;
@@ -118,9 +118,21 @@ export function useRestaurantData(restaurantSlug?: string) {
       // Set the restaurant data we found
       setRestaurant(restaurantData);
 
-      if (!restaurantData) {
+      if (!restaurantData && !slug) {
         console.warn('No restaurant data found for user:', user?.id);
         setError('No restaurant found. Please create a restaurant or contact support.');
+        return;
+      }
+      
+      // If we're on a public booking page and no restaurant was found, that's an error
+      if (!restaurantData && slug) {
+        setError(`Restaurant with slug "${slug}" not found.`);
+        return;
+      }
+      
+      // If we don't have a restaurant (which is valid for public booking pages), skip fetching related data
+      if (!restaurantData) {
+        setLoading(false);
         return;
       }
 
