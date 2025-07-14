@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, RestaurantTable, OrderSession } from '../types/database';
@@ -44,7 +44,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     // Listen for QR code print events from markTableOccupiedWithSession
     const handlePrintQrCode = (event: any) => {
       console.log('Received print-qr-code event with details:', event.detail);
-      const { tableId, sessionToken, tableNumber } = event.detail;
+      const { tableId, sessionToken, tableNumber } = event.detail || {};
       
       if (tableId && sessionToken) {
         console.log('Processing print request for table:', tableNumber || tableId);
@@ -92,7 +92,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       console.log('Removing print-qr-code event listener');
       window.removeEventListener('print-qr-code', handlePrintQrCode);
     };
-  }, [restaurant.id, selectedQrPrinter]);
+  }, [restaurant.id, selectedQrPrinter, printQRCode]);
 
   const fetchPrinterConfigs = async () => {
     try {
@@ -360,7 +360,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     `;
   };
 
-  const printQRCode = async (table: TableWithSession) => {
+  const printQRCode = useCallback(async (table: TableWithSession) => {
     if (!table.qrCodeUrl || !selectedQrPrinter) return;
     
     setPrinting(table.id);
@@ -424,7 +424,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     } finally {
       setPrinting(null);
     }
-  };
+  }, [selectedQrPrinter, printerConfigs, restaurant.id]);
 
   const printReceipt = async (table: TableWithSession) => {
     // First, fetch orders for this table
