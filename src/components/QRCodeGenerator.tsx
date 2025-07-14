@@ -42,12 +42,14 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     fetchPrinterConfigs();
     
     // Listen for QR code print events from markTableOccupiedWithSession
-    const handlePrintQrCode = (event: CustomEvent) => {
+    const handlePrintQrCode = (event: any) => {
+      console.log('Received print-qr-code event:', event);
       const { tableId, sessionToken } = event.detail;
       
       // Find the table and create a temporary table object with QR code URL
       const table = tables.find(t => t.id === tableId);
-      if (table && sessionToken && selectedQrPrinter) {
+      if (table && sessionToken) {
+        console.log('Found table for printing:', table.table_number);
         const tempTable: TableWithSession = {
           ...table,
           session: { 
@@ -63,19 +65,27 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
           qrCodeUrl: `${window.location.origin}/order/${sessionToken}`
         };
         
-        // Print the QR code
-        setTimeout(() => {
-          printQRCode(tempTable);
-        }, 500);
+        if (selectedQrPrinter) {
+          console.log('Printing QR code for table:', table.table_number);
+          // Print the QR code
+          setTimeout(() => {
+            printQRCode(tempTable);
+          }, 500);
+        } else {
+          console.warn('No QR printer selected for automatic printing');
+        }
       }
     };
     
-    window.addEventListener('print-qr-code', handlePrintQrCode as EventListener);
+    // Add the event listener
+    console.log('Adding print-qr-code event listener');
+    window.addEventListener('print-qr-code', handlePrintQrCode);
     
     return () => {
-      window.removeEventListener('print-qr-code', handlePrintQrCode as EventListener);
+      console.log('Removing print-qr-code event listener');
+      window.removeEventListener('print-qr-code', handlePrintQrCode);
     };
-  }, [restaurant.id, tables]);
+  }, [restaurant.id, tables, selectedQrPrinter]);
 
   const fetchPrinterConfigs = async () => {
     try {
