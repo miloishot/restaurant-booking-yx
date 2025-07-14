@@ -4,6 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Debug logging for development
+// Debug logging for development
 if (import.meta.env.DEV) {
   console.log('Supabase Configuration (Debug):', {
     url: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'Not set',
@@ -11,6 +12,12 @@ if (import.meta.env.DEV) {
     keyLength: supabaseAnonKey?.length || 0
   });
 }
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables. Please check your .env file.');
+  console.error('Required variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+}
+
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your .env file.');
