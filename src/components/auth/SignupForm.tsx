@@ -63,19 +63,49 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
           .insert({
             name: restaurantName,
             slug,
-            owner_id: data.user.id,
+            owner_id: data.user.id, 
             time_slot_duration_minutes: 15
           });
           
         if (restaurantError) {
           console.error('Error creating restaurant:', restaurantError);
         }
+        
+        // Create user profile for the restaurant owner
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: data.user.id,
+            restaurant_id: null, // Will be updated after restaurant creation
+            role: 'owner'
+          });
+          
+        if (profileError) {
+          console.error('Error creating user profile:', profileError);
+        }
+        
+        // Update user profile with restaurant ID
+        if (!restaurantError) {
+          const { data: restaurant } = await supabase
+            .from('restaurants')
+            .select('id')
+            .eq('owner_id', data.user.id)
+            .single();
+            
+          if (restaurant) {
+            await supabase
+              .from('user_profiles')
+              .update({ restaurant_id: restaurant.id })
+              .eq('id', data.user.id);
+          }
+        }
       }
+      
       // Check if there's an employee record waiting for this email
       const employeeId = email.split('@')[0];
       const { data: existingEmployee } = await supabase
         .from('employees')
-        .select('id, restaurant_id, employee_id, name, is_active')
+        .select('id, restaurant_id, employee_id, name, role, is_active')
         .eq('employee_id', employeeId)
         .eq('is_active', true)
         .is('user_id', null)
@@ -92,6 +122,17 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
           console.error('Error linking employee to user:', linkError);
           // Don't throw error here, user can still complete signup
         }
+        
+        // Create or update user profile for the employee
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: data.user.id,
+            restaurant_id: existingEmployee.restaurant_id,
+            role: existingEmployee.role || 'staff'
+          });
+          
+        console.log('Created/updated user profile for employee');
       }
 
       onSuccess();
