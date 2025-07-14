@@ -472,14 +472,14 @@ export function RestaurantDashboard() {
               onClick={() => setActiveTab('analytics')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'analytics'
-                } ${
-                  employeeProfile?.role === 'staff' 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : ''
-                }`}
-                disabled={employeeProfile?.role === 'staff'}
+                  ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } ${
+                employeeProfile?.role === 'staff' 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : ''
               }`}
+              disabled={employeeProfile?.role === 'staff'}
             >
               <BarChart3 className="w-4 h-4 inline mr-1" />
               Analytics
