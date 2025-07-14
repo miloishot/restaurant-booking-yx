@@ -30,7 +30,8 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const [generatingQR, setGeneratingQR] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [printerConfigs, setPrinterConfigs] = useState<PrinterConfig[]>([]);
-  const [selectedPrinter, setSelectedPrinter] = useState<string | null>(null);
+  const [selectedQrPrinter, setSelectedQrPrinter] = useState<string | null>(null);
+  const [selectedBillPrinter, setSelectedBillPrinter] = useState<string | null>(null);
   const [printing, setPrinting] = useState<string | null>(null);
   const [printingReceipt, setPrintingReceipt] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
@@ -58,9 +59,11 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       // Set default printer if available
       const defaultPrinter = data?.find(p => p.is_default);
       if (defaultPrinter) {
-        setSelectedPrinter(defaultPrinter.id);
+        setSelectedQrPrinter(defaultPrinter.id);
+        setSelectedBillPrinter(defaultPrinter.id);
       } else if (data && data.length > 0) {
-        setSelectedPrinter(data[0].id);
+        setSelectedQrPrinter(data[0].id);
+        setSelectedBillPrinter(data[0].id);
       }
     } catch (error) {
       console.error('Error fetching printer configs:', error);
@@ -135,6 +138,15 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       }, 3000);
 
       await fetchTableSessions();
+      
+      // Auto-print the QR code after generation
+      const updatedTable = tablesWithSessions.find(t => t.id === table.id);
+      if (updatedTable && updatedTable.qrCodeUrl && selectedQrPrinter) {
+        // Wait a moment to ensure the table data is updated
+        setTimeout(() => {
+          printQRCode(updatedTable);
+        }, 500);
+      }
     } catch (error) {
       console.error('Error generating QR session:', error);
       alert('Failed to generate QR code. Please try again.');
@@ -283,13 +295,13 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   };
 
   const printQRCode = async (table: TableWithSession) => {
-    if (!table.qrCodeUrl || !selectedPrinter) return;
+    if (!table.qrCodeUrl || !selectedQrPrinter) return;
     
     setPrinting(table.id);
     setPrintError(null);
     
     try {
-      const printer = printerConfigs.find(p => p.id === selectedPrinter);
+      const printer = printerConfigs.find(p => p.id === selectedQrPrinter);
       if (!printer) throw new Error('Selected printer not found');
       
       // Generate QR code HTML with enhanced receipt format
@@ -383,7 +395,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       setPrintingReceipt(table.id); 
       setPrintReceiptError(prev => ({ ...prev, [table.id]: '' }));
 
-      const printer = printerConfigs.find(p => p.id === selectedPrinter);
+      const printer = printerConfigs.find(p => p.id === selectedBillPrinter);
       if (!printer) throw new Error('Selected printer not found');
 
       // Calculate totals
@@ -646,21 +658,41 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       {/* Printer Selection */}
       {printerConfigs.length > 0 && (
         <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Printer className="w-5 h-5 text-blue-600 mr-2" />
-              <h3 className="font-semibold text-blue-800">Print QR Codes</h3>
+          <h3 className="font-semibold text-blue-800 mb-4">Printer Configuration</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <QrCode className="w-5 h-5 text-blue-600 mr-2" />
+                <span className="text-blue-800">QR Code Printer:</span>
+              </div>
+              
+              <select
+                value={selectedQrPrinter || ''}
+                onChange={(e) => setSelectedQrPrinter(e.target.value)}
+                className="px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {printerConfigs.map(printer => (
+                  <option key={printer.id} value={printer.id}>{printer.printer_name} {printer.is_default ? '(Default)' : ''}</option>
+                ))}
+              </select>
             </div>
             
-            <select
-              value={selectedPrinter || ''}
-              onChange={(e) => setSelectedPrinter(e.target.value)}
-              className="px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              {printerConfigs.map(printer => (
-                <option key={printer.id} value={printer.id}>{printer.printer_name} {printer.is_default ? '(Default)' : ''}</option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Receipt className="w-5 h-5 text-green-600 mr-2" />
+                <span className="text-green-800">Bill Printer:</span>
+              </div>
+              
+              <select
+                value={selectedBillPrinter || ''}
+                onChange={(e) => setSelectedBillPrinter(e.target.value)}
+                className="px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              >
+                {printerConfigs.map(printer => (
+                  <option key={printer.id} value={printer.id}>{printer.printer_name} {printer.is_default ? '(Default)' : ''}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       )}
@@ -738,7 +770,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {printerConfigs.length > 0 && selectedPrinter && (
+                  {printerConfigs.length > 0 && selectedQrPrinter && (
                     <button
                       onClick={() => printQRCode(table)}
                       disabled={printing === table.id}
@@ -749,14 +781,16 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                     </button>
                   )}
                   
-                  <button
-                    onClick={() => printReceipt(table)}
-                    disabled={printingReceipt === table.id}
-                    className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
-                  >
-                    <Receipt className="w-4 h-4 mr-1" />
-                    {printingReceipt === table.id ? 'Printing...' : 'Print Bill'}
-                  </button>
+                  {printerConfigs.length > 0 && selectedBillPrinter && (
+                    <button
+                      onClick={() => printReceipt(table)}
+                      disabled={printingReceipt === table.id}
+                      className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      <Receipt className="w-4 h-4 mr-1" />
+                      {printingReceipt === table.id ? 'Printing...' : 'Print Bill'}
+                    </button>
+                  )}
                 </div>
 
                 <button
