@@ -84,17 +84,36 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
       const { data, error } = await supabase
         .from('time_entries')
-        .select(`
-          *,
-          employee:employees(*)
-        `)
+        .select('*')
         .eq('restaurant_id', restaurant.id)
         .gte('date', startDate)
         .lte('date', endDate)
         .order('punch_in_time', { ascending: false });
 
       if (error) throw error;
-      setTimeEntries(data || []);
+      
+      // Fetch employee data separately to avoid relationship issues
+      const employeeIds = [...new Set(data?.map(entry => entry.temp_employee_id).filter(Boolean))];
+      let employeesData: Employee[] = [];
+      
+      if (employeeIds.length > 0) {
+        const { data: empData, error: empError } = await supabase
+          .from('employees')
+          .select('*')
+          .in('id', employeeIds);
+          
+        if (!empError) {
+          employeesData = empData || [];
+        }
+      }
+      
+      // Combine time entries with employee data
+      const entriesWithEmployees = (data || []).map(entry => ({
+        ...entry,
+        employee: employeesData.find(emp => emp.id === entry.temp_employee_id)
+      }));
+      
+      setTimeEntries(entriesWithEmployees);
     } catch (error) {
       console.error('Error fetching time entries:', error);
     } finally {
@@ -146,7 +165,8 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .from('time_entries')
         .insert({
           restaurant_id: restaurant.id,
-          employee_id: employee.employee_id,
+          employee_id: employee.employee_id || employee.id,
+          temp_employee_id: employee.id,
           punch_in_time: new Date().toISOString(),
           date: today
         });
@@ -177,7 +197,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         .from('time_entries')
         .select('*')
         .eq('restaurant_id', restaurant.id)
-        .eq('employee_id', employee.employee_id)
+        .eq('temp_employee_id', employee.id)
         .eq('date', today)
         .is('punch_out_time', null)
         .maybeSingle();
@@ -225,14 +245,14 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   };
 
   const calculateEmployeeHours = (employeeId: string) => {
-    const employeeEntries = timeEntries.filter(entry => entry.employee_id === employeeId);
+    const employeeEntries = timeEntries.filter(entry => entry.temp_employee_id === employeeId);
     return calculateTotalHours(employeeEntries);
   };
 
-  const isEmployeePunchedIn = (employeeId: string) => {
+  const isEmployeePunchedIn = (employeeUuid: string) => {
     const today = format(new Date(), 'yyyy-MM-dd');
     return timeEntries.some(entry => 
-      entry.employee_id === employeeId && 
+      entry.temp_employee_id === employeeUuid && 
       entry.date === today && 
       entry.punch_out_time === null
     );
@@ -449,7 +469,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                           <div className="text-sm font-medium text-gray-900">{formatHours(calculateEmployeeHours(employee.employee_id))}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {isPunchedIn ? (
+                          {isPunchedIn(employee.id) ? (
                             <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                               Active
                             </span>
@@ -463,9 +483,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => setSelectedAction({ type: 'in', employee })}
-                              disabled={isPunchedIn}
+                              disabled={isPunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
-                                isPunchedIn 
+                                isPunchedIn(employee.id) 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-blue-600 hover:bg-blue-700'
                               }`}
@@ -474,9 +494,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                             </button>
                             <button
                               onClick={() => setSelectedAction({ type: 'out', employee })}
-                              disabled={!isPunchedIn}
+                              disabled={!isPunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
-                                !isPunchedIn 
+                                !isPunchedIn(employee.id) 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-red-600 hover:bg-red-700'
                               }`}
@@ -546,7 +566,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                         <div className="text-sm font-medium text-gray-900">
                           {entry.employee?.name}
                         </div>
-                        <div className="text-sm text-gray-500">ID: {entry.employee_id}</div>
+                        <div className="text-sm text-gray-500">ID: {entry.employee?.employee_id || entry.employee_id}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
