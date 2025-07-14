@@ -22,7 +22,10 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
     try {
       // Check if Supabase is properly configured
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        throw new Error('Supabase configuration is missing. Please check your .env file and restart the application.');
+        console.error('Supabase configuration is missing:',
+          { url: import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Not set', 
+            key: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Not set' });
+        throw new Error('Supabase configuration is missing. Please check your .env file.');
       }
 
       // Sign in with Supabase Auth
@@ -39,13 +42,15 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
       // After successful Supabase authentication, fetch the employee record from the consolidated 'employees' table
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, restaurant_id, role, name, is_active')
         .eq('id', data.user.id)
         .maybeSingle();
 
-      if (employeeError && employeeError.code !== 'PGRST116') {
+      if (employeeError) {
         console.error('Employee lookup error:', employeeError);
-        throw new Error('Database error while looking up your employee record');
+        if (employeeError.code !== 'PGRST116') {
+          throw new Error('Database error while looking up your employee record');
+        }
       }
 
       if (!employee) {

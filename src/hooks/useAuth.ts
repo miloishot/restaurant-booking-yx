@@ -42,20 +42,31 @@ export function useAuth() {
   const fetchEmployeeProfile = async (id: string) => {
     try {
       console.log('Fetching employee profile for user ID:', id);
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, restaurant_id, employee_id, name, role, is_active')
-        .eq('id', id)
-        .single();
-        
-      if (error) {
-        console.error('Error fetching employee profile:', error);
-        if (error.code === 'PGRST116') {
-          console.log('No employee profile found for this user');
-        }
+      
+      // Check if Supabase is properly configured
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.error('Supabase configuration is missing. Please check your .env file.');
+        return;
       }
-
-      setEmployeeProfile(data);
+      
+      try {
+        const { data, error } = await supabase
+          .from('employees')
+          .select('id, restaurant_id, employee_id, name, role, is_active')
+          .eq('id', id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching employee profile:', error);
+          if (error.code === 'PGRST116') {
+            console.log('No employee profile found for this user');
+          }
+        }
+  
+        setEmployeeProfile(data || null);
+      } catch (fetchError) {
+        console.error('Fetch error in fetchEmployeeProfile:', fetchError);
+      }
     } catch (err) {
       console.error('Error in fetchEmployeeProfile:', err);
     } finally {

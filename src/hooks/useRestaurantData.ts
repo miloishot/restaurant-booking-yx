@@ -52,10 +52,12 @@ export function useRestaurantData(restaurantSlug?: string) {
       // If no user and no slug, or if the user is not associated with a restaurant,
       // we might still want to fetch a default restaurant for demo purposes.
       // This part needs to be carefully considered based on desired app behavior.
+      let isRestaurantQueryFiltered = false;
+      
       if (!user && !slug) {
         // For demo purposes, fetch first restaurant if no user and no slug
         restaurantQuery = restaurantQuery.limit(1);
-      } else if (user && !slug && !restaurantQuery.filters.some(f => f.column === 'id' || f.column === 'owner_id')) {
+      } else if (user && !slug && !isRestaurantQueryFiltered) {
         // If user is logged in but no specific restaurant was found via employee record or owner_id,
         // and no slug was provided, it means the user is not linked to a restaurant yet.
         // In this case, we might want to show an empty state or redirect to setup.
@@ -64,20 +66,14 @@ export function useRestaurantData(restaurantSlug?: string) {
         // For robustness, if no restaurant is found, the component should handle it.
         // The current logic for `restaurantQuery` should already handle this by setting `eq('id', employeeData.restaurant_id)` or `eq('owner_id', user.id)`.
         // If neither matches, `restaurantData` will be null, and the component will show "Restaurant Not Found".
-        
-        // For demo purposes, fetch first restaurant if no specific restaurant is found
-        try {
-          restaurantQuery = restaurantQuery.limit(1);
-        } catch (error) {
-          console.warn('Error setting limit on restaurant query:', error);
-        }
-      }
+        restaurantQuery = restaurantQuery.limit(1);
+          .from('employees')
+          .select('id, restaurant_id, role')
+          .eq('id', user.id)
+      const { data: restaurantData, error: restaurantError } = await restaurantQuery.maybeSingle();
 
-      // Execute the restaurant query
-      const { data: restaurantData, error: restaurantError } = await restaurantQuery.single();
-
-      if (restaurantError) {
-        if (restaurantError.code === 'PGRST116') {
+        if (!employeeError && employee && employee.restaurant_id) {
+        if (restaurantError.code === 'PGRST116' || restaurantError.message?.includes('Results contain 0 rows')) {
           setError('Restaurant not found or you do not have access. Please check your account settings.');
         } else {
           throw restaurantError;
