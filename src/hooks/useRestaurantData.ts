@@ -63,7 +63,6 @@ export function useRestaurantData(restaurantSlug?: string) {
       }
       // If no user and no slug, or if the user is not associated with a restaurant,
       // This part needs to be carefully considered based on desired app behavior.
-      let isRestaurantQueryFiltered = false;
       
       if (!user && !slug) {
         // For demo purposes, fetch first restaurant if no user and no slug
