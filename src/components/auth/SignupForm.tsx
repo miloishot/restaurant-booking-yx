@@ -71,68 +71,20 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
           console.error('Error creating restaurant:', restaurantError);
         }
         
-        // Create user profile for the restaurant owner
+        // Create employee record for the restaurant owner in the consolidated 'employees' table
         const { error: profileError } = await supabase
-          .from('user_profiles')
+          .from('employees') // Use the consolidated employees table
           .insert({
             id: data.user.id,
-            restaurant_id: null, // Will be updated after restaurant creation
-            role: 'owner'
+            restaurant_id: (await supabase.from('restaurants').select('id').eq('owner_id', data.user.id).single()).data?.id, // Get the newly created restaurant's ID
+            role: 'owner',
+            name: name, // Use the name provided in signup form
+            is_active: true,
           });
           
         if (profileError) {
-          console.error('Error creating user profile:', profileError);
+          console.error('Error creating employee record for owner:', profileError);
         }
-        
-        // Update user profile with restaurant ID
-        if (!restaurantError) {
-          const { data: restaurant } = await supabase
-            .from('restaurants')
-            .select('id')
-            .eq('owner_id', data.user.id)
-            .single();
-            
-          if (restaurant) {
-            await supabase
-              .from('user_profiles')
-              .update({ restaurant_id: restaurant.id })
-              .eq('id', data.user.id);
-          }
-        }
-      }
-      
-      // Check if there's an employee record waiting for this email
-      const employeeId = email.split('@')[0];
-      const { data: existingEmployee } = await supabase
-        .from('employees')
-        .select('id, restaurant_id, employee_id, name, role, is_active')
-        .eq('employee_id', employeeId)
-        .eq('is_active', true)
-        .is('user_id', null)
-        .single();
-        
-      // If there's an existing employee record, link it to the new user
-      if (existingEmployee && data.user) {
-        const { error: linkError } = await supabase
-          .from('employees')
-          .update({ user_id: data.user.id })
-          .eq('id', existingEmployee.id);
-        
-        if (linkError) {
-          console.error('Error linking employee to user:', linkError);
-          // Don't throw error here, user can still complete signup
-        }
-        
-        // Create or update user profile for the employee
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .upsert({
-            id: data.user.id,
-            restaurant_id: existingEmployee.restaurant_id,
-            role: existingEmployee.role || 'staff'
-          });
-          
-        console.log('Created/updated user profile for employee');
       }
 
       onSuccess();

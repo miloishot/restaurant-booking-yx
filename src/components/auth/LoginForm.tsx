@@ -36,63 +36,20 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         throw signInError;
       }
 
-      // First check if this user has a user profile
-      const { data: userProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id, restaurant_id, role')
+      // After successful Supabase authentication, fetch the employee record from the consolidated 'employees' table
+      const { data: employeeRecord, error: employeeError } = await supabase
+        .from('employees')
+        .select('*') // Select all columns for the employee record
         .eq('id', data.user.id)
         .single();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        // PGRST116 is "not found" error, other errors are more serious
-        console.error('User profile lookup error:', profileError);
-        throw new Error('Database error while looking up user profile');
+      if (employeeError && employeeError.code !== 'PGRST116') { // PGRST116 means "not found"
+        console.error('Employee record lookup error:', employeeError);
+        throw new Error('Database error while looking up employee record');
       }
 
-      if (!userProfile) {
-        // Check if there's an employee record without user_id that matches this user's email
-        const userEmail = data.user.email;
-        if (userEmail) {
-          // Try to find employee by email pattern (employee_id@example.com)
-          const employeeId = userEmail.split('@')[0];
-          
-          const { data: unlinkedEmployee, error: unlinkError } = await supabase
-            .from('employees')
-            .select('id, restaurant_id, employee_id, name, role, is_active')
-            .eq('employee_id', employeeId)
-            .eq('is_active', true)
-            .is('user_id', null)
-            .single();
-          
-          if (unlinkedEmployee) {
-            // Link this employee record to the authenticated user
-            const { error: linkError } = await supabase
-              .from('employees') 
-              .update({ user_id: data.user.id })
-              .eq('id', unlinkedEmployee.id);
-            
-            if (linkError) {
-              console.error('Error linking employee to user:', linkError);
-              throw new Error('Failed to link employee account');
-            }
-
-            // Use the newly linked employee record
-            const linkedEmployee = { ...unlinkedEmployee, user_id: data.user.id };
-
-            localStorage.setItem('currentEmployee', JSON.stringify({
-              id: linkedEmployee.id,
-              name: linkedEmployee.name,
-              role: linkedEmployee.role,
-              user_id: linkedEmployee.user_id,
-              employee_id: linkedEmployee.employee_id,
-              restaurant_id: linkedEmployee.restaurant_id
-            }));
-            
-            onSuccess();
-            return;
-          }
-        }
-
+      if (!employeeRecord) {
+        // If no employee record exists for this user, check if they are a restaurant owner
         // Check if user is a restaurant owner
         const { data: ownedRestaurant, error: restaurantError } = await supabase
           .from('restaurants')
@@ -100,12 +57,19 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
           .eq('owner_id', data.user.id)
           .single();
 
-        if (ownedRestaurant) {
-          // Create a user profile for the restaurant owner
+        if (restaurantError && restaurantError.code !== 'PGRST116') {
+          console.error('Restaurant owner lookup error:', restaurantError);
+          throw new Error('Database error while looking up restaurant ownership');
+        }
+
+        if (ownedRestaurant) { // If they are an owner, create an employee record for them
+          // Create an employee record for the restaurant owner in the consolidated 'employees' table
           await supabase.from('user_profiles').insert({
-            id: data.user.id,
+            id: data.user.id, // Use the Supabase user's ID as the primary key
             restaurant_id: ownedRestaurant.id,
-            role: 'owner'
+            role: 'owner',
+            name: data.user.email || 'Owner', // Use email as name if available, or default
+            is_active: true,
           });
           
           onSuccess();
@@ -117,7 +81,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         throw new Error('No restaurant access found. Please contact your manager or create a new restaurant.');
       }
 
-      onSuccess();
+      onSuccess(); // Proceed to dashboard if employeeRecord exists or was just created
     } catch (err) {
       console.error('Login error details:', err);
       setError(err instanceof Error ? err.message : 'Invalid employee ID or password');

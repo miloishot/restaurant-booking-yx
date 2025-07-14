@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth'; 
 import { useSubscription } from './hooks/useSubscription';
 import { useRestaurantData } from './hooks/useRestaurantData';
-import { AuthPage } from './components/auth/AuthPage';
+import { AuthPage } from './components/auth/AuthPage'; // Keep AuthPage for login/signup
 import { RestaurantDashboard } from './components/RestaurantDashboard';
 import { CustomerBooking } from './components/CustomerBooking';
 import { CustomerOrderingInterface } from './components/qr-ordering/CustomerOrderingInterface';
@@ -13,7 +13,7 @@ import { LogOut, User } from 'lucide-react';
 import { OrderConfirmation } from './components/qr-ordering/OrderConfirmation';
 
 function App() {
-  const { user, userProfile, loading: authLoading, signOut } = useAuth();
+  const { user, employeeProfile, loading: authLoading, signOut } = useAuth(); // Use employeeProfile
   const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantData();
   const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
 
@@ -85,9 +85,9 @@ function App() {
                   <div className="flex items-center text-sm text-gray-600">
                     <User className="w-4 h-4 mr-1" />
                     {user.email} 
-                    {userProfile?.role && (
+                    {employeeProfile?.role && (
                       <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
-                        {userProfile.role}
+                        {employeeProfile.role}
                       </span>
                     )}
                   </div>

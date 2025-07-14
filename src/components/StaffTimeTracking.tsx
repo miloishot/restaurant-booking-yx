@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, Employee, TimeEntry } from '../types/database';
-import { Clock, Users, Plus, Calendar, BarChart3, User, Lock, CheckCircle, XCircle, LogIn, LogOut, RefreshCw } from 'lucide-react';
+import { Clock, Users, Calendar, BarChart3, User, Lock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 
 interface StaffTimeTrackingProps {
@@ -12,11 +12,8 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Employee | null>(null);
   const [selectedAction, setSelectedAction] = useState<{type: 'in' | 'out', employee: Employee} | null>(null);
-  const [punchForm, setPunchForm] = useState({});
-  const [showPunchModal, setShowPunchModal] = useState<'in' | 'out' | null>(null);
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -24,7 +21,6 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [employeeForm, setEmployeeForm] = useState({
     name: '',
     employeeId: '', 
-    role: 'staff' as 'owner' | 'manager' | 'staff',
     adminPassword: '' 
   });
 
@@ -205,54 +201,19 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
     }
   };
 
-  const handleAddEmployee = async () => {
-    try {
-      if (employeeForm.adminPassword !== 'TGS123') {
-        throw new Error('Invalid admin password');
-      }
-
-      // Create the employee record without user_id initially
-      // The user_id will need to be set manually when the employee first logs in
-      const { error } = await supabase
-        .from('employees')
-        .insert({
-          restaurant_id: restaurant.id,
-          employee_id: employeeForm.employeeId, 
-          name: employeeForm.name,
-          role: employeeForm.role,
-          user_id: null, // Will be set when employee first authenticates
-          is_active: true
-        });
-
-      if (error) throw error;
-
-      showNotification('Employee added successfully! They will need to sign up with their email to complete setup.');
-      setShowAddEmployee(false); 
-      setEmployeeForm({ name: '', employeeId: '', role: 'staff', adminPassword: '' });
-      fetchEmployees();
-    } catch (error) {
-      showNotification(error instanceof Error ? error.message : 'Failed to add employee', 'error');
-    }
-  };
-
   const handleDeleteEmployee = async (employee: Employee) => {
     try {
-      // Verify admin password
-      if (employeeForm.adminPassword !== 'TGS123') {
-        throw new Error('Invalid admin password');
-      }
-
-      // Instead of actually deleting, we'll set is_active to false
+      // Delete the employee record directly from the consolidated employees table
       const { error } = await supabase
         .from('employees')
-        .update({ is_active: false })
-        .eq('id', employee.id);
+        .delete()
+        .eq('id', employee.id); // Use the employee's UID (which is now the PK)
 
       if (error) throw error;
 
-      showNotification(`${employee.name} has been removed successfully!`);
+      showNotification(`${employee.name} has been removed successfully! This also removes their access.`);
       setShowDeleteConfirm(null);
-      setEmployeeForm({ name: '', employeeId: '', role: 'staff', adminPassword: '' });
+      setEmployeeForm({ name: '', employeeId: '', adminPassword: '' });
       fetchEmployees();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Failed to remove employee', 'error');
@@ -302,14 +263,6 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
             </h2>
             <p className="text-gray-600">Manage employee punch in/out and track working hours</p>
           </div>
-          
-          <button
-            onClick={() => setShowAddEmployee(true)}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Employee
-          </button>
         </div>
       </div>
 
@@ -455,12 +408,6 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
             <div className="text-center py-8">
               <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No employees found</p>
-              <button
-                onClick={() => setShowAddEmployee(true)}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-              >
-                Add Employee
-              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -540,7 +487,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                           <button
-                            onClick={() => setShowDeleteConfirm(employee)}
+                            onClick={() => setShowDeleteConfirm(employee)} // Keep delete functionality
                             className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
                           >
                             Remove
@@ -703,106 +650,6 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         </div>
       )}
 
-      {/* Add Employee Modal */}
-      {showAddEmployee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Add New Employee</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Employee Name
-                  </label>
-                  <input
-                    type="text"
-                    value={employeeForm.name}
-                    onChange={(e) => setEmployeeForm({ ...employeeForm, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter employee name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Employee ID
-                  </label>
-                  <input
-                    type="text"
-                    value={employeeForm.employeeId}
-                    onChange={(e) => setEmployeeForm({ ...employeeForm, employeeId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter unique employee ID"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
-                  </label>
-                  <select
-                    value={employeeForm.role}
-                    onChange={(e) => setEmployeeForm({ ...employeeForm, role: e.target.value as 'owner' | 'manager' | 'staff' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="staff">Staff</option>
-                    <option value="manager">Manager</option>
-                    <option value="owner">Owner</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={`${employeeForm.employeeId}@example.com`}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Email will be generated automatically"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Email will be automatically generated based on employee ID
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Admin Password
-                  </label>
-                  <input
-                    type="password"
-                    value={employeeForm.adminPassword}
-                    onChange={(e) => setEmployeeForm({ ...employeeForm, adminPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter admin password"
-                  />
-                </div>
-              </div>
-
-              <div className="flex space-x-4 mt-6">
-                <button
-                  onClick={() => {
-                    setShowAddEmployee(false);
-                    setEmployeeForm({ name: '', employeeId: '', role: 'staff', adminPassword: '' });
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddEmployee}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Add Employee
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
