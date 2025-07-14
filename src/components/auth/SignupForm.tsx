@@ -77,6 +77,10 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
         .from('employees')
         .select('id, restaurant_id, employee_id, name, is_active')
         .eq('employee_id', employeeId)
+        .eq('is_active', true)
+        .is('user_id', null)
+        .single();
+        
       // If there's an existing employee record, link it to the new user
       if (existingEmployee && data.user) {
         const { error: linkError } = await supabase
@@ -89,10 +93,6 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
           // Don't throw error here, user can still complete signup
         }
       }
-
-        .eq('is_active', true)
-        .is('user_id', null)
-        .single();
 
       onSuccess();
     } catch (err) {
