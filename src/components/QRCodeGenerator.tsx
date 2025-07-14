@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
 import { Restaurant, RestaurantTable, OrderSession } from '../types/database';
 import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer, Receipt, CreditCard } from 'lucide-react';
 
@@ -23,6 +24,7 @@ interface PrinterConfig {
 }
 
 export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
+  const { employeeProfile } = useAuth();
   const [tablesWithSessions, setTablesWithSessions] = useState<TableWithSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingQR, setGeneratingQR] = useState<string | null>(null);
@@ -592,6 +594,23 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const openOrderingPage = (url: string) => {
     window.open(url, '_blank');
   };
+
+  // Check if user has permission to manage QR codes
+  const canManageQRCodes = employeeProfile?.role === 'owner' || employeeProfile?.role === 'manager';
+
+  if (!canManageQRCodes) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-8">
+          <QrCode className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+          <p className="text-gray-600">
+            Only restaurant owners and managers can manage QR codes.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
