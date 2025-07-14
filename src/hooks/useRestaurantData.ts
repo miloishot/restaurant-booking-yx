@@ -733,21 +733,6 @@ export function useRestaurantData(restaurantSlug?: string) {
 
         if (sessionUpdateError) {
           console.warn('Could not update session with booking ID:', sessionUpdateError);
-        }
-        
-        try {
-          // Trigger QR code printing via an event
-          console.log('Dispatching print-qr-code event for table:', table.id);
-          const printEvent = new CustomEvent('print-qr-code', { 
-            detail: { 
-              tableId: table.id,
-              sessionToken: orderSession.session_token
-            }
-          });
-          window.dispatchEvent(printEvent);
-        } catch (printEventError) {
-          console.error('Error dispatching print event:', printEventError);
-        }
       }
 
       // Force immediate refresh to ensure UI consistency

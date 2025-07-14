@@ -40,59 +40,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   useEffect(() => {
     fetchTableSessions();
     fetchPrinterConfigs();
-    
-    // Listen for QR code print events from markTableOccupiedWithSession
-    const handlePrintQrCode = (event: any) => {
-      console.log('Received print-qr-code event with details:', event.detail);
-      const { tableId, sessionToken, tableNumber } = event.detail;
-      
-      if (tableId && sessionToken) {
-        console.log('Processing print request for table:', tableNumber || tableId);
-        
-        // Check if we have a QR printer selected
-        if (!selectedQrPrinter) {
-          console.warn('No QR printer selected for automatic printing');
-          return;
-        }
-        
-        // Create a temporary table object with QR code URL
-        const tempTable: TableWithSession = {
-          id: tableId,
-          restaurant_id: restaurant.id,
-          table_number: tableNumber || 'Unknown',
-          capacity: 0,
-          status: 'occupied',
-          location_notes: null,
-          created_at: '',
-          updated_at: '',
-          session: { 
-            id: '', 
-            restaurant_id: restaurant.id, 
-            table_id: tableId, 
-            booking_id: null, 
-            session_token: sessionToken, 
-            is_active: true, 
-            created_at: '', 
-            updated_at: '' 
-          },
-          qrCodeUrl: `${window.location.origin}/order/${sessionToken}`
-        };
-        
-        console.log('Printing QR code for table:', tempTable.table_number);
-        // Print the QR code immediately
-        printQRCode(tempTable);
-      }
-    };
-    
-    // Add the event listener
-    console.log('Adding print-qr-code event listener');
-    window.addEventListener('print-qr-code', handlePrintQrCode);
-    
-    return () => {
-      console.log('Removing print-qr-code event listener');
-      window.removeEventListener('print-qr-code', handlePrintQrCode);
-    };
-  }, [restaurant.id, selectedQrPrinter]);
+  }, [restaurant.id]);
 
   const fetchPrinterConfigs = async () => {
     try {

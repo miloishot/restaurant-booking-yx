@@ -160,13 +160,170 @@ export function RestaurantDashboard() {
 
   const handleMarkOccupied = async (table: RestaurantTable) => {
     try {
-      await markTableOccupiedWithSession(table, 2); // Default party size
+      const result = await markTableOccupiedWithSession(table, 2); // Default party size
+      
+      // If we have a QR code printer configured, print the QR code
+      if (result.session) {
+        // Find the default printer or first available printer
+        const { data: printerConfigs } = await supabase
+          .from('printer_configs')
+          .select('id, printer_name, device_id, printer_id, is_default')
+          .eq('restaurant_id', restaurant.id)
+          .eq('is_active', true)
+          .not('device_id', 'is', null)
+          .not('printer_id', 'is', null);
+        
+        if (printerConfigs && printerConfigs.length > 0) {
+          // Find default printer or use first one
+          const defaultPrinter = printerConfigs.find(p => p.is_default) || printerConfigs[0];
+          
+          // Generate QR code HTML
+          const qrCodeUrl = `${window.location.origin}/order/${result.session.session_token}`;
+          const qrCodeHtml = generateQRCodeHtml(table.table_number, qrCodeUrl);
+          const base64Content = btoa(qrCodeHtml);
+          
+          // Print the QR code
+          try {
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                restaurantId: restaurant.id,
+                deviceId: defaultPrinter.device_id,
+                printerId: defaultPrinter.printer_id,
+                content: base64Content,
+                options: {
+                  mimeType: 'text/html',
+                  copies: 1
+                },
+                jobName: `QR Code - Table ${table.table_number}`
+              }),
+            });
+            
+            if (response.ok) {
+              showNotification(`QR code for Table ${table.table_number} sent to printer!`, 'success');
+            } else {
+              console.error('Failed to print QR code:', await response.text());
+            }
+          } catch (printError) {
+            console.error('Error printing QR code:', printError);
+          }
+        }
+      }
+      
       // Force data refresh after walk-in
       await refetch();
     } catch (error) {
       console.error('Error marking table occupied:', error);
       alert('Failed to mark table occupied. Please try again.');
     }
+  };
+
+  // Function to generate QR code HTML for printing
+  const generateQRCodeHtml = (tableNumber: string, qrCodeUrl: string) => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>QR Code - Table ${tableNumber}</title>
+        <style>
+          body { 
+            font-family: monospace; 
+            text-align: center; 
+            margin: 0;
+            padding: 0;
+            width: 100%;
+          }
+          .receipt {
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            padding: 10px 0;
+          }
+          .header {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
+          }
+          .table-info {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+          }
+          .qr-code { 
+            margin: 15px 0; 
+          }
+          .instructions {
+            font-size: 12px;
+            margin: 10px 0;
+          }
+          .timestamp {
+            font-size: 10px;
+            margin-top: 10px;
+            border-top: 1px dashed #000;
+            padding-top: 5px;
+          }
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            ${restaurant?.name || 'Restaurant'}
+          </div>
+          
+          <div class="table-info">
+            TABLE ${tableNumber}
+          </div>
+          
+          <div class="qr-code">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}" alt="QR Code for Table ${tableNumber}" width="200" height="200" />
+          </div>
+          
+          <div class="instructions">
+            SCAN THIS CODE TO ORDER
+            FOOD & DRINKS DIRECTLY
+            FROM YOUR PHONE
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="instructions">
+            No app download required
+            Just scan and browse our menu
+          </div>
+          
+          <div class="timestamp">
+            Printed: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  // Helper function to show notifications
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
+      type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+    }`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 3000);
   };
 
   const handleMarkPaid = async (table: RestaurantTable) => {
