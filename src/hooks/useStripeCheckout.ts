@@ -39,7 +39,7 @@ export function useStripeCheckout() {
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-checkout`;
       
       const response = await fetch(apiUrl, {
-        method: 'POST',
+        method: 'POST', 
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
@@ -48,8 +48,16 @@ export function useStripeCheckout() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create checkout session');
+        const errorText = await response.text();
+        let errorMessage = 'Failed to create checkout session';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If the response isn't valid JSON, use the raw text
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const { url } = await response.json();

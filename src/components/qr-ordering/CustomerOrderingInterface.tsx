@@ -316,23 +316,74 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   const handleCheckout = async () => {
     if (!session || cart.length === 0) return;
     
+    setError(null);
     try {
       setCheckoutLoading(true);
       
-      // Create a checkout session with Stripe
-      await createCheckoutSession({
-        priceId: '', // Not needed for cart items
-        mode: 'payment',
-        successUrl: `${window.location.origin}/order/success`,
-        cancelUrl: `${window.location.origin}/order/${activeToken}`,
-        cart_items: cart,
-        table_id: session.table_id,
-        session_id: session.id
-      });
+      // First create an order in our database
+      const { data: orderNumber } = await supabase.rpc('generate_order_number');
+
+      // Calculate totals
+      const subtotal = calculateSubtotal();
+      const discount = calculateDiscount();
+      const total = calculateTotal();
+
+      // Create order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          restaurant_id: session.restaurant_id,
+          session_id: session.id,
+          order_number: orderNumber,
+          loyalty_user_ids: loyaltyUserIds.length > 0 ? loyaltyUserIds : null,
+          subtotal_sgd: subtotal,
+          discount_sgd: discount,
+          total_sgd: total,
+          discount_applied: loyaltyDiscount?.discount_eligible || false,
+          triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create order items
+      const orderItems = cart.map(item => ({
+        order_id: orderData.id,
+        menu_item_id: item.menu_item.id,
+        quantity: item.quantity,
+        unit_price_sgd: item.menu_item.price_sgd,
+        total_price_sgd: item.menu_item.price_sgd * item.quantity,
+        special_instructions: item.special_instructions || null
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+      
+      // Now create a checkout session with Stripe
+      try {
+        await createCheckoutSession({
+          priceId: '', // Not needed for cart items
+          mode: 'payment',
+          successUrl: `${window.location.origin}/order/success?order_id=${orderData.id}`,
+          cancelUrl: `${window.location.origin}/order/${activeToken}?order_id=${orderData.id}`,
+          cart_items: cart,
+          table_id: session.table_id,
+          session_id: session.id
+        });
+      } catch (stripeError) {
+        console.error('Stripe checkout error:', stripeError);
+        throw new Error(`Stripe checkout failed: ${stripeError instanceof Error ? stripeError.message : 'Unknown error'}`);
+      }
       
     } catch (err) {
       console.error('Error creating checkout session:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create checkout session');
+      setError(err instanceof Error ? err.message : 'Payment processing failed. Please try again or pay at the counter.');
+      setShowCart(false); // Close cart on error
     } finally {
       setCheckoutLoading(false);
     }
