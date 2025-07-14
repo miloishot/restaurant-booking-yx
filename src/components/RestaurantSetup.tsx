@@ -133,17 +133,17 @@ export function RestaurantSetup() {
         if (error) throw error;
         setRestaurant(data);
         
-        // Also create user profile if it doesn't exist
-        const { error: profileError } = await supabase
-          .from('user_profiles')
+        // Also create employee record for the owner in the consolidated employees table
+        const { error: employeeError } = await supabase
+          .from('employees') // Use the consolidated employees table
           .upsert({
             id: user?.id,
             restaurant_id: data.id,
             role: 'owner'
           });
         
-        if (profileError) {
-          console.warn('Could not create user profile:', profileError);
+        if (employeeError) {
+          console.warn('Could not create employee record for owner:', employeeError);
           // Don't throw here as restaurant creation succeeded
         }
       }

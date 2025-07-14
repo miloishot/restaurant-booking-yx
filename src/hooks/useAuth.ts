@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { UserProfile } from '../types/database';
+import { Employee } from '../types/database'; // Use Employee interface
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [employeeProfile, setEmployeeProfile] = useState<Employee | null>(null); // Renamed to employeeProfile
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export function useAuth() {
       
       // If user exists, fetch their profile
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        fetchEmployeeProfile(session.user.id); // Call fetchEmployeeProfile
       } else {
         setLoading(false);
       }
@@ -27,22 +27,22 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       
-      // If user exists, fetch their profile
+      // If user exists, fetch their employee profile
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        fetchEmployeeProfile(session.user.id);
       } else {
-        setUserProfile(null);
+        setEmployeeProfile(null);
         setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
-  
-  const fetchUserProfile = async (userId: string) => {
+
+  const fetchEmployeeProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('employees') // Fetch from employees table
         .select('*')
         .eq('id', userId)
         .single();
@@ -50,8 +50,8 @@ export function useAuth() {
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching user profile:', error);
       }
-      
-      setUserProfile(data);
+
+      setEmployeeProfile(data);
     } catch (err) {
       console.error('Error in fetchUserProfile:', err);
     } finally {
@@ -61,12 +61,12 @@ export function useAuth() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUserProfile(null);
+    setEmployeeProfile(null);
   };
 
   return {
     user,
-    userProfile,
+    employeeProfile, // Export employeeProfile
     loading,
     signOut,
   };

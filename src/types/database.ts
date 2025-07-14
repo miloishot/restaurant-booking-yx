@@ -3,14 +3,6 @@ export type BookingStatus = 'pending' | 'confirmed' | 'seated' | 'completed' | '
 export type WaitingListStatus = 'waiting' | 'notified' | 'confirmed' | 'expired' | 'cancelled';
 export type AssignmentMethod = 'auto' | 'manual' | 'waitlist';
 
-export interface UserProfile {
-  id: string;
-  restaurant_id: string | null;
-  role: 'owner' | 'manager' | 'staff';
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Restaurant {
   id: string;
   name: string;
@@ -118,8 +110,7 @@ export interface PrinterConfig {
 export interface Employee {
   id: string;
   restaurant_id: string;
-  employee_id: string;
-  user_id: string;
+  employee_id?: string; // Made optional
   role: 'owner' | 'manager' | 'staff';
   is_active: boolean;
   created_at: string;
