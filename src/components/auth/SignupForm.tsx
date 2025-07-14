@@ -71,8 +71,6 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
           console.error('Error creating restaurant:', restaurantError);
         }
       }
-            name: name,
-            employee_id: existingEmployee?.employee_id
       // Check if there's an employee record waiting for this email
       const employeeId = email.split('@')[0];
       const { data: existingEmployee } = await supabase
