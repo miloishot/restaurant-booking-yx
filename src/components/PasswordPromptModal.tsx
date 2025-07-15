@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { Employee, Customer } from '../types/database';
 import { X, Lock, AlertCircle, CheckCircle, Info, Mail } from 'lucide-react';
 interface PasswordPromptModalProps {
