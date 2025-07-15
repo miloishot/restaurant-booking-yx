@@ -141,9 +141,6 @@ Deno.serve(async (req) => {
         automatic_tax: {
           enabled: true,
         },
-        tax_id_collection: {
-          enabled: true,
-        },
         metadata: {
           table_id,
           session_id,
@@ -274,12 +271,6 @@ Deno.serve(async (req) => {
             quantity: 1,
           },
         ],
-        mode: 'subscription',
-        success_url,
-        cancel_url,
-        customer_update: {
-          address: 'auto',
-          name: 'auto',
         },
       });
     }
