@@ -718,7 +718,7 @@ export function useRestaurantData(restaurantSlug?: string) {
           was_on_waitlist: false
         })
         .select('id')
-        .single();
+        .single();markTableOccupiedWithSession 
 
       if (bookingError) throw bookingError;
 
