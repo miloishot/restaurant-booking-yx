@@ -11,7 +11,18 @@ export function useAuth() {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      // If there's an error or invalid session, clear it
+      if (sessionError || (session && !session.access_token)) {
+        console.warn('Invalid session detected, signing out:', sessionError);
+        supabase.auth.signOut();
+        setUser(null);
+        setEmployeeProfile(null);
+        setRestaurantId(null);
+        setLoading(false);
+        return;
+      }
+      
       setUser(session?.user ?? null);
       
       // If user exists, fetch their profile
@@ -23,6 +34,14 @@ export function useAuth() {
       } else {
         setLoading(false);
       }
+    }).catch(error => {
+      // Handle any errors during session retrieval
+      console.warn('Error getting session, signing out:', error);
+      supabase.auth.signOut();
+      setUser(null);
+      setEmployeeProfile(null);
+      setRestaurantId(null);
+      setLoading(false);
     });
 
     // Listen for auth changes
