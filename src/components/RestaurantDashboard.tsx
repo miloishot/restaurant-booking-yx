@@ -161,9 +161,11 @@ export function RestaurantDashboard() {
   const handleMarkOccupied = async (table: RestaurantTable) => {
     try {
       const result = await markTableOccupiedWithSession(table, 2); // Default party size
+      console.log('markTableOccupiedWithSession result:', result);
       
       // If we have a QR code printer configured, print the QR code
       if (result.session) {
+        console.log('Session created, checking for printers...');
         // Find the default printer or first available printer
         const { data: printerConfigs } = await supabase
           .from('printer_configs')
@@ -173,17 +175,23 @@ export function RestaurantDashboard() {
           .not('device_id', 'is', null)
           .not('printer_id', 'is', null);
         
+        console.log('Available printer configs:', printerConfigs);
+        
         if (printerConfigs && printerConfigs.length > 0) {
           // Find default printer or use first one
           const defaultPrinter = printerConfigs.find(p => p.is_default) || printerConfigs[0];
+          console.log('Selected printer for auto-print:', defaultPrinter);
           
           // Generate QR code HTML
           const qrCodeUrl = `${window.location.origin}/order/${result.session.session_token}`;
           const qrCodeHtml = generateQRCodeHtml(table.table_number, qrCodeUrl);
           const base64Content = btoa(qrCodeHtml);
           
+          console.log('Preparing to send print job to printer:', defaultPrinter.printer_name);
+          
           // Print the QR code
           try {
+            console.log('Sending print request to Edge Function...');
             const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
               method: 'POST',
               headers: {
@@ -203,6 +211,10 @@ export function RestaurantDashboard() {
               }),
             });
             
+            console.log('Print response status:', response.status);
+            const responseText = await response.text();
+            console.log('Print response body:', responseText);
+            
             if (response.ok) {
               showNotification(`QR code for Table ${table.table_number} sent to printer!`, 'success');
             } else {
@@ -211,6 +223,9 @@ export function RestaurantDashboard() {
           } catch (printError) {
             console.error('Error printing QR code:', printError);
           }
+        } else {
+          console.log('No suitable printers found for auto-printing QR code');
+          showNotification(`Table ${table.table_number} marked as occupied, but no printer configured for auto-printing QR code. You can print it manually from the QR Code Management section.`, 'info');
         }
       }
       
@@ -314,7 +329,9 @@ export function RestaurantDashboard() {
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const notification = document.createElement('div');
     notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
-      type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+      type === 'success' ? 'bg-green-500 text-white' : 
+      type === 'error' ? 'bg-red-500 text-white' : 
+      'bg-blue-500 text-white'
     }`;
     notification.textContent = message;
     document.body.appendChild(notification);
