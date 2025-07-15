@@ -34,6 +34,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   const [showCustomerAuth, setShowCustomerAuth] = useState(false);
   const [customerUser, setCustomerUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [orderCreated, setOrderCreated] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { createCheckoutSession } = useStripeCheckout();
@@ -319,6 +320,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     console.log('Starting checkout process');
     setError(null);
     try {
+      // Set loading state
       setCheckoutLoading(true);
       
       // First create an order in our database
@@ -342,12 +344,16 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           total_sgd: total,
           discount_applied: loyaltyDiscount?.discount_eligible || false,
           triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
-          status: 'pending'
+          status: 'pending',
+          notes: 'Awaiting payment via Stripe'
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
+      
+      // Store the order ID for later reference
+      setOrderCreated(orderData.id);
 
       // Create order items
       console.log('Creating order items for order:', orderData.id);
@@ -373,7 +379,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           priceId: '', // Not needed for cart items
           restaurantId: session.restaurant_id,
           mode: 'payment',
-          success_url: `${window.location.origin}/order/success?order_id=${orderData.id}`,
+          success_url: `${window.location.origin}/order/success?order_id=${orderData.id}&payment_success=true`,
           cancel_url: `${window.location.origin}/order/${activeToken}?order_id=${orderData.id}`,
           cart_items: cart,
           table_id: session.table_id,
@@ -391,6 +397,42 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       setShowCart(false); // Close cart on error
     } finally {
       setCheckoutLoading(false);
+    }
+  };
+
+  // Check URL parameters for payment success
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderId = urlParams.get('order_id');
+    const paymentSuccess = urlParams.get('payment_success');
+    
+    if (orderId && paymentSuccess === 'true') {
+      // Payment was successful, update order status
+      updateOrderAfterPayment(orderId);
+    }
+  }, []);
+  
+  const updateOrderAfterPayment = async (orderId: string) => {
+    try {
+      // Update order status to confirmed after successful payment
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'confirmed',
+          notes: 'Payment completed via Stripe',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+        
+      if (error) {
+        console.error('Error updating order after payment:', error);
+      } else {
+        // Clear cart after successful payment
+        setCart([]);
+        setOrderConfirmed(true);
+      }
+    } catch (err) {
+      console.error('Error processing payment confirmation:', err);
     }
   };
 

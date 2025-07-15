@@ -12,7 +12,8 @@ export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirm
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
   const orderId = searchParams.get('order_id');
-  const isSuccess = isPaymentSuccess || location.pathname.includes('/success');
+  const paymentSuccess = searchParams.get('payment_success');
+  const isSuccess = isPaymentSuccess || location.pathname.includes('/success') || paymentSuccess === 'true';
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">

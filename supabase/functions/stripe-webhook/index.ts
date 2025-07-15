@@ -81,11 +81,12 @@ async function handleEvent(event: Stripe.Event) {
       try {
         console.log(`Processing restaurant order payment for table ${session.metadata.table_id}`);
         
-        // Mark all orders for this session as paid
+        // Mark all orders for this session as confirmed and paid
         const { error: orderError } = await supabase
           .from('orders')
           .update({ 
-            status: 'paid',
+            status: 'confirmed',
+            notes: 'Payment completed via Stripe',
             updated_at: new Date().toISOString()
           })
           .eq('session_id', session.metadata.session_id)
