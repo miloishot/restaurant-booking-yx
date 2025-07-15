@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Employee, Customer } from '../types/database';
-import { X, Lock, AlertCircle, CheckCircle, Info } from 'lucide-react';
-import { X, Lock, AlertCircle, CheckCircle, Mail } from 'lucide-react';
+import { X, Lock, AlertCircle, CheckCircle, Info, Mail } from 'lucide-react';
 interface PasswordPromptModalProps {
   employee: Employee;
   action: 'in' | 'out';
