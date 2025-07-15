@@ -136,6 +136,7 @@ Deno.serve(async (req) => {
         cancel_url,
         customer_update: {
           address: 'auto',
+          name: 'auto',
         },
         automatic_tax: {
           enabled: true,
@@ -276,6 +277,10 @@ Deno.serve(async (req) => {
         mode: 'subscription',
         success_url,
         cancel_url,
+        customer_update: {
+          address: 'auto',
+          name: 'auto',
+        },
       });
     }
     
