@@ -607,7 +607,7 @@ export function RestaurantDashboard() {
               <Clock className="w-4 h-4 inline mr-1" />
               Staff Time
             </button>
-            {(employeeProfile?.role === 'owner' || employeeProfile?.role === 'manager') && (
+            {employeeProfile?.role === 'owner' && (
               <button
                 onClick={() => setActiveTab('staffManagement')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -730,7 +730,7 @@ export function RestaurantDashboard() {
         
         {activeTab === 'setup' && (
           <>
-            {(employeeProfile?.role === 'owner' || employeeProfile?.role === 'manager') ? (
+            {employeeProfile?.role === 'owner' ? (
               <RestaurantSetup />
             ) : (
               <div className="bg-white rounded-lg shadow-md p-6 text-center">

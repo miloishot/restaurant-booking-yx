@@ -7,7 +7,7 @@ import { Building, Globe, Copy, Check, ExternalLink, Settings, Users, Printer } 
 import { PrinterConfiguration } from './PrinterConfiguration';
 
 export function RestaurantSetup() {
-  const { user } = useAuth();
+  const { user, employeeProfile } = useAuth();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,6 +203,26 @@ export function RestaurantSetup() {
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading restaurant settings...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Check if user has permission to configure restaurant setup
+  const canConfigureSetup = employeeProfile?.role === 'owner';
+
+  if (!canConfigureSetup) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6 text-center">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Building className="w-8 h-8 text-red-600" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+        <p className="text-gray-600 mb-4">
+          Only restaurant owners can access the restaurant setup configuration.
+        </p>
+        <p className="text-sm text-gray-500">
+          Please contact the restaurant owner for any changes to the restaurant setup.
+        </p>
       </div>
     );
   }
