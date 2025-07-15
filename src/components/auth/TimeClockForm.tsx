@@ -100,8 +100,8 @@ export function TimeClockForm({}: TimeClockFormProps) {
       // Get employee data
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
-        .select('id, name, restaurant_id, role, employee_id')
-        .eq('employee_id', authData.user?.id) // Query by employee_id (which is the UID)
+        .select('employee_id, name, restaurant_id, role')
+        .eq('employee_id', authData.user?.id) // Query by employee_id which is the UID
         .single();
 
       if (employeeError || !employee) {
@@ -150,7 +150,7 @@ export function TimeClockForm({}: TimeClockFormProps) {
         .from('time_entries')
         .select('*')
         .eq('restaurant_id', employee.restaurant_id)
-        .eq('temp_employee_id', employee.id)
+        .eq('temp_employee_id', employee.employee_id)
         .eq('date', today)
         .is('punch_out_time', null)
         .maybeSingle();
@@ -163,7 +163,7 @@ export function TimeClockForm({}: TimeClockFormProps) {
         .from('time_entries')
         .insert({
           restaurant_id: employee.restaurant_id,
-          temp_employee_id: employee.employee_id, // Use employee_id (UID)
+          temp_employee_id: employee.employee_id, // Use employee_id which is the UID
           punch_in_time: new Date().toISOString(),
           date: today
         });
@@ -185,7 +185,7 @@ export function TimeClockForm({}: TimeClockFormProps) {
         .from('time_entries')
         .select('*')
         .eq('restaurant_id', employee.restaurant_id) // Use restaurant_id
-        .eq('temp_employee_id', employee.id)
+        .eq('temp_employee_id', employee.employee_id)
         .eq('date', today)
         .is('punch_out_time', null)
         .maybeSingle();

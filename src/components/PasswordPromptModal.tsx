@@ -12,7 +12,7 @@ interface PasswordPromptModalProps {
 
 export function PasswordPromptModal({ employee, action, onVerified, onCancel }: PasswordPromptModalProps) {
   const [password, setPassword] = useState('');
-  const [email, setEmail] = useState(employee.email || ''); // Pre-fill with employee's email
+  const [email, setEmail] = useState(employee.email || ''); // Pre-fill with employee's email if available
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -34,7 +34,7 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
       }
 
       // Verify that the authenticated user ID matches the employee ID
-      if (authData.user?.id !== employee.id) {
+      if (authData.user?.id !== employee.employee_id) {
         throw new Error('Authentication failed. User ID mismatch.');
       }
 
