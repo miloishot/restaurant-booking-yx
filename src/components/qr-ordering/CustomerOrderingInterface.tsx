@@ -34,7 +34,6 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   const [showCustomerAuth, setShowCustomerAuth] = useState(false);
   const [customerUser, setCustomerUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [orderCreated, setOrderCreated] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { createCheckoutSession } = useStripeCheckout();
@@ -320,70 +319,23 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     console.log('Starting checkout process');
     setError(null);
     try {
-      // Set loading state
       setCheckoutLoading(true);
       
-      // First create an order in our database
-      const { data: orderNumber } = await supabase.rpc('generate_order_number');
-
-      // Calculate totals
-      const subtotal = calculateSubtotal();
-      const discount = calculateDiscount();
-      const total = calculateTotal();
-
-      // Create order
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          restaurant_id: session.restaurant_id,
-          session_id: session.id,
-          order_number: orderNumber,
-          loyalty_user_ids: loyaltyUserIds.length > 0 ? loyaltyUserIds : null,
-          subtotal_sgd: subtotal,
-          discount_sgd: discount,
-          total_sgd: total,
-          discount_applied: loyaltyDiscount?.discount_eligible || false,
-          triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
-          status: 'pending',
-          notes: 'Awaiting payment via Stripe'
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-      
-      // Store the order ID for later reference
-      setOrderCreated(orderData.id);
-
-      // Create order items
-      console.log('Creating order items for order:', orderData.id);
-      const orderItems = cart.map(item => ({
-        order_id: orderData.id,
-        menu_item_id: item.menu_item.id,
-        quantity: item.quantity,
-        unit_price_sgd: item.menu_item.price_sgd,
-        total_price_sgd: item.menu_item.price_sgd * item.quantity,
-        special_instructions: item.special_instructions || null
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-      
-      // Now create a checkout session with Stripe
       console.log('Creating Stripe checkout session');
       try {
         await createCheckoutSession({
           priceId: '', // Not needed for cart items
           restaurantId: session.restaurant_id,
           mode: 'payment',
-          success_url: `${window.location.origin}/order/success?order_id=${orderData.id}&payment_success=true`,
-          cancel_url: `${window.location.origin}/order/${activeToken}?order_id=${orderData.id}`,
+          success_url: `${window.location.origin}/order/success?payment_success=true&token=${activeToken}`,
+          cancel_url: `${window.location.origin}/order/${activeToken}`,
           cart_items: cart,
           table_id: session.table_id,
-          session_id: session.id
+          session_id: session.id,
+          loyalty_user_ids: loyaltyUserIds,
+          discount_applied: loyaltyDiscount?.discount_eligible || false,
+          triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
+          discount_amount: calculateDiscount()
         });
       } catch (stripeError) {
         console.error('Stripe checkout error details:', stripeError);
@@ -403,38 +355,14 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   // Check URL parameters for payment success
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const orderId = urlParams.get('order_id');
     const paymentSuccess = urlParams.get('payment_success');
     
-    if (orderId && paymentSuccess === 'true') {
-      // Payment was successful, update order status
-      updateOrderAfterPayment(orderId);
+    if (paymentSuccess === 'true') {
+      // Payment was successful, clear cart
+      setCart([]);
+      setOrderConfirmed(true);
     }
   }, []);
-  
-  const updateOrderAfterPayment = async (orderId: string) => {
-    try {
-      // Update order status to confirmed after successful payment
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
-          status: 'confirmed',
-          notes: 'Payment completed via Stripe',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderId);
-        
-      if (error) {
-        console.error('Error updating order after payment:', error);
-      } else {
-        // Clear cart after successful payment
-        setCart([]);
-        setOrderConfirmed(true);
-      }
-    } catch (err) {
-      console.error('Error processing payment confirmation:', err);
-    }
-  };
 
   if (loading) {
     return (
