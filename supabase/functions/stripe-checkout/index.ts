@@ -271,7 +271,9 @@ Deno.serve(async (req) => {
             quantity: 1,
           },
         ],
-        },
+        mode,
+        success_url,
+        cancel_url
       });
     }
     
