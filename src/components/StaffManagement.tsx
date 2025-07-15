@@ -34,7 +34,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('employee_id, restaurant_id, name, role, is_active')
         .eq('restaurant_id', restaurant.id)
         .order('name');
 
@@ -75,10 +75,9 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
           .update({
             name: formData.name,
             role: formData.role,
-            employee_id: formData.employeeId || null,
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingEmployee.id);
+          .eq('employee_id', editingEmployee.employee_id);
 
         if (error) throw error;
         showNotification('Employee updated successfully!');
@@ -105,12 +104,11 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
         // Create employee record
         const { error: employeeError } = await supabase
           .from('employees')
-          .insert({ // Use employee_id as the UID
+          .insert({
             employee_id: authData.user.id,
             restaurant_id: restaurant.id,
             name: formData.name,
             role: formData.role,
-            employee_id: formData.employeeId || `emp-${Date.now().toString(36)}`,
             is_active: true
           });
 
@@ -143,7 +141,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       const { error: updateError } = await supabase
         .from('employees')
         .update({ is_active: false })
-        .eq('employee_id', employee.employee_id); // Update by employee_id (UID)
+        .eq('employee_id', employee.employee_id); // Update by employee_id which is the UID
 
       if (updateError) throw updateError;
       
@@ -166,7 +164,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       role: 'staff',
       employeeId: ''
     });
-    setEditingEmployee(null); // This should be employee_id
+    setEditingEmployee(null);
     setShowForm(false);
     setError(null);
   };
@@ -174,12 +172,12 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
   const handleEdit = (employee: Employee) => {
     setFormData({
       name: employee.name,
-      email: '', // We don't have access to the email from the employees table
+      email: employee.email || '', // Use email if available
       password: '', // We don't update passwords when editing
       role: employee.role || 'staff',
-      employeeId: employee.employee_id || ''
-    }); // This should be employee_id
-    setEditingEmployee(employee);
+      employeeId: ''
+    });
+    setEditingEmployee(employee); // Store the employee being edited
     setShowForm(true);
   };
 
@@ -399,7 +397,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
                 <tr key={employee.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                  </td> // This should be employee_id
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500">{employee.employee_id || '-'}</div>
                   </td>
@@ -433,11 +431,11 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
                       </button>
                       <button
                         onClick={() => handleDelete(employee)}
-                        className="text-red-600 hover:text-red-900" // This should be employee_id
+                        className="text-red-600 hover:text-red-900"
                         disabled={employee.employee_id === employeeProfile?.employee_id} // Can't delete yourself
                         title={employee.employee_id === employeeProfile?.employee_id ? "You cannot delete your own account" : "Delete employee"}
                       >
-                        <Trash2 className={`w-4 h-4 ${employee.id === employeeProfile?.id ? 'opacity-30 cursor-not-allowed' : ''}`} />
+                        <Trash2 className={`w-4 h-4 ${employee.employee_id === employeeProfile?.employee_id ? 'opacity-30 cursor-not-allowed' : ''}`} />
                       </button>
                     </div>
                   </td>
