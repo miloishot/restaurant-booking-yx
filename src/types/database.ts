@@ -114,6 +114,7 @@ export interface Employee {
   name: string;
   role: 'owner' | 'manager' | 'staff';
   is_active: boolean;
+  email?: string;
 }
 
 export interface TimeEntry {
