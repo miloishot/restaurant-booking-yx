@@ -112,7 +112,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         const { data: empData, error: empError } = await supabase 
           .from('employees')
           .select('id, employee_id, name, role, is_active, restaurant_id')
-          .in('id', employeeIds); // Filter by id which matches temp_employee_id
+          .in('employee_id', employeeIds); // Filter by id which matches temp_employee_id
 
         if (!empError) {
           employeesData = empData || [];
