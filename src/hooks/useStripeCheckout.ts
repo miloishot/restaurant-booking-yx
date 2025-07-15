@@ -91,11 +91,11 @@ export function useStripeCheckout() {
       }
 
       const { url } = responseData;
-      console.log('Stripe checkout response:', data);
+      console.log('Stripe checkout response:', responseData);
       
-      if (data.url) {
+      if (responseData.url) {
         console.log('Redirecting to Stripe checkout:', url);
-        window.location.href = data.url;
+        window.location.href = responseData.url;
       } else {
         throw new Error('No checkout URL received');
       }
