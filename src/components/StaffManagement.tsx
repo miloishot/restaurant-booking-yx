@@ -34,7 +34,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       
       const { data, error } = await supabase
         .from('employees')
-        .select('employee_id, restaurant_id, name, role, is_active')
+        .select('*')
         .eq('restaurant_id', restaurant.id)
         .order('name');
 
@@ -105,7 +105,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
         const { error: employeeError } = await supabase
           .from('employees')
           .insert({
-            employee_id: authData.user.id,
+            employee_id: authData.user.id, // Use the UID as employee_id
             restaurant_id: restaurant.id,
             name: formData.name,
             role: formData.role,
@@ -141,7 +141,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       const { error: updateError } = await supabase
         .from('employees')
         .update({ is_active: false })
-        .eq('employee_id', employee.employee_id); // Update by employee_id which is the UID
+        .eq('employee_id', employee.employee_id);
 
       if (updateError) throw updateError;
       
@@ -432,7 +432,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
                       <button
                         onClick={() => handleDelete(employee)}
                         className="text-red-600 hover:text-red-900"
-                        disabled={employee.employee_id === employeeProfile?.employee_id} // Can't delete yourself
+                        disabled={employee.employee_id === employeeProfile?.employee_id}
                         title={employee.employee_id === employeeProfile?.employee_id ? "You cannot delete your own account" : "Delete employee"}
                       >
                         <Trash2 className={`w-4 h-4 ${employee.employee_id === employeeProfile?.employee_id ? 'opacity-30 cursor-not-allowed' : ''}`} />
