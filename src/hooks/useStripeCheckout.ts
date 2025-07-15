@@ -9,8 +9,8 @@ interface StripeCheckoutResponse {
 interface BaseCheckoutParams {
   priceId: string;
   mode: 'payment' | 'subscription';
-  successUrl: string;
-  cancelUrl: string;
+  success_url: string;
+  cancel_url: string;
   restaurantId: string;
 }
 

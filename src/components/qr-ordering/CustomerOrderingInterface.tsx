@@ -373,8 +373,8 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
           priceId: '', // Not needed for cart items
           restaurantId: session.restaurant_id,
           mode: 'payment',
-          successUrl: `${window.location.origin}/order/success?order_id=${orderData.id}`,
-          cancelUrl: `${window.location.origin}/order/${activeToken}?order_id=${orderData.id}`,
+          success_url: `${window.location.origin}/order/success?order_id=${orderData.id}`,
+          cancel_url: `${window.location.origin}/order/${activeToken}?order_id=${orderData.id}`,
           cart_items: cart,
           table_id: session.table_id,
           session_id: session.id

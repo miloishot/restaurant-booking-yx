@@ -26,8 +26,8 @@ export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
         priceId,
         restaurantId: restaurant.id,
         mode: 'subscription',
-        successUrl: `${window.location.origin}/subscription/success`,
-        cancelUrl: `${window.location.origin}/subscription`,
+        success_url: `${window.location.origin}/subscription/success`,
+        cancel_url: `${window.location.origin}/subscription`,
       });
     } catch (error) {
       console.error('Subscription checkout error:', error);
