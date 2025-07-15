@@ -134,6 +134,9 @@ Deno.serve(async (req) => {
         mode: 'payment',
         success_url,
         cancel_url,
+        customer_update: {
+          address: 'auto',
+        },
         automatic_tax: {
           enabled: true,
         },

@@ -76,7 +76,7 @@ export function useAuth() {
           .eq('employee_id', id) // Query by employee_id which matches the UID
           .maybeSingle();
 
-        if (employeeError) {
+        if (employeeError || !employeeData) {
           console.error('Error fetching employee profile:', employeeError);
           try {
             // Try to get restaurant directly if employee profile fails
@@ -107,11 +107,14 @@ export function useAuth() {
                 is_active: true
               });
             } else {
+              // Explicitly set to null if no employee or owner record found
               setEmployeeProfile(null);
+              setRestaurantId(null);
             }
           } catch (restaurantError) {
             console.error('Error checking if user is restaurant owner:', restaurantError);
             setEmployeeProfile(null);
+            setRestaurantId(null);
           }
         } else {
           // We have the employee data, now add the email from the authenticated user
@@ -119,7 +122,7 @@ export function useAuth() {
             ...employeeData,
             email: user?.email // Add email from the authenticated user
           });
-          setRestaurantId(employeeData.restaurant_id);
+          setRestaurantId(employeeData?.restaurant_id || null);
         }
     } catch (err) {
       console.error('Error in fetchEmployeeProfile:', err);
