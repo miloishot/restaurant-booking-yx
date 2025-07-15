@@ -240,3 +240,12 @@ export interface LoyaltyDiscount {
   discount_amount: number;
   triggering_user_id: string | null;
 }
+
+export interface TaxBreakdown {
+  subtotal: number;
+  service_charge: number;
+  service_charge_rate: number;
+  gst: number;
+  gst_rate: number;
+  total: number;
+}

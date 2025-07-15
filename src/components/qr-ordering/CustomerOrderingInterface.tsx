@@ -34,6 +34,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   const [showCustomerAuth, setShowCustomerAuth] = useState(false);
   const [customerUser, setCustomerUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [taxBreakdown, setTaxBreakdown] = useState<any>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { createCheckoutSession } = useStripeCheckout();
@@ -60,6 +61,13 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       setLoyaltyDiscount(null);
     }
   }, [loyaltyUserIds, session]);
+
+  // Calculate tax breakdown when cart changes
+  useEffect(() => {
+    if (session && cart.length > 0) {
+      calculateTaxBreakdown();
+    }
+  }, [cart, session]);
 
   const checkCustomerAuth = async () => {
     try {
@@ -160,6 +168,25 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       }
     } catch (err) {
       console.error('Error checking loyalty discount:', err);
+    }
+  };
+
+  const calculateTaxBreakdown = async () => {
+    if (!session) return;
+    
+    try {
+      const subtotal = calculateSubtotal();
+      const { data, error } = await supabase
+        .rpc('calculate_order_taxes', {
+          p_subtotal: subtotal,
+          p_restaurant_id: session.restaurant_id
+        });
+
+      if (error) throw error;
+      setTaxBreakdown(data);
+    } catch (err) {
+      console.error('Error calculating tax breakdown:', err);
+      // Don't set error state as this is not critical
     }
   };
 
@@ -517,6 +544,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
         onUpdateItem={updateCartItem}
         onRemoveItem={removeFromCart}
         subtotal={calculateSubtotal()}
+        taxBreakdown={taxBreakdown}
         discount={calculateDiscount()}
         total={calculateTotal()}
         loyaltyDiscount={loyaltyDiscount}

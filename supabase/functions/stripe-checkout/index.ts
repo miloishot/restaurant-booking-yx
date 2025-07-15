@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
           currency: 'sgd',
           product_data: {
             name: item.menu_item.name,
+            description: item.menu_item.description || undefined,
           },
           unit_amount: Math.round(item.menu_item.price_sgd * 100),
         },
@@ -133,6 +134,12 @@ Deno.serve(async (req) => {
         mode: 'payment',
         success_url,
         cancel_url,
+        automatic_tax: {
+          enabled: true,
+        },
+        tax_id_collection: {
+          enabled: true,
+        },
         metadata: {
           table_id,
           session_id,

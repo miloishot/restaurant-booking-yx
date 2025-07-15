@@ -1,6 +1,6 @@
 import React from 'react';
 import { CartItem, LoyaltyDiscount } from '../../types/database';
-import { X, Plus, Minus, ShoppingCart, CreditCard, Tag, Trash2, ArrowRight } from 'lucide-react';
+import { X, Plus, Minus, ShoppingCart, CreditCard, Tag, Trash2, ArrowRight, Info } from 'lucide-react';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -11,6 +11,14 @@ interface CartSidebarProps {
   subtotal: number;
   discount: number;
   total: number;
+  taxBreakdown?: {
+    subtotal: number;
+    service_charge: number;
+    service_charge_rate: number;
+    gst: number;
+    gst_rate: number;
+    total: number;
+  };
   loyaltyDiscount: LoyaltyDiscount | null;
   onSubmitOrder: () => void;
   loading: boolean;
@@ -26,6 +34,7 @@ export function CartSidebar({
   subtotal,
   discount,
   total,
+  taxBreakdown,
   loyaltyDiscount,
   onSubmitOrder,
   loading,
@@ -137,6 +146,20 @@ export function CartSidebar({
                 </div>
               )}
 
+              {/* Tax Breakdown */}
+              {taxBreakdown && (
+                <>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Service Charge ({taxBreakdown.service_charge_rate}%)</span>
+                    <span className="font-medium">{formatPrice(taxBreakdown.service_charge)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>GST ({taxBreakdown.gst_rate}%)</span>
+                    <span className="font-medium">{formatPrice(taxBreakdown.gst)}</span>
+                  </div>
+                </>
+              )}
+
               {/* Price Breakdown */}
               <div className="space-y-2">
                 <div className="flex justify-between text-gray-600">
@@ -155,8 +178,14 @@ export function CartSidebar({
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
                     <span className="text-orange-500">{formatPrice(total)}</span>
-                  </div>
+                  <span className="text-orange-500">{formatPrice(taxBreakdown ? taxBreakdown.total : total)}</span>
                 </div>
+                {taxBreakdown && (
+                  <div className="flex items-center justify-end mt-1 text-xs text-gray-500">
+                    <Info className="w-3 h-3 mr-1" />
+                    <span>Prices are inclusive of taxes</span>
+                  </div>
+                )}
               </div>
 
               {/* Submit Order Button */}
