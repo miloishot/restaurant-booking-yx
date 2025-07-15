@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       // Create checkout session for restaurant order
       const session = await stripe.checkout.sessions.create({
         customer: newCustomer.id,
-        payment_method_types: ['auto'],
+        payment_method_types: ['card'],
         line_items,
         mode: 'payment',
         automatic_tax: {
@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
 
       session = await stripe.checkout.sessions.create({
         customer: customerId,
-        payment_method_types: ['auto'],
+        payment_method_types: ['card'],
         line_items: [
           {
             // For subscriptions, we use the price_id directly
