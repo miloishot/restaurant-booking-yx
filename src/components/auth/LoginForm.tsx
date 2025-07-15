@@ -74,7 +74,6 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
             restaurant_id: ownedRestaurant.id,
             role: 'owner',
             name: data.user.email?.split('@')[0] || 'Owner', // Use email as name if available, or default
-            is_active: true,
           });
           
           if (insertError) {

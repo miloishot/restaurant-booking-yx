@@ -93,8 +93,6 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
             restaurant_id: restaurant.id,
             role: 'owner',
             name: name,
-            is_active: true,
-            employee_id: `owner-${Date.now().toString(36)}`, // Generate a unique employee ID
           });
           
         if (employeeError) {

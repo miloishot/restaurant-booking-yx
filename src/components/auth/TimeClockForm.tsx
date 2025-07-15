@@ -163,7 +163,6 @@ export function TimeClockForm({}: TimeClockFormProps) {
         .from('time_entries')
         .insert({
           restaurant_id: employee.restaurant_id,
-          employee_id: employee.employee_id || `emp-${employee.id.substring(0, 8)}`,
           temp_employee_id: employee.id,
           punch_in_time: new Date().toISOString(),
           date: today

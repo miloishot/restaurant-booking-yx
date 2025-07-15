@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Restaurant, Employee, TimeEntry } from '../types/database';
 import { Clock, Users, Calendar, BarChart3, User, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
-import { PasswordPromptModal } from './PasswordPromptModal';
+import { PasswordPromptModal } from './PasswordPromptModal'; // Ensure this import is correct
 
 interface StaffTimeTrackingProps {
   restaurant: Restaurant;
@@ -23,8 +23,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [punchActionForPrompt, setPunchActionForPrompt] = useState<'in' | 'out'>('in');
 
   const [employeeForm, setEmployeeForm] = useState({
-    name: '',
-    employeeId: '',
+    name: '', // This is for the delete confirmation, not for adding employees
     role: 'staff' as 'owner' | 'manager' | 'staff',
     adminPassword: '' 
   });
@@ -37,8 +36,8 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const fetchEmployees = async () => {
     try {
       const { data, error } = await supabase
-        .from('employees')
-        .select('id, restaurant_id, employee_id, name, role, is_active')
+        .from('employees') // Fetch email for authentication in modal
+        .select('id, restaurant_id, name, role, is_active, email')
         .eq('restaurant_id', restaurant.id)
         .eq('is_active', true)
         .order('name');
@@ -174,8 +173,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         const { error } = await supabase
           .from('time_entries')
           .insert({
-            restaurant_id: restaurant.id,
-            employee_id: employee.employee_id || `emp-${employee.id.substring(0, 8)}`,
+            restaurant_id: restaurant.id, // Ensure restaurant_id is passed
             temp_employee_id: employee.id,
             punch_in_time: new Date().toISOString(),
             date: today
@@ -231,7 +229,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
       showNotification(`${employee.name} has been removed successfully! This also removes their access.`);
       setShowDeleteConfirm(null);
-      setEmployeeForm({ name: '', employeeId: '', adminPassword: '' });
+      setEmployeeForm({ name: '', role: 'staff', adminPassword: '' }); // Reset form state
       fetchEmployees();
     } catch (error) {
       showNotification(error instanceof Error ? error.message : 'Failed to remove employee', 'error');
@@ -244,7 +242,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const calculateEmployeeHours = (employeeId: string) => {
     const employeeEntries = timeEntries.filter(entry => entry.temp_employee_id === employeeId);
-    return calculateTotalHours(employeeEntries);
+    return calculateTotalHours(employeeEntries); // Use employee.id for filtering
   };
 
   const isEmployeePunchedIn = (employeeUuid: string) => {
@@ -482,7 +480,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{employee.name}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap"> {/* Display employee_id if it exists, otherwise use a placeholder */}
                           <div className="text-sm text-gray-500">{employee.employee_id}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -584,7 +582,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {entry.employee?.name}
+                          {entry.employee?.name || 'Unknown Employee'}
                         </div>
                         <div className="text-sm text-gray-500">ID: {entry.employee?.employee_id || entry.employee_id}</div>
                       </div>

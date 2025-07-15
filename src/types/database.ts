@@ -110,7 +110,6 @@ export interface PrinterConfig {
 export interface Employee {
   id: string;
   restaurant_id: string;
-  employee_id?: string | null;
   name: string;
   role: 'owner' | 'manager' | 'staff';
   is_active: boolean;
@@ -120,7 +119,6 @@ export interface Employee {
 export interface TimeEntry {
   id: string;
   restaurant_id: string;
-  employee_id: string;
   punch_in_time: string;
   punch_out_time: string | null;
   total_hours: number | null;

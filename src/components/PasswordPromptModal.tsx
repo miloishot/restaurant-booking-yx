@@ -24,7 +24,7 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
     try {
       // Attempt to sign in with the provided credentials
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: `${employee.employee_id}@example.com`, // Use employee_id as email
+        email: employee.email || '', // Use the actual employee email for authentication
         password,
       });
 
