@@ -107,11 +107,12 @@ export interface PrinterConfig {
   updated_at: string;
 }
 export interface Employee {
+  id: string;
+  restaurant_id: string;
   employee_id: string;
   name: string;
   role: 'owner' | 'manager' | 'staff';
   is_active: boolean;
-  email?: string;
   email?: string;
 }
 
