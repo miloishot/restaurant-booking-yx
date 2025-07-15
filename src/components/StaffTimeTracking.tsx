@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Restaurant, Employee, TimeEntry } from '../types/database';
-import { Clock, Users, Calendar, BarChart3, User, Lock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Clock, Users, Calendar, BarChart3, User, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
+import { PasswordPromptModal } from './PasswordPromptModal';
 
 interface StaffTimeTrackingProps {
   restaurant: Restaurant;
@@ -17,6 +18,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [employeeForPrompt, setEmployeeForPrompt] = useState<Employee | null>(null);
+  const [punchActionForPrompt, setPunchActionForPrompt] = useState<'in' | 'out'>('in');
 
   const [employeeForm, setEmployeeForm] = useState({
     name: '',
@@ -135,90 +139,85 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
     }, 3000);
   };
 
-  const handlePunchIn = async (employee: Employee) => {
-    try {
-      setError(null);
-      // Get the current authenticated user
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user || user.id !== employee.id) {
-        showNotification('You are not authorized to punch in for this employee', 'error');
-        return;
-      }
-
-      // Check if already punched in today
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: existingEntry } = await supabase
-        .from('time_entries')
-        .select('*')
-        .eq('restaurant_id', restaurant.id)
-        .eq('employee_id', employee.employee_id)
-        .eq('date', today)
-        .is('punch_out_time', null)
-        .maybeSingle();
-
-      if (existingEntry) {
-        throw new Error('Employee is already punched in');
-      }
-
-      const { error } = await supabase
-        .from('time_entries')
-        .insert({
-          restaurant_id: restaurant.id,
-          employee_id: employee.employee_id || `emp-${employee.id.substring(0, 8)}`,
-          temp_employee_id: employee.id,
-          punch_in_time: new Date().toISOString(),
-          date: today
-        });
-
-      if (error) throw error;
-
-      showNotification(`${employee.name} punched in successfully!`);
-      fetchTimeEntries();
-    } catch (error) {
-      showNotification(error instanceof Error ? error.message : 'Punch in failed', 'error');
-    }
+  const handlePunchIn = (employee: Employee) => {
+    setEmployeeForPrompt(employee);
+    setPunchActionForPrompt('in');
+    setShowPasswordPrompt(true);
   };
 
-  const handlePunchOut = async (employee: Employee) => {
+  const handlePunchOut = (employee: Employee) => {
+    setEmployeeForPrompt(employee);
+    setPunchActionForPrompt('out');
+    setShowPasswordPrompt(true);
+  };
+
+  const performPunchAction = async (employee: Employee, action: 'in' | 'out') => {
     try {
       setError(null);
-      // Get the current authenticated user
-      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!user || user.id !== employee.id) {
-        showNotification('You are not authorized to punch out for this employee', 'error');
-        return;
+      if (action === 'in') {
+        // Check if already punched in today
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const { data: existingEntry } = await supabase
+          .from('time_entries')
+          .select('*')
+          .eq('restaurant_id', restaurant.id)
+          .eq('employee_id', employee.employee_id || `emp-${employee.id.substring(0, 8)}`)
+          .eq('date', today)
+          .is('punch_out_time', null)
+          .maybeSingle();
+
+        if (existingEntry) {
+          throw new Error('Employee is already punched in');
+        }
+
+        const { error } = await supabase
+          .from('time_entries')
+          .insert({
+            restaurant_id: restaurant.id,
+            employee_id: employee.employee_id || `emp-${employee.id.substring(0, 8)}`,
+            temp_employee_id: employee.id,
+            punch_in_time: new Date().toISOString(),
+            date: today
+          });
+
+        if (error) throw error;
+
+        showNotification(`${employee.name} punched in successfully!`);
+      } else {
+        // Find today's punch in entry
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const { data: entry, error: entryError } = await supabase
+          .from('time_entries')
+          .select('*')
+          .eq('restaurant_id', restaurant.id)
+          .eq('temp_employee_id', employee.id)
+          .eq('date', today)
+          .is('punch_out_time', null)
+          .maybeSingle();
+
+        if (entryError || !entry) {
+          throw new Error('No active punch in found for today');
+        }
+
+        const { error } = await supabase
+          .from('time_entries')
+          .update({
+            punch_out_time: new Date().toISOString()
+          })
+          .eq('id', entry.id);
+
+        if (error) throw error;
+
+        showNotification(`${employee.name} punched out successfully!`);
       }
-
-      // Find today's punch in entry
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: entry, error: entryError } = await supabase
-        .from('time_entries')
-        .select('*')
-        .eq('restaurant_id', restaurant.id)
-        .eq('temp_employee_id', employee.id)
-        .eq('date', today)
-        .is('punch_out_time', null)
-        .maybeSingle();
-
-      if (entryError || !entry) {
-        throw new Error('No active punch in found for today');
-      }
-
-      const { error } = await supabase
-        .from('time_entries')
-        .update({
-          punch_out_time: new Date().toISOString()
-        })
-        .eq('id', entry.id);
-
-      if (error) throw error;
-
-      showNotification(`${employee.name} punched out successfully!`);
+      
+      // Refresh time entries after successful punch action
       fetchTimeEntries();
     } catch (error) {
-      showNotification(error instanceof Error ? error.message : 'Punch out failed', 'error');
+      const errorMessage = error instanceof Error ? error.message : `Punch ${action} failed`;
+      showNotification(errorMessage, 'error');
+      throw error; // Re-throw to be caught by the caller
     }
   };
 
@@ -284,6 +283,28 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
           </div>
         </div>
       </div>
+      
+      {/* Password Prompt Modal */}
+      {showPasswordPrompt && employeeForPrompt && (
+        <PasswordPromptModal
+          employee={employeeForPrompt}
+          action={punchActionForPrompt}
+          onVerified={async (employee, action) => {
+            try {
+              await performPunchAction(employee, action);
+            } catch (error) {
+              console.error(`Error during ${action === 'in' ? 'clock in' : 'clock out'}:`, error);
+            } finally {
+              setShowPasswordPrompt(false);
+              setEmployeeForPrompt(null);
+            }
+          }}
+          onCancel={() => {
+            setShowPasswordPrompt(false);
+            setEmployeeForPrompt(null);
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
