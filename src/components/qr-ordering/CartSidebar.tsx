@@ -178,6 +178,7 @@ export function CartSidebar({
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
                     <span className="text-orange-500">{formatPrice(total)}</span>
+                  </div>
                   <span className="text-orange-500">{formatPrice(taxBreakdown ? taxBreakdown.total : total)}</span>
                 </div>
                 {taxBreakdown && (
