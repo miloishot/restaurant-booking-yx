@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, MenuCategory, MenuItem } from '../types/database';
-import { Plus, Edit2, Trash2, Save, X, Upload, Eye, EyeOff, ChefHat, Tag, DollarSign } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Upload, Eye, EyeOff, ChefHat, Tag, DollarSign, CreditCard, RefreshCw } from 'lucide-react';
 
 interface MenuManagementProps {
   restaurant: Restaurant;
@@ -18,6 +18,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [syncingMenu, setSyncingMenu] = useState(false);
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
@@ -176,6 +177,72 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
     } catch (error) {
       console.error('Error saving menu item:', error);
       showNotification('Failed to save menu item', 'error');
+    }
+  };
+
+  const handleSyncMenuToStripe = async () => {
+    if (!restaurant.id) return;
+    
+    try {
+      setSyncingMenu(true);
+      
+      // Get Supabase URL
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('Supabase URL not configured. Please check your environment variables.');
+      }
+      
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be logged in to sync menu items to Stripe');
+      }
+      
+      // Count of successfully synced items
+      let syncedCount = 0;
+      
+      // Process each menu item
+      for (const item of menuItems) {
+        try {
+          const response = await fetch(`${supabaseUrl}/functions/v1/sync-menu-item-to-stripe`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              menu_item_id: item.id,
+              restaurant_id: restaurant.id,
+              name: item.name,
+              description: item.description || '',
+              price_sgd: item.price_sgd,
+              stripe_product_id: item.stripe_product_id,
+              stripe_price_id: item.stripe_price_id
+            }),
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Failed to sync menu item ${item.name}:`, errorText);
+            continue;
+          }
+          
+          syncedCount++;
+        } catch (itemError) {
+          console.error(`Error syncing menu item ${item.name}:`, itemError);
+          // Continue with next item
+        }
+      }
+      
+      // Refresh menu data to get updated Stripe IDs
+      await fetchMenuData();
+      
+      showNotification(`Successfully synced ${syncedCount} of ${menuItems.length} menu items to Stripe`);
+    } catch (error) {
+      console.error('Error syncing menu to Stripe:', error);
+      showNotification('Failed to sync menu items to Stripe. Please check console for details.', 'error');
+    } finally {
+      setSyncingMenu(false);
     }
   };
 
@@ -359,6 +426,21 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
           </h2>
           <p className="text-gray-600">Manage your restaurant's menu categories and items</p>
         </div>
+        
+        {canManageMenu && (
+          <button
+            onClick={handleSyncMenuToStripe}
+            disabled={syncingMenu || menuItems.length === 0}
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50 mr-4"
+          >
+            {syncingMenu ? (
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <CreditCard className="w-4 h-4 mr-2" />
+            )}
+            {syncingMenu ? 'Syncing...' : 'Sync Menu to Stripe'}
+          </button>
+        )}
       </div>
 
       {/* Tab Navigation */}

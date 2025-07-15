@@ -286,6 +286,14 @@ Deno.serve(async (req) => {
 });
 
 function corsResponse(data: any, status = 200) {
+  // For status 204, we must return a response with null body
+  if (status === 204) {
+    return new Response(null, {
+      status,
+      headers: corsHeaders,
+    });
+  }
+  
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

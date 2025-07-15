@@ -158,6 +158,8 @@ export interface MenuItem {
   display_order: number;
   allergens: string[] | null;
   dietary_info: string[] | null;
+  stripe_product_id?: string | null;
+  stripe_price_id?: string | null;
   created_at: string;
   updated_at: string;
   category?: MenuCategory;
