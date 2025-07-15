@@ -49,6 +49,7 @@ export function useAuth() {
   }, []);
 
   const fetchEmployeeProfile = async (id: string) => {
+    try {
         // Direct query to get the employee profile
         const { data: employeeData, error: employeeError } = await supabase
           .from('employees')
@@ -58,35 +59,39 @@ export function useAuth() {
 
         if (employeeError) {
           console.error('Error fetching employee profile:', employeeError);
-          
-          // Try to get restaurant directly if employee profile fails
-          const { data: restaurant } = await supabase
-            .from('restaurants')
-            .select('id')
-            .eq('owner_id', id)
-            .maybeSingle();
-            
-          if (restaurant) {
-            // If user is a restaurant owner, create an employee profile
-            setEmployeeProfile({
-              employee_id: id, // Use employee_id as the UID
-              restaurant_id: restaurant.id,
-              role: 'owner',
-              name: 'Restaurant Owner',
-              is_active: true,
-              email: user?.email // Add email from the authenticated user
-            });
-            setRestaurantId(restaurant.id);
-            
-            // Also create the employee record in the database
-            await supabase.from('employees').upsert({
-              employee_id: id,
-              restaurant_id: restaurant.id,
-              role: 'owner',
-              name: 'Restaurant Owner',
-              is_active: true
-            });
-          } else {
+          try {
+            // Try to get restaurant directly if employee profile fails
+            const { data: restaurant } = await supabase
+              .from('restaurants')
+              .select('id')
+              .eq('owner_id', id)
+              .maybeSingle();
+              
+            if (restaurant) {
+              // If user is a restaurant owner, create an employee profile
+              setEmployeeProfile({
+                employee_id: id, // Use employee_id as the UID
+                restaurant_id: restaurant.id,
+                role: 'owner',
+                name: 'Restaurant Owner',
+                is_active: true,
+                email: user?.email // Add email from the authenticated user
+              });
+              setRestaurantId(restaurant.id);
+              
+              // Also create the employee record in the database
+              await supabase.from('employees').upsert({
+                employee_id: id,
+                restaurant_id: restaurant.id,
+                role: 'owner',
+                name: 'Restaurant Owner',
+                is_active: true
+              });
+            } else {
+              setEmployeeProfile(null);
+            }
+          } catch (restaurantError) {
+            console.error('Error checking if user is restaurant owner:', restaurantError);
             setEmployeeProfile(null);
           }
         } else {
@@ -96,11 +101,7 @@ export function useAuth() {
             email: user?.email // Add email from the authenticated user
           });
           setRestaurantId(employeeData.restaurant_id);
-        } catch (restaurantError) {
-          console.error('Error checking if user is restaurant owner:', restaurantError);
-          setEmployeeProfile(null);
         }
-      }
     } catch (err) {
       console.error('Error in fetchEmployeeProfile:', err);
       setEmployeeProfile(null);
