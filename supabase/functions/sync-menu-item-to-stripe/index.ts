@@ -1,4 +1,3 @@
-```typescript
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import Stripe from 'npm:stripe@latest';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
@@ -76,7 +75,7 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         // Product not found or error, create a new one
-        console.warn(\`Stripe Product ${currentStripeProductId} not found or error: ${e.message}. Creating new product.`);
+        console.warn(`Stripe Product ${currentStripeProductId} not found or error: ${e.message}. Creating new product.`);
         currentStripeProductId = null; // Force creation of new product
       }
     }
@@ -141,4 +140,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-```
