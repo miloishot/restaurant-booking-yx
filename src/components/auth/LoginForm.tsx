@@ -42,7 +42,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
       // After successful Supabase authentication, fetch the employee record from the consolidated 'employees' table
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
-        .select('id, restaurant_id, role, name, is_active')
+        .select('employee_id, restaurant_id, role, name, is_active')
         .eq('id', data.user.id)
         .maybeSingle();
 

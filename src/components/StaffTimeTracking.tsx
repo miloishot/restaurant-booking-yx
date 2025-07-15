@@ -237,7 +237,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
     try {
       // Delete the employee record directly from the consolidated employees table
       // This now deletes the employee's auth account as well (employee.id is the UID)
-      const { error } = await supabase.auth.admin.deleteUser(employee.id);
+      const { error } = await supabase.auth.admin.deleteUser(employee.employee_id);
 
       if (error) throw error;
 
@@ -490,7 +490,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                   {employees.map((employee) => {
                     const isPunchedIn = isEmployeePunchedIn(employee.employee_id);
                     return (
-                      <tr key={employee.id} className="hover:bg-gray-50">
+                      <tr key={employee.employee_id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{employee.name}</div>
                         </td>
