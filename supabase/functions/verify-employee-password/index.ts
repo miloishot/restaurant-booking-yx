@@ -15,8 +15,11 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  console.log('Function invoked. Method:', req.method);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     return new Response(null, {
       status: 204,
       headers: corsHeaders,
@@ -25,6 +28,7 @@ Deno.serve(async (req) => {
 
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.log('Method not POST, returning 405');
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       {
@@ -34,12 +38,16 @@ Deno.serve(async (req) => {
     );
   }
 
+  let requestBody: any; // Declare requestBody here to be accessible in catch block
+
   try {
-    // Parse request body
-    const { employeeId, email, password } = await req.json();
+    requestBody = await req.json();
+    console.log('Request body parsed successfully.');
+    const { employeeId, email, password } = requestBody;
 
     // Validate required parameters
     if (!employeeId || !email || !password) {
+      console.log('Missing parameters, returning 400');
       return new Response(
         JSON.stringify({ error: 'Missing required parameters: employeeId, email, and password are required' }),
         {
@@ -48,6 +56,8 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    console.log(`Attempting to verify employee: ${employeeId}, email: ${email}`);
 
     // Verify that the employee exists
     const { data: employee, error: employeeError } = await supabase
@@ -58,6 +68,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (employeeError || !employee) {
+      console.log('Employee not found or inactive:', employeeError?.message || 'No employee data');
       return new Response(
         JSON.stringify({ error: 'Employee not found or inactive' }),
         {
@@ -67,6 +78,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log('Employee found. Attempting admin sign-in.');
+
     // Verify the password using Supabase Auth Admin API
     const { data: verifyData, error: verifyError } = await supabase.auth.admin.signInWithEmail(
       email,
@@ -74,6 +87,7 @@ Deno.serve(async (req) => {
     );
 
     if (verifyError) {
+      console.log('Admin sign-in failed:', verifyError.message);
       return new Response(
         JSON.stringify({ error: 'Invalid credentials', details: verifyError.message }),
         {
@@ -83,8 +97,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log(`Admin sign-in successful. Verifying user ID match: ${verifyData.user?.id} vs ${employeeId}`);
+
     // Verify that the authenticated user ID matches the employee ID
     if (verifyData.user?.id !== employeeId) {
+      console.log('User ID mismatch, returning 401');
       return new Response(
         JSON.stringify({ error: 'User ID mismatch with employee ID' }),
         {
@@ -93,6 +110,8 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    console.log('User ID matched. Logging successful attempt.');
 
     // Log the verification attempt
     await supabase
@@ -104,10 +123,12 @@ Deno.serve(async (req) => {
         auth_type: 'time_clock_verification'
       });
 
+    console.log('Verification successful, returning 200.');
+
     // Return success response
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         employee: {
           employee_id: employee.employee_id,
           name: employee.name,
@@ -121,21 +142,18 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Error verifying employee password:', error);
-    
+
     // Log the failed attempt if possible
     try {
-      if (req.body) {
-        const { email } = await req.json();
-        if (email) {
-          await supabase
-            .from('auth_logs')
-            .insert({
-              identifier: email,
-              success: false,
-              auth_type: 'time_clock_verification'
-            });
-        }
-      }
+      const emailToLog = requestBody?.email || 'unknown';
+      console.error('Attempting to log failed verification for email:', emailToLog);
+      await supabase
+        .from('auth_logs')
+        .insert({
+          identifier: emailToLog,
+          success: false,
+          auth_type: 'time_clock_verification'
+        });
     } catch (logError) {
       console.error('Error logging failed verification attempt:', logError);
     }
