@@ -38,46 +38,13 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, restaurant_id, employee_id, name, role, is_active')
         .eq('restaurant_id', restaurant.id)
         .eq('is_active', true)
         .order('name');
 
       if (error) throw error;
-      
-      const employees = data || [];
-      
-      // Fetch email addresses for each employee from auth.users
-      if (employees.length > 0) {
-        const employeeIds = employees.map(emp => emp.id);
-        
-        try {
-          const { data: authUsers, error: authError } = await supabase
-            .from('auth.users')
-            .select('id, email')
-            .in('id', employeeIds);
-          
-          if (!authError && authUsers) {
-            // Map emails to employees
-            const employeesWithEmails = employees.map(employee => {
-              const authUser = authUsers.find(user => user.id === employee.id);
-              return {
-                ...employee,
-                email: authUser?.email
-              };
-            });
-            setEmployees(employeesWithEmails);
-          } else {
-            // If we can't fetch emails, set employees without emails
-            setEmployees(employees);
-          }
-        } catch (emailError) {
-          console.warn('Could not fetch employee emails:', emailError);
-          setEmployees(employees);
-        }
-      } else {
-        setEmployees(employees);
-      }
+      setEmployees(data || []);
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
