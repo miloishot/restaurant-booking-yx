@@ -112,7 +112,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         const { data: empData, error: empError } = await supabase 
           .from('employees')
           .select('id, employee_id, name, role, is_active, restaurant_id')
-          .in('employee_id', employeeIds); // Filter by id which matches temp_employee_id
+          .in('employee_id', employeeIds); // Filter by employee_id which matches temp_employee_id
 
         if (!empError) {
           employeesData = empData || [];
@@ -122,7 +122,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       // Combine time entries with employee data
       const entriesWithEmployees = (data || []).map(entry => ({
         ...entry, // Assuming 'id' is still present in TimeEntry from DB
-        employee: employeesData.find(emp => emp.id === entry.temp_employee_id)
+        employee: employeesData.find(emp => emp.employee_id === entry.temp_employee_id)
       }));
       
       setTimeEntries(entriesWithEmployees);
@@ -596,7 +596,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {entry.employee?.name || 'Unknown Employee'}
+                          {entry.employee?.name || `Unknown Employee`}
                         </div>
                         <div className="text-sm text-gray-500">ID: {entry.employee?.employee_id?.substring(0, 8) || entry.temp_employee_id?.substring(0, 8)}...</div>
                       </div>
