@@ -120,6 +120,7 @@ Deno.serve(async (req) => {
             description: item.menu_item.description || undefined,
           },
           unit_amount: Math.round(item.menu_item.price_sgd * 100),
+          tax_behavior: 'exclusive', // Explicitly set taxes as exclusive
         },
         quantity: item.quantity,
       }));
@@ -138,13 +139,19 @@ Deno.serve(async (req) => {
           address: 'auto',
           name: 'auto',
         },
-        automatic_tax: {
-          enabled: true,
+        // Add custom tax rates instead of automatic tax
+        tax_id_collection: {
+          enabled: false,
         },
         metadata: {
           table_id,
           session_id,
           user_id: user.id,
+          restaurant_id: restaurantId,
+          loyalty_user_ids: requestBody.loyalty_user_ids ? JSON.stringify(requestBody.loyalty_user_ids) : null,
+          discount_applied: requestBody.discount_applied ? 'true' : 'false',
+          triggering_user_id: requestBody.triggering_user_id || null,
+          discount_amount: requestBody.discount_amount || 0,
         },
       });
 

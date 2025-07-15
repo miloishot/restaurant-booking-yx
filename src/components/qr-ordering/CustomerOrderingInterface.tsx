@@ -176,9 +176,12 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
     
     try {
       const subtotal = calculateSubtotal();
+      // Apply discount before tax calculation
+      const discountedSubtotal = subtotal - calculateDiscount();
+      
       const { data, error } = await supabase
         .rpc('calculate_order_taxes', {
-          p_subtotal: subtotal,
+          p_subtotal: discountedSubtotal,
           p_restaurant_id: session.restaurant_id
         });
 
@@ -269,7 +272,13 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
   };
 
   const calculateTotal = () => {
-    return calculateSubtotal() - calculateDiscount();
+    // If we have tax breakdown, use it for the total
+    if (taxBreakdown) {
+      return taxBreakdown.total;
+    } else {
+      // Fallback to simple calculation if tax breakdown isn't available yet
+      return calculateSubtotal() - calculateDiscount();
+    }
   };
 
   const submitOrder = async () => {

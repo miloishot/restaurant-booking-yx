@@ -150,11 +150,11 @@ export function CartSidebar({
               {taxBreakdown && (
                 <>
                   <div className="flex justify-between text-gray-600">
-                    <span>Service Charge ({taxBreakdown.service_charge_rate}%)</span>
+                    <span>Service Charge ({taxBreakdown.service_charge_rate}%) +</span>
                     <span className="font-medium">{formatPrice(taxBreakdown.service_charge)}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
-                    <span>GST ({taxBreakdown.gst_rate}%)</span>
+                    <span>GST ({taxBreakdown.gst_rate}%) +</span>
                     <span className="font-medium">{formatPrice(taxBreakdown.gst)}</span>
                   </div>
                 </>
@@ -177,14 +177,13 @@ export function CartSidebar({
                 <div className="border-t pt-3 mt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span className="text-orange-500">{formatPrice(total)}</span>
+                    <span className="text-orange-500">{formatPrice(taxBreakdown ? taxBreakdown.total : total)}</span>
                   </div>
-                  <span className="text-orange-500">{formatPrice(taxBreakdown ? taxBreakdown.total : total)}</span>
                 </div>
                 {taxBreakdown && (
                   <div className="flex items-center justify-end mt-1 text-xs text-gray-500">
                     <Info className="w-3 h-3 mr-1" />
-                    <span>Prices are inclusive of taxes</span>
+                    <span>Prices are exclusive of service charge and GST</span>
                   </div>
                 )}
               </div>
