@@ -245,7 +245,9 @@ export interface TaxBreakdown {
   subtotal: number;
   service_charge: number;
   service_charge_rate: number;
+  service_charge_enabled: boolean;
   gst: number;
   gst_rate: number;
+  gst_enabled: boolean;
   total: number;
 }

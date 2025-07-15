@@ -149,14 +149,18 @@ export function CartSidebar({
               {/* Tax Breakdown */}
               {taxBreakdown && (
                 <>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Service Charge ({taxBreakdown.service_charge_rate}%) +</span>
-                    <span className="font-medium">{formatPrice(taxBreakdown.service_charge)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>GST ({taxBreakdown.gst_rate}%) +</span>
-                    <span className="font-medium">{formatPrice(taxBreakdown.gst)}</span>
-                  </div>
+                  {taxBreakdown.service_charge_enabled && taxBreakdown.service_charge > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Service Charge ({taxBreakdown.service_charge_rate}%) +</span>
+                      <span className="font-medium">{formatPrice(taxBreakdown.service_charge)}</span>
+                    </div>
+                  )}
+                  {taxBreakdown.gst_enabled && taxBreakdown.gst > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>GST ({taxBreakdown.gst_rate}%) +</span>
+                      <span className="font-medium">{formatPrice(taxBreakdown.gst)}</span>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -183,7 +187,12 @@ export function CartSidebar({
                 {taxBreakdown && (
                   <div className="flex items-center justify-end mt-1 text-xs text-gray-500">
                     <Info className="w-3 h-3 mr-1" />
-                    <span>Prices are exclusive of service charge and GST</span>
+                    <span>
+                      Prices are exclusive of 
+                      {taxBreakdown.service_charge_enabled && ' service charge'}
+                      {taxBreakdown.service_charge_enabled && taxBreakdown.gst_enabled && ' and'}
+                      {taxBreakdown.gst_enabled && ' GST'}
+                    </span>
                   </div>
                 )}
               </div>

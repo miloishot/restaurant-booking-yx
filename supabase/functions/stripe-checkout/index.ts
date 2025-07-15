@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     // Fetch restaurant tax settings
     const { data: taxSettings, error: taxSettingsError } = await supabase
       .from('restaurant_tax_settings')
-      .select('gst_rate, service_charge_rate')
+      .select('gst_rate, service_charge_rate, gst_enabled, service_charge_enabled')
       .eq('restaurant_id', restaurantId)
       .single();
     
@@ -66,6 +66,8 @@ Deno.serve(async (req) => {
     // Default tax rates if not found
     const gstRate = taxSettings?.gst_rate || 9;
     const serviceChargeRate = taxSettings?.service_charge_rate || 10;
+    const gstEnabled = taxSettings?.gst_enabled !== false; // Default to true if not found
+    const serviceChargeEnabled = taxSettings?.service_charge_enabled !== false; // Default to true if not found
     
     if (!restaurant?.stripe_secret_key) {
       console.error('Restaurant does not have a Stripe secret key configured:', restaurant);
@@ -120,10 +122,7 @@ Deno.serve(async (req) => {
       // Calculate subtotal from cart items
       const subtotal = cart_items.reduce((sum, item) => 
         sum + (item.menu_item.price_sgd * item.quantity * 100), 0);
-      
-      // Calculate service charge
-      const serviceChargeAmount = Math.round(subtotal * (serviceChargeRate / 100));
-      
+            
       // Create a new customer for this order
       const newCustomer = await stripe.customers.create({
         email: user.email!,
@@ -147,31 +146,36 @@ Deno.serve(async (req) => {
         },
         quantity: item.quantity,
       }));
-      
-      // Add service charge as a separate line item
-      line_items.push({
-        price_data: {
-          currency: 'sgd',
-          product_data: {
-            name: 'Service Charge',
-            description: `${serviceChargeRate}% service charge`,
+
+      // Add service charge as a separate line item if enabled
+      if (serviceChargeEnabled) {
+        // Calculate service charge
+        const serviceChargeAmount = Math.round(subtotal * (serviceChargeRate / 100));
+        
+        line_items.push({
+          price_data: {
+            currency: 'sgd',
+            product_data: {
+              name: 'Service Charge',
+              description: `${serviceChargeRate}% service charge`,
+            },
+            unit_amount: serviceChargeAmount,
+            tax_behavior: 'exclusive', // Service charge is also subject to GST
           },
-          unit_amount: serviceChargeAmount,
-          tax_behavior: 'exclusive', // Service charge is also subject to GST
-        },
-        quantity: 1,
-      });
+          quantity: 1,
+        });
+      }
 
       console.log('Created line items for checkout');
       
       // Create checkout session for restaurant order
       const session = await stripe.checkout.sessions.create({
         customer: newCustomer.id,
-        payment_method_types: ['card'],
+        payment_method_types: ['auto'],
         line_items,
         mode: 'payment',
         automatic_tax: {
-          enabled: true,
+          enabled: gstEnabled, // Only enable automatic tax if GST is enabled
         },
         success_url,
         cancel_url,
@@ -306,7 +310,7 @@ Deno.serve(async (req) => {
 
       session = await stripe.checkout.sessions.create({
         customer: customerId,
-        payment_method_types: ['card'],
+        payment_method_types: ['auto'],
         line_items: [
           {
             // For subscriptions, we use the price_id directly
