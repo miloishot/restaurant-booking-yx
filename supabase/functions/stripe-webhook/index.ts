@@ -81,21 +81,81 @@ async function handleEvent(event: Stripe.Event) {
       try {
         console.log(`Processing restaurant order payment for table ${session.metadata.table_id}`);
         
-        // Mark all orders for this session as confirmed and paid
-        const { error: orderError } = await supabase
+        // Generate order number
+        const { data: orderNumber, error: orderNumberError } = await supabase.rpc('generate_order_number');
+        
+        if (orderNumberError) {
+          console.error('Error generating order number:', orderNumberError);
+          throw orderNumberError;
+        }
+        
+        // Parse metadata
+        const loyaltyUserIds = session.metadata.loyalty_user_ids ? 
+          JSON.parse(session.metadata.loyalty_user_ids) : null;
+        const discountApplied = session.metadata.discount_applied === 'true';
+        const triggeringUserId = session.metadata.triggering_user_id || null;
+        const discountAmount = parseFloat(session.metadata.discount_amount || '0');
+        
+        // Create the order now that payment is confirmed
+        const { data: orderData, error: orderError } = await supabase
           .from('orders')
-          .update({ 
+          .insert({
+            restaurant_id: session.metadata.restaurant_id,
+            session_id: session.metadata.session_id,
+            order_number: orderNumber,
+            loyalty_user_ids: loyaltyUserIds,
+            subtotal_sgd: session.amount_subtotal ? session.amount_subtotal / 100 : 0,
+            discount_sgd: discountAmount,
+            total_sgd: session.amount_total ? session.amount_total / 100 : 0,
+            discount_applied: discountApplied,
+            triggering_user_id: triggeringUserId,
             status: 'confirmed',
-            notes: 'Payment completed via Stripe',
-            updated_at: new Date().toISOString()
+            notes: 'Payment completed via Stripe'
           })
-          .eq('session_id', session.metadata.session_id)
-          .neq('status', 'paid');
+          .select()
+          .single();
         
         if (orderError) {
-          console.error('Error updating order status:', orderError);
-        } else {
-          console.log(`Successfully marked orders as paid for table ${session.metadata.table_id}, session ${session.metadata.session_id}`);
+          console.error('Error creating order:', orderError);
+          throw orderError;
+        }
+        
+        // Create order items from line items
+        if (session.line_items) {
+          // Fetch line items from Stripe
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+          
+          if (lineItems && lineItems.data) {
+            // Map line items to order items
+            const orderItems = lineItems.data.map(item => ({
+              order_id: orderData.id,
+              menu_item_id: item.price?.product as string,
+              quantity: item.quantity || 1,
+              unit_price_sgd: (item.price?.unit_amount || 0) / 100,
+              total_price_sgd: ((item.price?.unit_amount || 0) * (item.quantity || 1)) / 100,
+              special_instructions: null
+            }));
+            
+            // Insert order items
+            const { error: itemsError } = await supabase
+              .from('order_items')
+              .insert(orderItems);
+              
+            if (itemsError) {
+              console.error('Error creating order items:', itemsError);
+            }
+          }
+        }
+        
+        console.log(`Successfully created order for table ${session.metadata.table_id}, session ${session.metadata.session_id}`);
+        
+        // Update loyalty user spending if discount was applied
+        if (discountApplied && triggeringUserId) {
+          await supabase.rpc('update_loyalty_spending', {
+            p_restaurant_id: session.metadata.restaurant_id,
+            p_user_id: triggeringUserId,
+            p_amount: session.amount_total ? session.amount_total / 100 : 0
+          });
         }
         
         return;

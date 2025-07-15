@@ -23,6 +23,10 @@ interface PaymentCheckoutParams extends BaseCheckoutParams {
   cart_items?: any[];
   table_id?: string; // This is actually the table_id from restaurant_tables
   session_id?: string;
+  loyalty_user_ids?: string[];
+  discount_applied?: boolean;
+  triggering_user_id?: string | null;
+  discount_amount?: number;
 }
 
 type CheckoutParams = SubscriptionCheckoutParams | PaymentCheckoutParams;
