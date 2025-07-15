@@ -14,6 +14,8 @@ export interface Restaurant {
   time_slot_duration_minutes: number;
   print_api_url: string | null;
   print_api_key: string | null;
+  stripe_publishable_key: string | null;
+  stripe_secret_key: string | null;
   created_at: string;
   updated_at: string;
 }

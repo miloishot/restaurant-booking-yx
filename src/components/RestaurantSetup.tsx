@@ -5,6 +5,8 @@ import { Restaurant, RestaurantTable } from '../types/database';
 import { TableManager } from './TableManager';
 import { Building, Globe, Copy, Check, ExternalLink, Settings, Users, Printer } from 'lucide-react';
 import { PrinterConfiguration } from './PrinterConfiguration';
+import { StripeApiConfiguration } from './StripeApiConfiguration';
+import { CreditCard } from 'lucide-react';
 
 export function RestaurantSetup() {
   const { user, employeeProfile } = useAuth();
@@ -13,7 +15,7 @@ export function RestaurantSetup() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'tables' | 'printers'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'tables' | 'printers' | 'stripe'>('details');
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -275,6 +277,17 @@ export function RestaurantSetup() {
               <Printer className="w-4 h-4 inline mr-1" />
               Printer Setup
             </button>
+            <button
+              onClick={() => setActiveTab('stripe')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'stripe'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <CreditCard className="w-4 h-4 inline mr-1" />
+              Stripe API
+            </button>
           </nav>
         </div>
 
@@ -506,6 +519,26 @@ export function RestaurantSetup() {
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">Restaurant Details Required</h3>
                 <p className="text-gray-600 mb-4">
                   Please complete your restaurant details first before configuring printers.
+                </p>
+                <button
+                  onClick={() => setActiveTab('details')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                >
+                  Complete Restaurant Details
+                </button>
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'stripe' ? (
+          <div>
+            {restaurant ? (
+              <StripeApiConfiguration restaurant={restaurant} onUpdate={() => fetchRestaurant()} />
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Restaurant Details Required</h3>
+                <p className="text-gray-600 mb-4">
+                  Please complete your restaurant details first before configuring Stripe API.
                 </p>
                 <button
                   onClick={() => setActiveTab('details')}
