@@ -88,8 +88,8 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
         // Create employee record for the restaurant owner
         const { error: employeeError } = await supabase
           .from('employees')
-          .insert({
-            id: data.user.id,
+          .insert({ // This should be employee_id
+            employee_id: data.user.id, // Set employee_id to the UID
             restaurant_id: restaurant.id,
             role: 'owner',
             name: name,

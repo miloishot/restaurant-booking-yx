@@ -137,7 +137,7 @@ export function useRestaurantData(restaurantSlug?: string) {
           // Fetch tables
           supabase.from('restaurant_tables')
             .select('id, restaurant_id, table_number, capacity, status, location_notes, created_at, updated_at')
-            .eq('restaurant_id', restaurantData.id)
+            .eq('restaurant_id', restaurantData.id) // This should be restaurantData.id
             .order('table_number'),
 
           // Fetch operating hours

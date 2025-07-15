@@ -52,14 +52,24 @@ export function useAuth() {
     try {
       console.log('Fetching employee profile for user ID:', id);
       setLoading(true);
-      
+
       try {
         // Direct query with no timeout to get the employee profile
-        const { data, error } = await supabase
+        const { data: employeeData, error: employeeError } = await supabase
           .from('employees')
-          .select('id, restaurant_id, role, name, is_active')
+          .select('employee_id, restaurant_id, role, name, is_active') // Select employee_id (which is the UID)
+          .eq('employee_id', id) // Query by employee_id
+          .single();
+
+        if (employeeError) throw employeeError;
+
+        // Fetch email from auth.users (via the 'users' table)
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('email')
           .eq('id', id)
           .single();
+        if (userError) throw userError;
         
         if (error) {
           console.error('Error fetching employee profile:', error);
@@ -67,7 +77,12 @@ export function useAuth() {
         }
         
         setEmployeeProfile(data);
-        setRestaurantId(data.restaurant_id);
+        setEmployeeProfile({
+          ...employeeData,
+          email: userData.email,
+          id: employeeData.employee_id, // Map employee_id to id for consistency with Employee interface
+        });
+        setRestaurantId(employeeData.restaurant_id);
       } catch (fetchError) {
         console.error('Error fetching employee profile:', fetchError);
         
@@ -82,7 +97,7 @@ export function useAuth() {
           if (restaurant) {
             // If user is a restaurant owner, create an employee profile
             setEmployeeProfile({
-              id,
+              employee_id: id, // Use employee_id as the UID
               restaurant_id: restaurant.id,
               role: 'owner',
               name: 'Restaurant Owner',
@@ -90,7 +105,7 @@ export function useAuth() {
             } as Employee);
             setRestaurantId(restaurant.id);
             
-            // Also create the employee record in the database
+            // Also create the employee record in the database (using employee_id as the UID)
             await supabase.from('employees').upsert({
               id,
               restaurant_id: restaurant.id,

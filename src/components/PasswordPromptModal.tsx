@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Employee } from '../types/database';
+import { Employee, Customer } from '../types/database';
 import { X, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface PasswordPromptModalProps {
@@ -12,6 +12,7 @@ interface PasswordPromptModalProps {
 
 export function PasswordPromptModal({ employee, action, onVerified, onCancel }: PasswordPromptModalProps) {
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(employee.email || ''); // Pre-fill with employee's email
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -23,13 +24,13 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
 
     try {
       // Attempt to sign in with the provided credentials
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: employee.email || '', // Use the actual employee email for authentication
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ // Use email from state
+        email: email,
         password,
       });
 
       if (authError) {
-        throw new Error('Invalid password. Please try again.');
+        throw new Error(authError.message || 'Invalid password. Please try again.');
       }
 
       // Verify that the authenticated user ID matches the employee ID
@@ -105,6 +106,23 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
                 </p>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your email"
+                    autoFocus
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Password Verification

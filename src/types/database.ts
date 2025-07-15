@@ -109,7 +109,7 @@ export interface PrinterConfig {
 
 export interface Employee {
   id: string;
-  restaurant_id: string;
+  employee_id: string; // This is the UUID from auth.users
   name: string;
   role: 'owner' | 'manager' | 'staff';
   is_active: boolean;
@@ -117,7 +117,6 @@ export interface Employee {
 }
 
 export interface TimeEntry {
-  id: string;
   restaurant_id: string;
   punch_in_time: string;
   punch_out_time: string | null;

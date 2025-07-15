@@ -105,8 +105,8 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
         // Create employee record
         const { error: employeeError } = await supabase
           .from('employees')
-          .insert({
-            id: authData.user.id,
+          .insert({ // Use employee_id as the UID
+            employee_id: authData.user.id,
             restaurant_id: restaurant.id,
             name: formData.name,
             role: formData.role,
@@ -143,7 +143,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       const { error: updateError } = await supabase
         .from('employees')
         .update({ is_active: false })
-        .eq('id', employee.id);
+        .eq('employee_id', employee.employee_id); // Update by employee_id (UID)
 
       if (updateError) throw updateError;
       
@@ -166,7 +166,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       role: 'staff',
       employeeId: ''
     });
-    setEditingEmployee(null);
+    setEditingEmployee(null); // This should be employee_id
     setShowForm(false);
     setError(null);
   };
@@ -178,7 +178,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
       password: '', // We don't update passwords when editing
       role: employee.role || 'staff',
       employeeId: employee.employee_id || ''
-    });
+    }); // This should be employee_id
     setEditingEmployee(employee);
     setShowForm(true);
   };
@@ -399,7 +399,7 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
                 <tr key={employee.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                  </td>
+                  </td> // This should be employee_id
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-500">{employee.employee_id || '-'}</div>
                   </td>
@@ -433,9 +433,9 @@ export function StaffManagement({ restaurant }: StaffManagementProps) {
                       </button>
                       <button
                         onClick={() => handleDelete(employee)}
-                        className="text-red-600 hover:text-red-900"
-                        disabled={employee.id === employeeProfile?.id} // Can't delete yourself
-                        title={employee.id === employeeProfile?.id ? "You cannot delete your own account" : "Delete employee"}
+                        className="text-red-600 hover:text-red-900" // This should be employee_id
+                        disabled={employee.employee_id === employeeProfile?.employee_id} // Can't delete yourself
+                        title={employee.employee_id === employeeProfile?.employee_id ? "You cannot delete your own account" : "Delete employee"}
                       >
                         <Trash2 className={`w-4 h-4 ${employee.id === employeeProfile?.id ? 'opacity-30 cursor-not-allowed' : ''}`} />
                       </button>

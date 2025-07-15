@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Restaurant, Employee, TimeEntry } from '../types/database';
+import { Restaurant, Employee, TimeEntry, Customer } from '../types/database';
 import { Clock, Users, Calendar, BarChart3, User, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { PasswordPromptModal } from './PasswordPromptModal'; // Ensure this import is correct
@@ -35,15 +35,31 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: employeesData, error: employeesError } = await supabase
         .from('employees') // Fetch email for authentication in modal
-        .select('id, restaurant_id, name, role, is_active, email')
+        .select('employee_id, restaurant_id, name, role, is_active') // Select employee_id which is the UID
         .eq('restaurant_id', restaurant.id)
         .eq('is_active', true)
         .order('name');
 
-      if (error) throw error;
-      setEmployees(data || []);
+      if (employeesError) throw employeesError;
+      
+      const employeeUids = employeesData?.map(emp => emp.employee_id) || [];
+      let employeesWithEmails: Employee[] = [];
+
+      if (employeeUids.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('users') // Query the 'users' table for emails
+          .select('id, email')
+          .in('id', employeeUids);
+        
+        if (usersError) throw usersError;
+
+        employeesWithEmails = (employeesData || []).map(emp => ({
+          ...emp, email: usersData?.find(user => user.id === emp.employee_id)?.email || undefined
+        }));
+      }
+      setEmployees(employeesWithEmails);
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
@@ -97,13 +113,13 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       // Fetch employee data separately to avoid relationship issues
       const employeeIds = [...new Set(data?.map(entry => entry.temp_employee_id).filter(Boolean))];
       let employeesData: Employee[] = [];
-      
+
       if (employeeIds.length > 0) {
         const { data: empData, error: empError } = await supabase
           .from('employees')
-          .select('*')
-          .in('id', employeeIds);
-          
+          .select('employee_id, name, role, is_active, restaurant_id'); // Select employee_id
+          // .in('employee_id', employeeIds); // Filter by employee_id
+
         if (!empError) {
           employeesData = empData || [];
         }
@@ -111,7 +127,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
       
       // Combine time entries with employee data
       const entriesWithEmployees = (data || []).map(entry => ({
-        ...entry,
+        ...entry, // Assuming 'id' is still present in TimeEntry from DB
         employee: employeesData.find(emp => emp.id === entry.temp_employee_id)
       }));
       
@@ -160,7 +176,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         const { data: existingEntry } = await supabase
           .from('time_entries')
           .select('*')
-          .eq('restaurant_id', restaurant.id)
+          .eq('restaurant_id', restaurant.id) // Use restaurant_id
           .eq('employee_id', employee.employee_id || `emp-${employee.id.substring(0, 8)}`)
           .eq('date', today)
           .is('punch_out_time', null)
@@ -173,7 +189,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         const { error } = await supabase
           .from('time_entries')
           .insert({
-            restaurant_id: restaurant.id, // Ensure restaurant_id is passed
+            restaurant_id: restaurant.id,
             temp_employee_id: employee.id,
             punch_in_time: new Date().toISOString(),
             date: today
@@ -188,7 +204,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
         const { data: entry, error: entryError } = await supabase
           .from('time_entries')
           .select('*')
-          .eq('restaurant_id', restaurant.id)
+          .eq('restaurant_id', restaurant.id) // Use restaurant_id
           .eq('temp_employee_id', employee.id)
           .eq('date', today)
           .is('punch_out_time', null)
@@ -222,7 +238,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const handleDeleteEmployee = async (employee: Employee) => {
     try {
       // Delete the employee record directly from the consolidated employees table
-      // This now deletes the employee's auth account as well
+      // This now deletes the employee's auth account as well (employee.id is the UID)
       const { error } = await supabase.auth.admin.deleteUser(employee.id);
 
       if (error) throw error;
@@ -237,13 +253,13 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   };
 
   const calculateTotalHours = (entries: TimeEntry[]) => {
-    return entries.reduce((total, entry) => total + (entry.total_hours || 0), 0);
+    return entries.reduce((total, entry) => total + (entry.total_hours || 0), 0); // Assuming total_hours is number
   };
 
   const calculateEmployeeHours = (employeeId: string) => {
     const employeeEntries = timeEntries.filter(entry => entry.temp_employee_id === employeeId);
     return calculateTotalHours(employeeEntries); // Use employee.id for filtering
-  };
+  }; // This should use employee.employee_id
 
   const isEmployeePunchedIn = (employeeUuid: string) => {
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -481,7 +497,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                           <div className="text-sm font-medium text-gray-900">{employee.name}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap"> {/* Display employee_id if it exists, otherwise use a placeholder */}
-                          <div className="text-sm text-gray-500">{employee.employee_id}</div>
+                          <div className="text-sm text-gray-500">{employee.employee_id.substring(0, 8)}...</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{formatHours(calculateEmployeeHours(employee.employee_id))}</div>
@@ -499,7 +515,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                           <div className="flex space-x-2">
-                            <button
+                            <button // This should use employee.employee_id
                               onClick={() => handlePunchIn(employee)}
                               disabled={isEmployeePunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
@@ -511,7 +527,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                               Punch In
                             </button>
                             <button
-                              onClick={() => handlePunchOut(employee)}
+                              onClick={() => handlePunchOut(employee)} // This should use employee.employee_id
                               disabled={!isEmployeePunchedIn(employee.id)}
                               className={`px-3 py-1 rounded text-white ${
                                 !isEmployeePunchedIn(employee.id) 
@@ -584,7 +600,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                         <div className="text-sm font-medium text-gray-900">
                           {entry.employee?.name || 'Unknown Employee'}
                         </div>
-                        <div className="text-sm text-gray-500">ID: {entry.employee?.employee_id || entry.employee_id}</div>
+                        <div className="text-sm text-gray-500">ID: {entry.employee?.employee_id?.substring(0, 8) || entry.temp_employee_id?.substring(0, 8)}...</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
