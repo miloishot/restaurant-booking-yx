@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Employee, Customer } from '../types/database';
 import { X, Lock, AlertCircle, CheckCircle, Info } from 'lucide-react';
-
+import { X, Lock, AlertCircle, CheckCircle, Mail } from 'lucide-react';
 interface PasswordPromptModalProps {
   employee: Employee;
   action: 'in' | 'out';
@@ -28,7 +28,6 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
 
       if (!session || !session.access_token) {
         throw new Error('No active session found. Please log in again.');
-      }
       // Call the Edge Function to verify the password without signing in
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-employee-password`, {
         method: 'POST',
