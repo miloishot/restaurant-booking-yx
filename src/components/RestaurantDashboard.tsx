@@ -739,7 +739,7 @@ export function RestaurantDashboard() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
                 <p className="text-gray-600">
-                  Only restaurant owners and managers can access the setup configuration.
+                  Only restaurant owners can access the setup configuration.
                 </p>
               </div>
             )}
