@@ -597,6 +597,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                       <div>
                         <div className="text-sm font-medium text-gray-900">
                           {entry.employee?.name || 'Unknown Employee'}
+                        </div>
                         <div className="text-sm text-gray-500">ID: {entry.employee?.employee_id?.substring(0, 8) || entry.temp_employee_id?.substring(0, 8)}...</div>
                       </div>
                     </td>
