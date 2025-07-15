@@ -22,6 +22,9 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
     setError(null);
 
     try {
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       setVerifying(true);
       
 
