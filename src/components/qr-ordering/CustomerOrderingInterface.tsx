@@ -124,7 +124,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       // Fetch menu items
       const { data: itemsData, error: itemsError } = await supabase
         .from('menu_items')
-        .select(`
+        .select(` 
           *,
           category:menu_categories(*)
         `)

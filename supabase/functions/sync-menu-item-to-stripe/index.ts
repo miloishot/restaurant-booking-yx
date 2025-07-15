@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         // Product not found or error, create a new one
-        console.warn(`Stripe Product ${currentStripeProductId} not found or error: ${e.message}. Creating new product.`);
+        console.warn(\`Stripe Product ${currentStripeProductId} not found or error: ${e.message}. Creating new product.`);
         currentStripeProductId = null; // Force creation of new product
       }
     }

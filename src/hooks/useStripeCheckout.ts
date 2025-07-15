@@ -20,7 +20,7 @@ interface SubscriptionCheckoutParams extends BaseCheckoutParams {
 interface PaymentCheckoutParams extends BaseCheckoutParams {
   mode: 'payment';
   cart_items?: any[];
-  table_id?: string;
+  table_id?: string; // This is actually the table_id from restaurant_tables
   session_id?: string;
 }
 
