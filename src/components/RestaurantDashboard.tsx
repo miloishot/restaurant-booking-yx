@@ -275,8 +275,6 @@ export function RestaurantDashboard() {
       type === 'success' ? 'bg-green-500 text-white' : 
       type === 'error' ? 'bg-red-500 text-white' : 
       'bg-blue-500 text-white'
-      type === 'error' ? 'bg-red-500 text-white' : 
-      'bg-blue-500 text-white'
     }`;
     notification.textContent = message;
     document.body.appendChild(notification);
