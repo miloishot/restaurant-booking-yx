@@ -35,6 +35,7 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           employeeId: employee.employee_id,
           email: email,
