@@ -1,6 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import Stripe from 'npm:stripe@latest';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
+import { formatStripePrice } from 'npm:@stripe/stripe-js@latest';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,9 +52,24 @@ Deno.serve(async (req) => {
       return corsResponse({ error: 'Restaurant not found' }, 404);
     }
     
-    if (!restaurant.stripe_secret_key) {
-      console.error('Restaurant does not have a Stripe secret key configured');
-      return corsResponse({ error: 'Stripe not configured for this restaurant' }, 400);
+    // Fetch restaurant tax settings
+    const { data: taxSettings, error: taxSettingsError } = await supabase
+      .from('restaurant_tax_settings')
+      .select('gst_rate, service_charge_rate')
+      .eq('restaurant_id', restaurantId)
+      .single();
+    
+    if (taxSettingsError) {
+      console.warn('Could not fetch tax settings:', taxSettingsError);
+    }
+    
+    // Default tax rates if not found
+    const gstRate = taxSettings?.gst_rate || 9;
+    const serviceChargeRate = taxSettings?.service_charge_rate || 10;
+    
+    if (!restaurant?.stripe_secret_key) {
+      console.error('Restaurant does not have a Stripe secret key configured:', restaurant);
+      return corsResponse({ error: 'Stripe not configured for this restaurant. Please set up your Stripe API keys in the restaurant settings.' }, 400);
     }
     
     // Initialize Stripe with the restaurant-specific secret key
@@ -101,6 +117,13 @@ Deno.serve(async (req) => {
     console.log('Processing mode:', mode);
     
     if (mode === 'payment' && cart_items && cart_items.length > 0) {
+      // Calculate subtotal from cart items
+      const subtotal = cart_items.reduce((sum, item) => 
+        sum + (item.menu_item.price_sgd * item.quantity * 100), 0);
+      
+      // Calculate service charge
+      const serviceChargeAmount = Math.round(subtotal * (serviceChargeRate / 100));
+      
       // Create a new customer for this order
       const newCustomer = await stripe.customers.create({
         email: user.email!,
@@ -112,18 +135,32 @@ Deno.serve(async (req) => {
       console.log('Created Stripe customer:', newCustomer.id);
 
       // Create line items from cart
-      const line_items = cart_items.map((item: any) => ({
+      let line_items = cart_items.map((item: any) => ({
         price_data: {
           currency: 'sgd',
           product_data: {
             name: item.menu_item.name,
             description: item.menu_item.description || undefined,
           },
-          unit_amount: Math.round(item.menu_item.price_sgd * 100),
-          tax_behavior: 'exclusive', // Explicitly set taxes as exclusive
+          unit_amount: Math.round(item.menu_item.price_sgd * 100), 
+          tax_behavior: 'exclusive',
         },
         quantity: item.quantity,
       }));
+      
+      // Add service charge as a separate line item
+      line_items.push({
+        price_data: {
+          currency: 'sgd',
+          product_data: {
+            name: 'Service Charge',
+            description: `${serviceChargeRate}% service charge`,
+          },
+          unit_amount: serviceChargeAmount,
+          tax_behavior: 'exclusive', // Service charge is also subject to GST
+        },
+        quantity: 1,
+      });
 
       console.log('Created line items for checkout');
       
@@ -133,15 +170,14 @@ Deno.serve(async (req) => {
         payment_method_types: ['card'],
         line_items,
         mode: 'payment',
+        automatic_tax: {
+          enabled: true,
+        },
         success_url,
         cancel_url,
         customer_update: {
           address: 'auto',
           name: 'auto',
-        },
-        // Add custom tax rates instead of automatic tax
-        tax_id_collection: {
-          enabled: false,
         },
         metadata: {
           table_id,
@@ -274,13 +310,20 @@ Deno.serve(async (req) => {
         line_items: [
           {
             // For subscriptions, we use the price_id directly
-            price: price_id,
+            price: price_id, 
             quantity: 1,
           },
         ],
+        automatic_tax: {
+          enabled: true,
+        },
         mode,
         success_url,
-        cancel_url
+        cancel_url,
+        customer_update: {
+          address: 'auto',
+          name: 'auto',
+        }
       });
     }
     
@@ -324,8 +367,8 @@ type Expectations<T> = {
 
 function validateParameters<T extends Record<string, any>>(values: T, expected: Expectations<T>): string | undefined {
   for (const parameter in values) {
-    const expectation = expected[parameter as keyof T];
-    if (!expectation) continue; // Skip validation for parameters not in expected
+    const expectation = expected[parameter as keyof T]; 
+    if (!expectation) continue;
     
     const value = values[parameter];
     
@@ -334,7 +377,7 @@ function validateParameters<T extends Record<string, any>>(values: T, expected: 
     }
     
     if (value !== undefined && value !== null && expectation.type) {
-      const actualType = typeof value;
+      const actualType = typeof value; 
       if (actualType !== expectation.type) {
         return `${parameter} must be of type ${expectation.type}, got ${actualType}`;
       }
