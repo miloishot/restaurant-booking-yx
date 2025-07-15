@@ -70,7 +70,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
         if (ownedRestaurant) { // If they are an owner, create an employee record for them
           // Create an employee record for the restaurant owner in the consolidated 'employees' table
           const { error: insertError } = await supabase.from('employees').insert({
-            employee_id: data.user.id, // Set employee_id to the UID
+            employee_id: data.user.id,
             role: 'owner',
             name: data.user.email?.split('@')[0] || 'Owner', // Use email as name if available, or default
           });

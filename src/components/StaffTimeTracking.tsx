@@ -151,6 +151,10 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const handlePunchIn = (employee: Employee) => {
     setEmployeeForPrompt(employee);
     setPunchActionForPrompt('in');
+    // Pre-populate email if available from the employee object
+    if (employee.email) {
+      console.log('Using pre-populated email for punch in:', employee.email);
+    }
     setShowPasswordPrompt(true);
   };
 
@@ -163,7 +167,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const performPunchAction = async (employee: Employee, action: 'in' | 'out') => {
     try {
       setError(null);
-      
+
       if (action === 'in') {
         // Check if already punched in today
         const today = format(new Date(), 'yyyy-MM-dd');
@@ -171,7 +175,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
           .from('time_entries')
           .select('*')
           .eq('restaurant_id', restaurant.id) // Use restaurant_id
-          .eq('temp_employee_id', employee.employee_id)
+          .eq('temp_employee_id', employee.employee_id) // Use employee_id which is the UID
           .eq('date', today)
           .is('punch_out_time', null)
           .maybeSingle();
@@ -184,7 +188,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
           .from('time_entries')
           .insert({
             restaurant_id: restaurant.id,
-            temp_employee_id: employee.employee_id,
+            temp_employee_id: employee.employee_id, // Use employee_id which is the UID
             punch_in_time: new Date().toISOString(),
             date: today
           });
@@ -199,7 +203,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
           .from('time_entries')
           .select('*')
           .eq('restaurant_id', restaurant.id) // Use restaurant_id
-          .eq('temp_employee_id', employee.employee_id)
+          .eq('temp_employee_id', employee.employee_id) // Use employee_id which is the UID
           .eq('date', today)
           .is('punch_out_time', null)
           .maybeSingle();
@@ -253,7 +257,7 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
   const calculateEmployeeHours = (employeeId: string) => {
     const employeeEntries = timeEntries.filter(entry => entry.temp_employee_id === employeeId);
     return calculateTotalHours(employeeEntries); // Use employee.id for filtering
-  }; // This should use employee.employee_id
+  };
 
   const isEmployeePunchedIn = (employeeId: string) => {
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -491,13 +495,13 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                           <div className="text-sm font-medium text-gray-900">{employee.name}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap"> {/* Display employee_id if it exists, otherwise use a placeholder */}
-                          <div className="text-sm text-gray-500">{employee.employee_id.substring(0, 8)}...</div>
+                          <div className="text-sm text-gray-500">{employee.employee_id ? employee.employee_id.substring(0, 8) + '...' : 'N/A'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{formatHours(calculateEmployeeHours(employee.employee_id))}</div>
+                          <div className="text-sm font-medium text-gray-900">{formatHours(calculateEmployeeHours(employee.employee_id || ''))}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {isEmployeePunchedIn(employee.employee_id) ? (
+                          {isEmployeePunchedIn(employee.employee_id || '') ? (
                             <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                               Active
                             </span>
@@ -510,10 +514,10 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                           <div className="flex space-x-2">
                             <button // This should use employee.employee_id
-                              onClick={() => handlePunchIn(employee)}
-                              disabled={isEmployeePunchedIn(employee.employee_id)}
+                              onClick={() => handlePunchIn(employee)} 
+                              disabled={isEmployeePunchedIn(employee.employee_id || '')}
                               className={`px-3 py-1 rounded text-white ${
-                                isEmployeePunchedIn(employee.employee_id) 
+                                isEmployeePunchedIn(employee.employee_id || '') 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-blue-600 hover:bg-blue-700'
                               }`}
@@ -522,9 +526,9 @@ export function StaffTimeTracking({ restaurant }: StaffTimeTrackingProps) {
                             </button>
                             <button
                               onClick={() => handlePunchOut(employee)} // This should use employee.employee_id
-                              disabled={!isEmployeePunchedIn(employee.employee_id)}
+                              disabled={!isEmployeePunchedIn(employee.employee_id || '')}
                               className={`px-3 py-1 rounded text-white ${
-                                !isEmployeePunchedIn(employee.employee_id) 
+                                !isEmployeePunchedIn(employee.employee_id || '') 
                                   ? 'bg-gray-300 cursor-not-allowed' 
                                   : 'bg-red-600 hover:bg-red-700'
                               }`}

@@ -106,12 +106,12 @@ export interface PrinterConfig {
   created_at: string;
   updated_at: string;
 }
-
 export interface Employee {
   employee_id: string;
   name: string;
   role: 'owner' | 'manager' | 'staff';
   is_active: boolean;
+  email?: string;
   email?: string;
 }
 
@@ -122,7 +122,7 @@ export interface TimeEntry {
   date: string;
   created_at: string;
   updated_at: string;
-  temp_employee_id: string | null;
+  temp_employee_id: string;
   employee?: Employee;
 }
 

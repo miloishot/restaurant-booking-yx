@@ -89,7 +89,7 @@ export function SignupForm({ onSuccess, onSwitchToLogin }: SignupFormProps) {
         const { error: employeeError } = await supabase
           .from('employees')
           .insert({
-            employee_id: authData.user.id, // Set employee_id to the UID
+            employee_id: data.user.id,
             restaurant_id: restaurant.id,
             name: name,
           });

@@ -53,8 +53,8 @@ export function useAuth() {
         // Direct query to get the employee profile
         const { data: employeeData, error: employeeError } = await supabase
           .from('employees')
-          .select('employee_id, restaurant_id, role, name, is_active')
-          .eq('employee_id', id) // Query by employee_id which is the UID
+          .select('*')
+          .eq('employee_id', id) // Query by employee_id which matches the UID
           .single();
 
         if (employeeError) {
@@ -70,7 +70,7 @@ export function useAuth() {
             if (restaurant) {
               // If user is a restaurant owner, create an employee profile
               setEmployeeProfile({
-                employee_id: id, // Use employee_id as the UID
+                employee_id: id,
                 restaurant_id: restaurant.id,
                 role: 'owner',
                 name: 'Restaurant Owner',
