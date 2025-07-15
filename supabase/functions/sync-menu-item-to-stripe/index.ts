@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     const price = await stripe.prices.create({
       unit_amount: Math.round(price_sgd * 100), // Convert SGD to cents
       currency: 'sgd',
-      recurring: { interval: 'day', interval_count: 999999999 }, // Effectively one-time, but allows for future subscription models
+      // Use one_time pricing for menu items instead of recurring
       product: currentStripeProductId,
       metadata: {
         menu_item_id: menu_item_id,
