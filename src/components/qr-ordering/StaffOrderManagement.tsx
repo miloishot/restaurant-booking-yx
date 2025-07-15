@@ -172,7 +172,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       const { error } = await supabase
         .from('orders')
         .update({ 
-          status: 'cancelled',
+          status: 'completed',
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
