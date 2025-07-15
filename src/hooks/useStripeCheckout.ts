@@ -11,6 +11,7 @@ interface BaseCheckoutParams {
   mode: 'payment' | 'subscription';
   successUrl: string;
   cancelUrl: string;
+  restaurantId: string;
 }
 
 interface SubscriptionCheckoutParams extends BaseCheckoutParams {

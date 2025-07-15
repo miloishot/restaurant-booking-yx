@@ -371,6 +371,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
       try {
         await createCheckoutSession({
           priceId: '', // Not needed for cart items
+          restaurantId: session.restaurant_id,
           mode: 'payment',
           successUrl: `${window.location.origin}/order/success?order_id=${orderData.id}`,
           cancelUrl: `${window.location.origin}/order/${activeToken}?order_id=${orderData.id}`,

@@ -10,23 +10,12 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing Supabase environment variables');
 }
 
-if (!stripeSecret) {
-  console.error('Missing Stripe secret key');
-}
-
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
-const stripe = new Stripe(stripeSecret, {
-  appInfo: {
-    name: 'Bolt Integration',
-    version: '1.0.0',
-  },
-});
 
 Deno.serve(async (req) => {
   try {
@@ -43,7 +32,37 @@ Deno.serve(async (req) => {
     const requestBody = await req.json();
     console.log('Request body:', JSON.stringify(requestBody));
     
-    const { price_id, success_url, cancel_url, mode, cart_items, table_id, session_id } = requestBody;
+    const { price_id, success_url, cancel_url, mode, cart_items, table_id, session_id, restaurantId } = requestBody;
+    
+    // Validate restaurantId is provided
+    if (!restaurantId) {
+      return corsResponse({ error: 'restaurantId is required' }, 400);
+    }
+    
+    // Fetch the restaurant's Stripe secret key
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants')
+      .select('stripe_secret_key')
+      .eq('id', restaurantId)
+      .single();
+    
+    if (restaurantError || !restaurant) {
+      console.error('Error fetching restaurant:', restaurantError);
+      return corsResponse({ error: 'Restaurant not found' }, 404);
+    }
+    
+    if (!restaurant.stripe_secret_key) {
+      console.error('Restaurant does not have a Stripe secret key configured');
+      return corsResponse({ error: 'Stripe not configured for this restaurant' }, 400);
+    }
+    
+    // Initialize Stripe with the restaurant-specific secret key
+    const stripe = new Stripe(restaurant.stripe_secret_key, {
+      appInfo: {
+        name: 'Bolt Integration',
+        version: '1.0.0',
+      },
+    });
 
     const error = validateParameters(
       { success_url, cancel_url, mode },

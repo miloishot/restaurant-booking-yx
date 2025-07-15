@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { stripeProducts, formatStripePrice } from '../../stripe-config';
 import { useStripeCheckout } from '../../hooks/useStripeCheckout';
+import { useRestaurantData } from '../../hooks/useRestaurantData';
 import { Check, Crown, Loader2 } from 'lucide-react';
 
 interface SubscriptionPlansProps {
@@ -9,14 +10,21 @@ interface SubscriptionPlansProps {
 
 export function SubscriptionPlans({ currentPriceId }: SubscriptionPlansProps) {
   const { createCheckoutSession, loading } = useStripeCheckout();
+  const { restaurant } = useRestaurantData();
   const [processingPriceId, setProcessingPriceId] = useState<string | null>(null);
 
   const handleSubscribe = async (priceId: string) => {
     setProcessingPriceId(priceId);
     try {
       console.log('Creating checkout session for price:', priceId);
+      
+      if (!restaurant?.id) {
+        throw new Error('Restaurant ID is required for subscription');
+      }
+      
       await createCheckoutSession({
         priceId,
+        restaurantId: restaurant.id,
         mode: 'subscription',
         successUrl: `${window.location.origin}/subscription/success`,
         cancelUrl: `${window.location.origin}/subscription`,
