@@ -80,11 +80,17 @@ Deno.serve(async (req) => {
 
     console.log('Employee found. Attempting admin sign-in.');
 
-    // Verify the password using Supabase Auth Admin API
-    const { data: verifyData, error: verifyError } = await supabase.auth.admin.signInWithEmail(
+    // Create a temporary client to verify the password
+    const tempSupabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    // Verify the password using regular sign-in
+    const { data: verifyData, error: verifyError } = await tempSupabase.auth.signInWithPassword({
       email,
       password
-    );
+    });
 
     if (verifyError) {
       console.log('Admin sign-in failed:', verifyError.message);
@@ -110,6 +116,9 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    // Sign out the temporary session to clean up
+    await tempSupabase.auth.signOut();
 
     console.log('User ID matched. Logging successful attempt.');
 
