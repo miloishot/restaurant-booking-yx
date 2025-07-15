@@ -74,7 +74,7 @@ export function useAuth() {
           .from('employees')
           .select('*')
           .eq('employee_id', id) // Query by employee_id which matches the UID
-          .single();
+          .maybeSingle();
 
         if (employeeError) {
           console.error('Error fetching employee profile:', employeeError);
