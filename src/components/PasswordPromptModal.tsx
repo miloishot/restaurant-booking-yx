@@ -28,6 +28,7 @@ export function PasswordPromptModal({ employee, action, onVerified, onCancel }: 
 
       if (!session || !session.access_token) {
         throw new Error('No active session found. Please log in again.');
+      }
       // Call the Edge Function to verify the password without signing in
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-employee-password`, {
         method: 'POST',
