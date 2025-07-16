@@ -8,8 +8,6 @@ import {
   ChefHat, 
   Utensils, 
   CreditCard, 
-  Eye, 
-  Users,
   MapPin,
   Tag,
   RefreshCw,
@@ -24,13 +22,14 @@ interface StaffOrderManagementProps {
 
 export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOrderManagementProps) {
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
-  const [completedOrders, setCompletedOrders] = useState<OrderWithDetails[]>([]);
-  const [cancelledOrders, setCancelledOrders] = useState<OrderWithDetails[]>([]);
-  const [paidOrders, setPaidOrders] = useState<OrderWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
   const [processingOrder, setProcessingOrder] = useState<string | null>(null);
+
+  // For completed/cancelled
+  const [completedOrders, setCompletedOrders] = useState<OrderWithDetails[]>([]);
+  const [cancelledOrders, setCancelledOrders] = useState<OrderWithDetails[]>([]);
 
   // Notify parent component of order count changes
   useEffect(() => {
@@ -41,15 +40,15 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
   useEffect(() => {
     fetchOrders();
     fetchCompletedOrders();
-    fetchPaidOrders();
     fetchCancelledOrders();
-    subscribeToOrders();
+    const unsub = subscribeToOrders();
+    return () => { typeof unsub === "function" && unsub(); };
   }, [restaurant.id]);
 
+  // Fetch only "live" orders
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -65,17 +64,11 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
           )
         `)
         .eq('restaurant_id', restaurant.id)
-        .in('status', ['pending', 'confirmed', 'paid'])
+        .in('status', ['pending', 'confirmed'])
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      
-      // Separate paid orders from pending/confirmed
-      const paidOrdersData = data?.filter(order => order.status === 'paid') || [];
-      const otherOrders = data?.filter(order => order.status !== 'paid') || [];
-      
-      setOrders(otherOrders);
-      setPaidOrders(paidOrdersData);
+      setOrders(data || []);
     } catch (err) {
       console.error('Error fetching orders:', err);
     } finally {
@@ -86,7 +79,6 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
   const fetchCompletedOrders = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -112,41 +104,10 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       console.error('Error fetching completed orders:', err);
     }
   };
-  
-  const fetchPaidOrders = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          session:order_sessions(
-            *,
-            table:restaurant_tables(*),
-            booking:bookings(*)
-          ),
-          items:order_items(
-            *,
-            menu_item:menu_items(*)
-          )
-        `)
-        .eq('restaurant_id', restaurant.id)
-        .eq('status', 'paid')
-        .gte('created_at', today)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-      setPaidOrders(data || []);
-    } catch (err) {
-      console.error('Error fetching paid orders:', err);
-    }
-  };
 
   const fetchCancelledOrders = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -173,6 +134,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
     }
   };
 
+  // Real-time updates
   const subscribeToOrders = () => {
     const channel = supabase
       .channel('orders_changes')
@@ -182,7 +144,6 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
         table: 'orders',
         filter: `restaurant_id=eq.${restaurant.id}`
       }, () => {
-        console.log('Order changed, refreshing...');
         fetchOrders();
         fetchCompletedOrders();
       })
@@ -196,15 +157,15 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchOrders();
-    await fetchPaidOrders();
     await fetchCompletedOrders();
     await fetchCancelledOrders();
     setRefreshing(false);
   };
 
+  // Status/Payment status logic
   const updateOrderStatus = async (orderId: string, status: string) => {
     setProcessingOrder(orderId);
-    
+
     try {
       const { error } = await supabase
         .from('orders')
@@ -216,24 +177,9 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
 
       if (error) throw error;
       
-      // Show success notification
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = `Order ${status === 'confirmed' ? 'accepted' : status === 'completed' ? 'completed' : status === 'paid' ? 'marked as paid' : 'updated'}`;
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        if (document.body.contains(notification)) {
-          document.body.removeChild(notification);
-        }
-      }, 3000);
-
+      showNotification(`Order marked as ${status}`);
       await fetchOrders();
-      if (status === 'completed') {
-        await fetchCompletedOrders();
-      } else if (status === 'paid') {
-        await fetchPaidOrders();
-      }
+      if (status === 'completed') await fetchCompletedOrders();
     } catch (err) {
       console.error('Error updating order status:', err);
       alert('Failed to update order status. Please try again.');
@@ -242,35 +188,45 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
     }
   };
 
-  const declineOrder = async (orderId: string) => {
+  // Only updates payment_status
+  const updateOrderPaymentStatus = async (orderId: string, payment_status: 'paid' | 'unpaid') => {
     setProcessingOrder(orderId);
-    
+
     try {
-      // Update the order status directly
       const { error } = await supabase
         .from('orders')
         .update({ 
-         status: 'declined', // Use 'declined' status to distinguish from customer cancellations
+          payment_status,
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
 
-      if (error) {
-        console.error('RPC error:', error);
-        throw error;
-      }
+      if (error) throw error;
       
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50'; 
-      notification.textContent = 'Order declined';
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        if (document.body.contains(notification)) {
-          document.body.removeChild(notification);
-        }
-      }, 3000);
+      showNotification(payment_status === 'paid' ? 'Order marked as paid' : 'Marked as unpaid');
+      await fetchOrders();
+    } catch (err) {
+      console.error('Error updating payment status:', err);
+      alert('Failed to update payment status. Please try again.');
+    } finally {
+      setProcessingOrder(null);
+    }
+  };
 
+  const declineOrder = async (orderId: string) => {
+    setProcessingOrder(orderId);
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+         status: 'declined',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      showNotification('Order declined', 'red');
       await fetchOrders();
       await fetchCancelledOrders();
     } catch (err) {
@@ -281,66 +237,34 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
     }
   };
 
-  const formatPrice = (price: number) => {
+  // Helpers
+  function formatPrice(price: number) {
     return `S$${price.toFixed(2)}`;
-  };
+  }
+  function showNotification(message: string, color: 'green' | 'red' = 'green') {
+    const notification = document.createElement('div');
+    notification.className =
+      `fixed top-4 right-4 ${color === 'green' ? 'bg-green-500' : 'bg-red-500'} text-white px-4 py-2 rounded-lg shadow-lg z-50`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 3000);
+  }
+  function getPaymentStatusLabel(payment_status: string) {
+    return payment_status === 'paid'
+      ? (<span className="inline-flex items-center text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded font-semibold ml-2"><CreditCard className="w-3 h-3 mr-1" /> Paid</span>)
+      : (<span className="inline-flex items-center text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded font-semibold ml-2"><Clock className="w-3 h-3 mr-1" /> Unpaid</span>);
+  }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'preparing':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'ready':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'served':
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
+  // List breakdowns for rendering logic based on new structure
+  const newOrders = orders.filter(o => o.status === 'pending');
+  const inProgress = orders.filter(o => o.status === 'confirmed' && o.payment_status !== 'paid');
+  const paidInProgress = orders.filter(o => o.status === 'confirmed' && o.payment_status === 'paid');
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="w-4 h-4" />;
-      case 'confirmed':
-        return <AlertCircle className="w-4 h-4" />;
-      case 'preparing':
-        return <ChefHat className="w-4 h-4" />;
-      case 'ready':
-        return <CheckCircle className="w-4 h-4" />;
-      case 'served':
-        return <Utensils className="w-4 h-4" />;
-      default:
-        return <Clock className="w-4 h-4" />;
-    }
-  };
-
-  const getNextStatus = (currentStatus: string) => {
-    switch (currentStatus) {
-      case 'pending':
-        return 'confirmed';
-      case 'confirmed':
-        return 'completed';
-      default:
-        return null;
-    }
-  };
-
-  const getNextStatusLabel = (currentStatus: string) => {
-    switch (currentStatus) {
-      case 'pending':
-        return 'Accept Order';
-      case 'confirmed':
-        return 'Mark as Completed';
-      default:
-        return null;
-    }
-  };
-
+  // --- UI ---
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -363,18 +287,15 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold text-gray-800 flex items-center">
-              <ChefHat className="w-5 h-5 mr-2" />
-              Order Management
+              <ChefHat className="w-5 h-5 mr-2" /> Order Management
             </h2>
-            <p className="text-gray-600">Manage incoming orders and track preparation status</p>
-            {orders.filter(o => o.status === 'pending').length > 0 && (
+            <p className="text-gray-600">Manage incoming orders and track preparation/payment status</p>
+            {newOrders.length > 0 && (
               <div className="mt-2 flex items-center text-red-600">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                <span className="font-medium">{orders.filter(o => o.status === 'pending').length} new orders awaiting acceptance</span>
+                <AlertCircle className="w-4 h-4 mr-1" /> <span className="font-medium">{newOrders.length} new orders awaiting acceptance</span>
               </div>
             )}
           </div>
-          
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -386,36 +307,31 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
         </div>
       </div>
 
-      {/* New Orders Section */}
+      {/* New Orders */}
       <div className="bg-white rounded-xl shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          New Orders ({orders.filter(o => o.status === 'pending').length})
-        </h3>
-        
-        {orders.filter(o => o.status === 'pending').length === 0 ? (
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">New Orders ({newOrders.length})</h3>
+        {newOrders.length === 0 ? (
           <div className="text-center py-8">
             <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
             <p className="text-gray-600">No new orders</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {orders.filter(o => o.status === 'pending').map((order) => ( 
+            {newOrders.map((order) => (
               <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-white shadow-sm">
-                {/* Order card content */}
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h4 className="font-bold text-lg">#{order.order_number}</h4>
                     <div className="flex items-center text-sm text-gray-600 mt-2">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      Table {order.session?.table?.table_number}
+                      <MapPin className="w-3 h-3 mr-1" /> Table {order.session?.table?.table_number}
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                    New Order
-                  </span> 
+                    New
+                  </span>
                 </div>
-                
-                {/* Order items */}
+                {/* Show payment status */}
+                {getPaymentStatusLabel(order.payment_status)}
                 <div className="space-y-2 mb-4">
                   {order.items?.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex justify-between items-center">
@@ -424,22 +340,17 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                     </div>
                   ))}
                 </div>
-                
                 <div className="flex space-x-2">
                   <button
                     onClick={() => updateOrderStatus(order.id, 'confirmed')}
-                    disabled={processingOrder === order.id} 
+                    disabled={processingOrder === order.id}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    Accept
-                  </button>
+                  >Accept</button>
                   <button
                     onClick={() => declineOrder(order.id)}
                     disabled={processingOrder === order.id}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    Decline
-                  </button>
+                  >Decline</button>
                 </div>
               </div>
             ))}
@@ -447,88 +358,33 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
         )}
       </div>
 
-      {/* Cancelled Orders Section */}
-      <div className="bg-white rounded-xl shadow-md p-6 mt-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Cancelled Orders ({cancelledOrders.length})
-        </h3>
-        
-        {cancelledOrders.length === 0 ? (
-          <div className="text-center py-8">
-            <XCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No cancelled orders today</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {cancelledOrders.map((order) => (
-              <div key={order.id} className="border border-red-200 rounded-xl p-6 bg-red-50">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h4 className="font-bold text-lg">#{order.order_number}</h4>
-                    <div className="flex items-center text-sm text-gray-600 mt-2">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      Table {order.session?.table?.table_number}
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                    {order.status === 'cancelled' ? 'Cancelled' : 'Declined'}
-                  </span>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  {order.items?.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex justify-between items-center">
-                      <span className="text-sm">{item.quantity}x {item.menu_item?.name}</span>
-                      <span className="text-sm font-medium">{formatPrice(item.total_price_sgd)}</span>
-                    </div>
-                  ))}
-                  {order.items && order.items.length > 3 && (
-                    <div className="text-sm text-gray-500">
-                      +{order.items.length - 3} more items
-                    </div>
-                  )}
-                </div>
-                
-                <div className="text-sm text-gray-600">
-                  Cancelled: {format(new Date(order.updated_at), 'MMM d, h:mm a')}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* In Progress Orders Section */}
+      {/* In Progress (UNPAID) */}
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
           <ChefHat className="w-5 h-5 mr-2 text-blue-600" />
-          In Progress ({orders.filter(o => o.status === 'confirmed').length})
+          In Progress ({inProgress.length})
         </h3>
-        
-        {orders.filter(o => o.status === 'confirmed').length === 0 ? (
+        {inProgress.length === 0 ? (
           <div className="text-center py-8">
             <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No orders in progress</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {orders.filter(o => o.status === 'confirmed').map((order) => (
+            {inProgress.map((order) => (
               <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-white shadow-sm">
-                {/* Existing order card content with updated actions */}
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h4 className="font-bold text-lg">#{order.order_number}</h4>
                     <div className="flex items-center text-sm text-gray-600 mt-2">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      Table {order.session?.table?.table_number}
+                      <MapPin className="w-3 h-3 mr-1" /> Table {order.session?.table?.table_number}
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                    {order.status}
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                    Confirmed
                   </span>
                 </div>
-                
-                {/* Order items */}
+                {getPaymentStatusLabel(order.payment_status)}
                 <div className="space-y-2 mb-4">
                   {order.items?.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex justify-between items-center">
@@ -537,60 +393,51 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                     </div>
                   ))}
                 </div>
-                
-                {getNextStatus(order.status) && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
-                      disabled={processingOrder === order.id}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                      {getNextStatusLabel(order.status)}
-                    </button>
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'paid')}
-                      disabled={processingOrder === order.id}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                    >
-                      Mark Paid
-                    </button>
-                  </div>
-                )}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => updateOrderPaymentStatus(order.id, 'paid')}
+                    disabled={processingOrder === order.id}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >Mark Paid</button>
+                  <button
+                    onClick={() => updateOrderStatus(order.id, 'completed')}
+                    disabled={processingOrder === order.id}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >Complete Order</button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Paid But Not Completed Orders Section */}
+      {/* Paid - In Progress (CONFIRMED + PAID) */}
       <div className="bg-white rounded-xl shadow-md p-6 mt-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
           <CreditCard className="w-5 h-5 mr-2 text-green-600" />
-          Paid - In Progress ({paidOrders.length})
+          Paid - In Progress ({paidInProgress.length})
         </h3>
-        
-        {paidOrders.length === 0 ? (
+        {paidInProgress.length === 0 ? (
           <div className="text-center py-8">
             <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No paid orders in progress</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {paidOrders.map((order) => (
+            {paidInProgress.map((order) => (
               <div key={order.id} className="border-2 border-green-200 rounded-xl p-6 bg-green-50 shadow-sm">
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h4 className="font-bold text-lg">#{order.order_number}</h4>
                     <div className="flex items-center text-sm text-gray-600 mt-2">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      Table {order.session?.table?.table_number}
+                      <MapPin className="w-3 h-3 mr-1" /> Table {order.session?.table?.table_number}
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    Paid
+                    Confirmed
                   </span>
                 </div>
-                
+                {getPaymentStatusLabel(order.payment_status)}
                 <div className="space-y-2 mb-4">
                   {order.items?.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex justify-between items-center">
@@ -598,24 +445,13 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                       <span className="text-sm font-medium">{formatPrice(item.total_price_sgd)}</span>
                     </div>
                   ))}
-                  {order.items && order.items.length > 3 && (
-                    <div className="text-sm text-gray-500">
-                      +{order.items.length - 3} more items
-                    </div>
-                  )}
                 </div>
-                
                 <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">
-                    Paid: {format(new Date(order.updated_at), 'h:mm a')}
-                  </div>
                   <button
                     onClick={() => updateOrderStatus(order.id, 'completed')}
                     disabled={processingOrder === order.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    Complete Order
-                  </button>
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >Complete Order</button>
                 </div>
               </div>
             ))}
@@ -623,13 +459,12 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
         )}
       </div>
 
-      {/* Completed Orders Section */}
+      {/* Completed */}
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
           <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
           Completed Today ({completedOrders.length})
         </h3>
-        
         {completedOrders.length === 0 ? (
           <div className="text-center py-8">
             <Utensils className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -643,19 +478,17 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                   <div>
                     <h4 className="font-bold text-lg">#{order.order_number}</h4>
                     <div className="flex items-center text-sm text-gray-600 mt-2">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      Table {order.session?.table?.table_number}
+                      <MapPin className="w-3 h-3 mr-1" /> Table {order.session?.table?.table_number}
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
                     Completed
                   </span>
                 </div>
-                
+                {getPaymentStatusLabel(order.payment_status)}
                 <div className="text-sm text-gray-600">
                   Completed: {format(new Date(order.updated_at), 'MMM d, h:mm a')}
                 </div>
-                
                 <div className="mt-2 font-semibold text-green-600">
                   {formatPrice(order.total_sgd)}
                 </div>
@@ -664,125 +497,54 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
           </div>
         )}
       </div>
-      
-      {/* Completed But Not Paid Section */}
 
-      {/* Order Detail Modal */}
-      {selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-90vh overflow-y-auto">
-            <div className="p-8">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-3xl font-bold text-gray-800">Order #{selectedOrder.order_number}</h2>
-                  <div className="flex items-center text-gray-600 mt-3">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    Table {selectedOrder.session?.table?.table_number}
-                    <span className="mx-2">•</span>
-                    <Clock className="w-4 h-4 mr-1" />
-                    {format(new Date(selectedOrder.created_at), 'MMM d, h:mm a')}
+      {/* Cancelled Orders */}
+      <div className="bg-white rounded-xl shadow-md p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Cancelled Orders ({cancelledOrders.length})</h3>
+        {cancelledOrders.length === 0 ? (
+          <div className="text-center py-8">
+            <XCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No cancelled orders today</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {cancelledOrders.map((order) => (
+              <div key={order.id} className="border border-red-200 rounded-xl p-6 bg-red-50">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-bold text-lg">#{order.order_number}</h4>
+                    <div className="flex items-center text-sm text-gray-600 mt-2">
+                      <MapPin className="w-3 h-3 mr-1" /> Table {order.session?.table?.table_number}
+                    </div>
                   </div>
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                    {order.status === 'cancelled' ? 'Cancelled' : 'Declined'}
+                  </span>
                 </div>
-                
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors text-3xl font-light"
-                >
-                  ×
-                </button>
-              </div>
-              
-              {/* Order Items */}
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Order Items</h3>
-                <div className="space-y-4">
-                  {selectedOrder.items?.map((item) => (
-                    <div key={item.id} className="flex justify-between items-start p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-bold text-lg text-gray-800">{item.menu_item?.name}</span>
-                          <span className="font-bold text-xl text-green-600">{formatPrice(item.total_price_sgd)}</span>
-                        </div>
-                        <div className="text-sm text-gray-600 mb-2">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
-                            {item.quantity} × {formatPrice(item.unit_price_sgd)}
-                          </span>
-                        </div>
-                        {item.special_instructions && (
-                          <div className="text-sm text-orange-700 mt-2 bg-orange-50 p-2 rounded-lg border border-orange-200">
-                            <strong>Special Instructions:</strong> {item.special_instructions}
-                          </div>
-                        )}
-                      </div>
+                {getPaymentStatusLabel(order.payment_status)}
+                <div className="space-y-2 mb-4">
+                  {order.items?.slice(0, 3).map((item) => (
+                    <div key={item.id} className="flex justify-between items-center">
+                      <span className="text-sm">{item.quantity}x {item.menu_item?.name}</span>
+                      <span className="text-sm font-medium">{formatPrice(item.total_price_sgd)}</span>
                     </div>
                   ))}
-                </div>
-              </div>
-              
-              {/* Loyalty Information */}
-              {selectedOrder.discount_applied && (
-                <div className="mb-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl">
-                  <div className="flex items-center text-green-800 mb-3">
-                    <Tag className="w-4 h-4 mr-2" />
-                    <span className="font-bold text-lg">Loyalty Discount Applied</span>
-                  </div>
-                  <div className="text-green-700">
-                    <p>Triggering User ID: {selectedOrder.triggering_user_id}</p>
-                    <p>Discount Amount: {formatPrice(selectedOrder.discount_sgd)}</p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Order Total */}
-              <div className="border-t-2 border-gray-200 pt-6 mb-8">
-                <div className="space-y-3 bg-gray-50 p-6 rounded-xl">
-                  <div className="flex justify-between">
-                    <span className="text-lg font-medium">Subtotal</span>
-                    <span className="text-lg font-semibold">{formatPrice(selectedOrder.subtotal_sgd)}</span>
-                  </div>
-                  {selectedOrder.discount_sgd > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span className="text-lg font-medium">Loyalty Discount</span>
-                      <span className="text-lg font-semibold">-{formatPrice(selectedOrder.discount_sgd)}</span>
+                  {order.items && order.items.length > 3 && (
+                    <div className="text-sm text-gray-500">
+                      +{order.items.length - 3} more items
                     </div>
                   )}
-                  <div className="flex justify-between text-2xl font-bold border-t-2 border-gray-300 pt-3">
-                    <span className="text-gray-800">Total</span>
-                    <span className="text-green-600">{formatPrice(selectedOrder.total_sgd)}</span>
-                  </div>
+                </div>
+                <div className="text-sm text-gray-600">
+                  Cancelled: {format(new Date(order.updated_at), 'MMM d, h:mm a')}
                 </div>
               </div>
-              
-              {/* Actions */}
-              <div className="flex space-x-6">
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="flex-1 px-6 py-4 border-2 border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
-                >
-                  Close
-                </button>
-                
-                {getNextStatus(selectedOrder.status) && (
-                  <button
-                    onClick={() => {
-                      updateOrderStatus(selectedOrder.id, getNextStatus(selectedOrder.status)!);
-                      setSelectedOrder(null);
-                    }}
-                    disabled={processingOrder === selectedOrder.id}
-                    className={`flex-1 px-6 py-4 rounded-xl font-bold transition-all duration-200 disabled:opacity-50 ${
-                      selectedOrder.status === 'pending'
-                        ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl'
-                        : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
-                    }`}
-                  >
-                    {getNextStatusLabel(selectedOrder.status)}
-                  </button>
-                )}
-              </div>
-            </div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* ...Order Detail Modal can go here as in your original if desired... */}
     </div>
   );
 }
