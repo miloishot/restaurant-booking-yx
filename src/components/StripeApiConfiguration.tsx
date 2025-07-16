@@ -14,7 +14,7 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
   const [apiConfig, setApiConfig] = useState({
     publishableKey: restaurant.stripe_publishable_key || '',
     secretKey: restaurant.stripe_secret_key || '',
-    webhook: restaurant.stripe_webhook || '',
+    webhook: restaurant.stripe_webhook_secret  || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
         .update({
           stripe_publishable_key: apiConfig.publishableKey || null,
           stripe_secret_key: apiConfig.secretKey || null,
-          stripe_webhook: apiConfig.webhook || null,
+          stripe_webhook_secret: apiConfig.webhook || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', restaurant.id);
