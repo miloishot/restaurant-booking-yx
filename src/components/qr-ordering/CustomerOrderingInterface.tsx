@@ -168,6 +168,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
           )
         `)
         .eq('session_id', session.id)
+        .order('status', { ascending: false }) // Show active orders first
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -567,16 +568,20 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                   <div 
                     key={order.id} 
                     className={`border rounded-lg p-6 ${
-                      order.status === 'cancelled' 
+                      order.status === 'cancelled' || order.status === 'declined'
                         ? 'bg-red-50 border-red-200' 
                         : 'bg-white border-gray-200'
                     }`}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-800">
-                          Order #{order.order_number} {(order.status === 'cancelled' || order.status === 'declined') && (
-                            <span className="text-red-600">(Cancelled)</span>
+                        <h3 className="text-lg font-semibold">
+                          Order #{order.order_number} 
+                          {(order.status === 'cancelled' || order.status === 'declined') && (
+                            <span className="text-red-600 ml-1">(Cancelled)</span>
+                          )}
+                          {order.status === 'paid' && (
+                            <span className="text-green-600 ml-1">(Paid)</span>
                           )}
                         </h3>
                         <p className="text-sm text-gray-600">
@@ -603,7 +608,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                           </span>
                           <span className="font-medium">
                             {order.status === 'cancelled' || order.status === 'declined'
-                              ? formatPrice(0) 
+                              ? '$0.00' 
                               : formatPrice(item.total_price_sgd)
                             }
                           </span>
@@ -652,7 +657,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <span className="text-gray-700">Subtotal</span>
                         <span className="font-medium">{formatPrice(
                           orderHistory
-                         .filter(order => order.status !== 'cancelled' && order.status !== 'declined')
+                          .filter(order => !['cancelled', 'declined'].includes(order.status))
                           .reduce((sum, order) => sum + order.subtotal_sgd, 0)
                         )}</span>
                       </div>
@@ -662,7 +667,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                           <span>Loyalty Discount</span>
                           <span className="font-medium">-{formatPrice(
                             orderHistory
-                           .filter(order => order.status !== 'cancelled' && order.status !== 'declined')
+                            .filter(order => !['cancelled', 'declined'].includes(order.status))
                             .reduce((sum, order) => sum + order.discount_sgd, 0)
                           )}</span>
                         </div>
@@ -672,7 +677,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <span>Total</span>
                         <span className="text-green-600">{formatPrice(
                           orderHistory
-                         .filter(order => order.status !== 'cancelled' && order.status !== 'declined')
+                          .filter(order => !['cancelled', 'declined'].includes(order.status))
                           .reduce((sum, order) => sum + order.total_sgd, 0)
                         )}</span>
                       </div>
