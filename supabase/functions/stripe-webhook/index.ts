@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
 
     // get the raw body
     const body = await req.text();
+    console.log('Received webhook body:', body.substring(0, 200) + '...');
 
     // verify the webhook signature
     let event: Stripe.Event; 
@@ -50,6 +51,7 @@ Deno.serve(async (req) => {
       return new Response(`Webhook signature verification failed: ${error.message}`, { status: 400 });
     }
 
+    console.log(`Webhook event type: ${event.type}`);
     EdgeRuntime.waitUntil(handleEvent(event));
 
     return Response.json({ received: true });
@@ -69,11 +71,6 @@ async function handleEvent(event: Stripe.Event) {
     return;
   }
 
-  if (!('customer' in stripeData)) {
-    console.log('No customer in stripe data, skipping');
-    return;
-  }
-  
   // Handle restaurant order payments
   if (event.type === 'checkout.session.completed') {
     const session = stripeData as Stripe.Checkout.Session;
@@ -94,7 +91,7 @@ async function handleEvent(event: Stripe.Event) {
           throw orderNumberError;
         }
         
-        // Parse metadata
+        // Parse loyalty user IDs from metadata
         let loyaltyUserIds = null;
         try {
           if (session.metadata.loyalty_user_ids) {
@@ -149,7 +146,7 @@ async function handleEvent(event: Stripe.Event) {
         
         console.log('Order created successfully:', orderData);
         
-        // Create order items from line items
+        // Create order items from cart items in metadata
         if (session.metadata.cart_items) {
           try {
             const cartItems = JSON.parse(session.metadata.cart_items);
@@ -178,34 +175,58 @@ async function handleEvent(event: Stripe.Event) {
           } catch (e) {
             console.error('Error processing cart items:', e);
           }
-        } else if (session.line_items) {
-          // Fetch line items from Stripe
-          const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-          
-          if (lineItems && lineItems.data) {
-            // Map line items to order items
-            const orderItems = lineItems.data.map(item => ({
-              order_id: orderData.id,
-              menu_item_id: item.price?.product as string,
-              quantity: item.quantity || 1,
-              unit_price_sgd: (item.price?.unit_amount || 0) / 100,
-              total_price_sgd: ((item.price?.unit_amount || 0) * (item.quantity || 1)) / 100,
-              special_instructions: null
-            }));
-            
-            // Insert order items
-            const { error: itemsError } = await supabase
-              .from('order_items')
-              .insert(orderItems);
-              
-            if (itemsError) {
-              console.error('Error creating order items:', itemsError);
-            }
-          } else {
-            console.log('No line items found in Stripe session');
-          }
         } else {
-          console.log('No cart items or line items found for order');
+          // Fetch line items from Stripe if cart_items not in metadata
+          try {
+            const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+            console.log('Fetched line items from Stripe:', lineItems.data);
+            
+            if (lineItems && lineItems.data && lineItems.data.length > 0) {
+              // Get product details for each line item
+              const orderItems = [];
+              
+              for (const item of lineItems.data) {
+                if (item.price?.product) {
+                  // Get product details
+                  const productId = typeof item.price.product === 'string' 
+                    ? item.price.product 
+                    : item.price.product.id;
+                    
+                  // Find menu item by Stripe product ID
+                  const { data: menuItem } = await supabase
+                    .from('menu_items')
+                    .select('id')
+                    .eq('stripe_product_id', productId)
+                    .maybeSingle();
+                    
+                  if (menuItem) {
+                    orderItems.push({
+                      order_id: orderData.id,
+                      menu_item_id: menuItem.id,
+                      quantity: item.quantity || 1,
+                      unit_price_sgd: (item.price?.unit_amount || 0) / 100,
+                      total_price_sgd: ((item.price?.unit_amount || 0) * (item.quantity || 1)) / 100,
+                      special_instructions: null
+                    });
+                  }
+                }
+              }
+              
+              if (orderItems.length > 0) {
+                const { error: itemsError } = await supabase
+                  .from('order_items')
+                  .insert(orderItems);
+                  
+                if (itemsError) {
+                  console.error('Error creating order items from Stripe:', itemsError);
+                } else {
+                  console.log('Order items created successfully from Stripe line items');
+                }
+              }
+            }
+          } catch (lineItemError) {
+            console.error('Error fetching line items from Stripe:', lineItemError);
+          }
         }
         
         console.log(`Successfully created order for table ${session.metadata.table_id}, session ${session.metadata.session_id}`);
@@ -217,6 +238,7 @@ async function handleEvent(event: Stripe.Event) {
             p_user_id: triggeringUserId,
             p_amount: session.amount_total ? session.amount_total / 100 : 0
           });
+          console.log('Updated loyalty spending for user:', triggeringUserId);
         }
         
         return;
@@ -229,67 +251,18 @@ async function handleEvent(event: Stripe.Event) {
     }
   }
 
-  // for one time payments, we only listen for the checkout.session.completed event
-  if (event.type === 'payment_intent.succeeded' && event.data.object.invoice === null) {
-    return;
-  }
-
-  const { customer: customerId } = stripeData;
-
-  if (!customerId || typeof customerId !== 'string') {
-    console.error(`No customer received on event: ${JSON.stringify(event)}`);
-  } else {
-    let isSubscription = true;
-
-    if (event.type === 'checkout.session.completed') {
-      const { mode } = stripeData as Stripe.Checkout.Session;
-
-      isSubscription = mode === 'subscription';
-
-      console.info(`Processing ${isSubscription ? 'subscription' : 'one-time payment'} checkout session`);
-    }
-
-    const { mode, payment_status } = stripeData as Stripe.Checkout.Session;
-
-    if (isSubscription) {
-      console.info(`Starting subscription sync for customer: ${customerId}`);
-      await syncCustomerFromStripe(customerId);
-    } else if (mode === 'payment' && payment_status === 'paid') {
-      try {
-        // Extract the necessary information from the session
-        const {
-          id: checkout_session_id,
-          payment_intent,
-          amount_subtotal,
-          amount_total,
-          currency,
-        } = stripeData as Stripe.Checkout.Session;
-
-        // Insert the order into the stripe_orders table
-        const { error: orderError } = await supabase.from('stripe_orders').insert({
-          checkout_session_id,
-          payment_intent_id: payment_intent,
-          customer_id: customerId,
-          amount_subtotal,
-          amount_total,
-          currency,
-          payment_status,
-          status: 'completed', // assuming we want to mark it as completed since payment is successful
-        });
-
-        if (orderError) {
-          console.error('Error inserting order:', orderError);
-          return;
-        }
-        console.info(`Successfully processed one-time payment for session: ${checkout_session_id}`);
-      } catch (error) {
-        console.error('Error processing one-time payment:', error);
-      }
-    }
+  // Handle subscription events
+  if (event.type === 'customer.subscription.created' || 
+      event.type === 'customer.subscription.updated' ||
+      event.type === 'customer.subscription.deleted') {
+    const subscription = stripeData as Stripe.Subscription;
+    const customerId = subscription.customer as string;
+    
+    console.log(`Processing subscription event for customer: ${customerId}`);
+    await syncCustomerFromStripe(customerId);
   }
 }
 
-// based on the excellent https://github.com/t3dotgg/stripe-recommendations
 async function syncCustomerFromStripe(customerId: string) {
   console.log(`Syncing customer data from Stripe for customer: ${customerId}`);
   try {
@@ -301,7 +274,6 @@ async function syncCustomerFromStripe(customerId: string) {
       expand: ['data.default_payment_method'],
     });
 
-    // TODO verify if needed
     if (!subscriptions.data || subscriptions.data.length === 0) {
       console.info(`No active subscriptions found for customer: ${customerId}`);
       const { error: noSubError } = await supabase.from('stripe_subscriptions').upsert(
