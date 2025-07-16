@@ -336,8 +336,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
           total_sgd: taxes.total,
           discount_applied: loyaltyDiscount?.discount_eligible || false,
           triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
-          status: 'pending',
-          payment_status: 'not_paid'
+          status: 'pending'
         })
         .select()
         .single();
@@ -421,7 +420,6 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
         cart_items: cart,
         table_id: session.table_id,
         session_id: session.id,
-        payment_status: 'paid',
         loyalty_user_ids: loyaltyUserIds.length > 0 ? loyaltyUserIds : undefined,
         discount_applied: loyaltyDiscount?.discount_eligible || false,
         triggering_user_id: loyaltyDiscount?.triggering_user_id || null,

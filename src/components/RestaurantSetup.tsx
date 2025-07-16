@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, RestaurantTable } from '../types/database';
 import { TableManager } from './TableManager';
-import { Building, Globe, Copy, Check, ExternalLink, Settings, Users, Printer, Lock } from 'lucide-react';
+import { Building, Globe, Copy, Check, ExternalLink, Settings, Users, Printer, Lock, ChevronLeft } from 'lucide-react';
 import { PrinterConfiguration } from './PrinterConfiguration';
 import { StripeApiConfiguration } from './StripeApiConfiguration';
 import { CreditCard, DollarSign } from 'lucide-react';
@@ -332,6 +332,13 @@ export function RestaurantSetup() {
               <p className="text-xs text-gray-500 mt-2 text-center">Default PIN: 123456</p>
             </div>
             
+           <button
+             onClick={() => setShowPinPrompt(false)}
+             className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors"
+           >
+             <ChevronLeft className="w-5 h-5" />
+           </button>
+           
             <button
               type="submit"
               className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
