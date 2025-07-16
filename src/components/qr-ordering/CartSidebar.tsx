@@ -240,10 +240,6 @@ export function CartSidebar({
                   </button>
                 )}
               </div>
-              
-              <p className="text-xs text-gray-500 text-center">
-                Your order will be sent to the kitchen for preparation.
-              </p>
             </div>
           )}
         </div>

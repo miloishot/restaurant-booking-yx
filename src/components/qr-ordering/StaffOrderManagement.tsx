@@ -341,7 +341,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       </div>
 
       {/* New Orders Section */}
-      <div className="bg-white rounded-lg shadow-md p-6"> 
+      <div className="bg-white rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           New Orders ({orders.filter(o => o.status === 'pending').length})
         </h3>
@@ -354,7 +354,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {orders.filter(o => o.status === 'pending').map((order) => ( 
-              <div key={order.id} className="border-2 border-gray-200 rounded-xl p-6 bg-white">
+              <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-white shadow-sm">
                 {/* Order card content */}
                 <div className="flex justify-between items-start mb-3">
                   <div>
@@ -364,7 +364,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                       Table {order.session?.table?.table_number}
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                     New Order
                   </span> 
                 </div>

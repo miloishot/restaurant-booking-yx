@@ -368,11 +368,26 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
         });
       }
       
-      // Show success message
-      navigate('/order/success?token=' + token);
+      // Fetch updated order history
+      await fetchOrderHistory();
       
       // Clear cart
       setCart([]);
+      
+      // Close cart sidebar
+      setShowCart(false);
+      
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Order placed successfully!';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
     } catch (err) {
       console.error('Error submitting order:', err);
       setError(err instanceof Error ? err.message : 'Failed to submit order');
@@ -504,9 +519,10 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
               {/* Cart Button */}
               <button
                 onClick={() => setShowCart(true)}
-                className="relative p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="relative p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
               >
                 <ShoppingCart className="w-5 h-5" />
+                <span className="ml-2">Cart</span>
                 {cart.length > 0 && (
                   <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                     {cart.reduce((sum, item) => sum + item.quantity, 0)}

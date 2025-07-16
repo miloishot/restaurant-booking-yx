@@ -175,11 +175,25 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
           p_end_date: endDateStr
         }),
         supabase
-          .from('order_items')
-          .select('quantity, order:orders!inner(restaurant_id, created_at)')
-          .eq('order.restaurant_id', restaurant.id)
-          .gte('order.created_at', startDateStr)
-          .lte('order.created_at', endDateStr)
+          .from('orders')
+          .select('id, restaurant_id, created_at, status')
+          .eq('restaurant_id', restaurant.id)
+          .in('status', ['completed', 'paid']) // Only include completed or paid orders
+          .gte('created_at', startDateStr)
+          .lte('created_at', endDateStr)
+          .then(async (result) => {
+            if (result.error) throw result.error;
+            
+            // Get order items for these orders
+            if (result.data && result.data.length > 0) {
+              const orderIds = result.data.map(order => order.id);
+              return supabase
+                .from('order_items')
+                .select('quantity')
+                .in('order_id', orderIds);
+            }
+            return { data: [] };
+          })
       ]);
 
       // Handle errors and set data
