@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
       // Create checkout session for restaurant order
       const session = await stripe.checkout.sessions.create({
         customer: newCustomer.id,
-        payment_method_types: ['card'],
+        payment_method_types: ['card', 'grabpay','apple_pay','paynow'],
         line_items,
         mode: 'payment',
         automatic_tax: {
