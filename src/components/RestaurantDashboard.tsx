@@ -41,8 +41,30 @@ export function RestaurantDashboard() {
   const [showWalkInLogger, setShowWalkInLogger] = useState(false);
   const [activeTab, setActiveTab] = useState<'bookings' | 'tables' | 'waiting' | 'hours' | 'analytics' | 'orders' | 'menu' | 'loyalty' | 'setup' | 'staff' | 'staffManagement'>('bookings');
   const [refreshing, setRefreshing] = useState(false);
-  const [newOrderCount, setNewOrderCount] = useState(0);
+  const [newOrderCount, setNewOrderCount] = useState<number>(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ table: RestaurantTable; action: 'occupied' | 'available' } | null>(null);
+
+  // Subscribe to real-time order updates
+  useEffect(() => {
+    if (!restaurant) return;
+    
+    const channel = supabase
+      .channel('orders_count')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'orders',
+        filter: `restaurant_id=eq.${restaurant.id} AND status=eq.pending`
+      }, () => {
+        console.log('New order received, updating count');
+        setNewOrderCount(prev => prev + 1);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurant?.id]);
 
   const handleManualRefresh = async () => {
     setRefreshing(true);
@@ -547,11 +569,16 @@ export function RestaurantDashboard() {
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               } ${
-                employeeProfile?.role !== 'owner' && employeeProfile?.role !== 'manager' 
+                employeeProfile?.role !== 'owner'
                   ? 'opacity-50 cursor-not-allowed' 
                   : ''
               }`}
-              disabled={employeeProfile?.role !== 'owner' && employeeProfile?.role !== 'manager'}
+              disabled={employeeProfile?.role !== 'owner'}
+              onClick={() => {
+                if (employeeProfile?.role === 'owner') {
+                  setShowPinPrompt(true);
+                }
+              }}
             >
               <Building className="w-4 h-4 inline mr-1" />
               Setup
@@ -690,18 +717,8 @@ export function RestaurantDashboard() {
         
         {activeTab === 'setup' && (
           <>
-            {employeeProfile?.role === 'owner' ? (
+            {employeeProfile?.role === 'owner' && (
               <RestaurantSetup />
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-6 text-center">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Building className="w-8 h-8 text-red-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
-                <p className="text-gray-600">
-                  Only restaurant owners can access the setup configuration.
-                </p>
-              </div>
             )}
           </>
         )}

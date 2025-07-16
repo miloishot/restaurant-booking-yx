@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, RestaurantTable } from '../types/database';
 import { TableManager } from './TableManager';
-import { Building, Globe, Copy, Check, ExternalLink, Settings, Users, Printer } from 'lucide-react';
+import { Building, Globe, Copy, Check, ExternalLink, Settings, Users, Printer, Lock } from 'lucide-react';
 import { PrinterConfiguration } from './PrinterConfiguration';
 import { StripeApiConfiguration } from './StripeApiConfiguration';
 import { CreditCard, DollarSign } from 'lucide-react';
@@ -11,6 +11,13 @@ import { TaxSettings } from './TaxSettings';
 
 export function RestaurantSetup() {
   const { user, employeeProfile } = useAuth();
+  const [showPinPrompt, setShowPinPrompt] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [showChangePinForm, setShowChangePinForm] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [currentPin, setCurrentPin] = useState('');
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +32,14 @@ export function RestaurantSetup() {
     email: '',
     time_slot_duration_minutes: 15
   });
+
+  // Get the PIN from localStorage or use default
+  useEffect(() => {
+    const savedPin = localStorage.getItem('setup_pin');
+    if (!savedPin) {
+      localStorage.setItem('setup_pin', '123456');
+    }
+  }, []);
 
   useEffect(() => {
     fetchRestaurant();
@@ -199,6 +214,58 @@ export function RestaurantSetup() {
     window.open(url, '_blank');
   };
 
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const savedPin = localStorage.getItem('setup_pin') || '123456';
+    
+    if (pin === savedPin) {
+      setShowPinPrompt(false);
+      setPinError(null);
+      setPin('');
+    } else {
+      setPinError('Incorrect PIN. Please try again.');
+    }
+  };
+
+  const handleChangePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const savedPin = localStorage.getItem('setup_pin') || '123456';
+    
+    if (currentPin !== savedPin) {
+      setPinError('Current PIN is incorrect.');
+      return;
+    }
+    
+    if (newPin !== confirmNewPin) {
+      setPinError('New PINs do not match.');
+      return;
+    }
+    
+    if (newPin.length !== 6 || !/^\d+$/.test(newPin)) {
+      setPinError('PIN must be 6 digits.');
+      return;
+    }
+    
+    localStorage.setItem('setup_pin', newPin);
+    setShowChangePinForm(false);
+    setPinError(null);
+    setNewPin('');
+    setConfirmNewPin('');
+    setCurrentPin('');
+    
+    // Show success notification
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    notification.textContent = 'PIN changed successfully!';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 3000);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -226,6 +293,53 @@ export function RestaurantSetup() {
         <p className="text-sm text-gray-500">
           Please contact the restaurant owner for any changes to the restaurant setup.
         </p>
+      </div>
+    );
+  }
+
+  // If PIN prompt is active, show the PIN entry form
+  if (showPinPrompt) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800">Setup Access</h2>
+            <p className="text-gray-600 mt-2">Enter your 6-digit PIN to access setup</p>
+          </div>
+          
+          {pinError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+              <p className="text-sm text-red-700">{pinError}</p>
+            </div>
+          )}
+          
+          <form onSubmit={handlePinSubmit}>
+            <div className="mb-6">
+              <input
+                type="password"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                maxLength={6}
+                pattern="\d{6}"
+                className="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="******"
+                required
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 mt-2 text-center">Default PIN: 123456</p>
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Access Setup
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -299,6 +413,13 @@ export function RestaurantSetup() {
             >
               <DollarSign className="w-4 h-4 inline mr-1" />
               Tax Settings
+            </button>
+            <button
+              onClick={() => setShowChangePinForm(true)}
+              className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ml-4"
+            >
+              <Lock className="h-4 w-4 mr-1" />
+              Change PIN
             </button>
           </nav>
         </div>
@@ -607,6 +728,95 @@ export function RestaurantSetup() {
           </div>
         )}
       </div>
+      
+      {/* Change PIN Modal */}
+      {showChangePinForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Change Setup PIN</h3>
+              
+              {pinError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                  <p className="text-sm text-red-700">{pinError}</p>
+                </div>
+              )}
+              
+              <form onSubmit={handleChangePinSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current PIN
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={currentPin}
+                    onChange={(e) => setCurrentPin(e.target.value)}
+                    maxLength={6}
+                    pattern="\d{6}"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter current PIN"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New PIN (6 digits)
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value)}
+                    maxLength={6}
+                    pattern="\d{6}"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter new 6-digit PIN"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New PIN
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmNewPin}
+                    onChange={(e) => setConfirmNewPin(e.target.value)}
+                    maxLength={6}
+                    pattern="\d{6}"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Confirm new PIN"
+                  />
+                </div>
+                
+                <div className="flex space-x-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowChangePinForm(false);
+                      setPinError(null);
+                      setCurrentPin('');
+                      setNewPin('');
+                      setConfirmNewPin('');
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Change PIN
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
