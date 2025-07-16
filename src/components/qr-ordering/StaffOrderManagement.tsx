@@ -189,7 +189,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
   };
 
   // Only updates payment_status
-  const updateOrderPaymentStatus = async (orderId: string, payment_status: 'paid' | 'unpaid') => {
+  const updateOrderPaymentStatus = async (orderId: string, payment_status: 'paid' | 'no_paid') => {
     setProcessingOrder(orderId);
 
     try {
