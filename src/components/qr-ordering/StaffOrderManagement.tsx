@@ -204,13 +204,18 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
     setProcessingOrder(orderId);
     
     try {
-      const { error } = await supabase
+      // First check what statuses are allowed
+      const { data: orderData } = await supabase
         .from('orders') 
-        .update({ 
-          status: 'cancelled',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderId);
+        .select('status')
+        .eq('id', orderId)
+        .single();
+        
+      // Update the order status to 'cancelled' if it exists
+      const { error } = await supabase.rpc('update_order_status', {
+        p_order_id: orderId,
+        p_status: 'cancelled'
+      });
 
       if (error) throw error;
       
@@ -313,7 +318,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold text-gray-800 flex items-center">
@@ -341,7 +346,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       </div>
 
       {/* New Orders Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           New Orders ({orders.filter(o => o.status === 'pending').length})
         </h3>
@@ -402,7 +407,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       </div>
 
       {/* Cancelled Orders Section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+      <div className="bg-white rounded-xl shadow-md p-6 mt-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           Cancelled Orders ({cancelledOrders.length})
         </h3>
@@ -453,9 +458,9 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       </div>
 
       {/* In Progress Orders Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          In Progress ({orders.filter(o => o.status === 'confirmed').length})
+          In Progress - Not Paid ({orders.filter(o => o.status === 'confirmed').length})
         </h3>
         
         {orders.filter(o => o.status === 'confirmed').length === 0 ? (
@@ -492,13 +497,22 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                 </div>
                 
                 {getNextStatus(order.status) && (
-                  <button
-                    onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
-                    disabled={processingOrder === order.id}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {getNextStatusLabel(order.status)}
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
+                      disabled={processingOrder === order.id}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      {getNextStatusLabel(order.status)}
+                    </button>
+                    <button
+                      onClick={() => updateOrderStatus(order.id, 'paid')}
+                      disabled={processingOrder === order.id}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      Mark Paid
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
@@ -507,19 +521,19 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       </div>
 
       {/* Completed Orders Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Completed Today ({completedOrders.length})
+          Completed & Paid Today ({completedOrders.filter(o => o.status === 'paid').length})
         </h3>
         
-        {completedOrders.length === 0 ? (
+        {completedOrders.filter(o => o.status === 'paid').length === 0 ? (
           <div className="text-center py-8">
             <Utensils className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No completed orders today</p>
+            <p className="text-gray-600">No paid orders today</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {completedOrders.map((order) => (
+            {completedOrders.filter(o => o.status === 'paid').map((order) => (
               <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-gray-50">
                 <div className="flex justify-between items-start mb-3">
                   <div>
@@ -530,7 +544,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    Served
+                    Paid
                   </span>
                 </div>
                 
@@ -541,6 +555,55 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                 <div className="mt-2 font-semibold text-green-600">
                   {formatPrice(order.total_sgd)}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Completed But Not Paid Section */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Completed But Not Paid ({completedOrders.filter(o => o.status === 'completed').length})
+        </h3>
+        
+        {completedOrders.filter(o => o.status === 'completed').length === 0 ? (
+          <div className="text-center py-8">
+            <CreditCard className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No unpaid completed orders today</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {completedOrders.filter(o => o.status === 'completed').map((order) => (
+              <div key={order.id} className="border border-orange-200 rounded-xl p-6 bg-orange-50">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-bold text-lg">#{order.order_number}</h4>
+                    <div className="flex items-center text-sm text-gray-600 mt-2">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Table {order.session?.table?.table_number}
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                    Not Paid
+                  </span>
+                </div>
+                
+                <div className="text-sm text-gray-600">
+                  Completed: {format(new Date(order.updated_at), 'MMM d, h:mm a')}
+                </div>
+                
+                <div className="mt-2 font-semibold text-orange-600">
+                  {formatPrice(order.total_sgd)}
+                </div>
+                
+                <button
+                  onClick={() => updateOrderStatus(order.id, 'paid')}
+                  disabled={processingOrder === order.id}
+                  className="w-full mt-3 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  Mark as Paid
+                </button>
               </div>
             ))}
           </div>
