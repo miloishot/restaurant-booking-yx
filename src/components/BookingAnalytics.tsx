@@ -234,13 +234,15 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
         const filteredRevenueData = revenueResult.data?.[0] || null;
         if (filteredRevenueData) {
           // Only include completed and paid orders in revenue calculation
-          const { data: validOrders } = await supabase
-            .from('orders')
-            .select('total_sgd')
-            .eq('restaurant_id', restaurant.id)
-            .in('status', ['completed', 'paid'])
-            .gte('created_at', startDateStr)
-            .lte('created_at', endDateStr);
+        const { data: validOrders } = await supabase
+          .from('orders')
+          .select('total_sgd')
+          .eq('restaurant_id', restaurant.id)
+          .eq('status', 'completed')         // Only completed orders (not "paid" status)
+          .eq('payment_status', 'paid')      // Only those that have payment_status == "paid"
+          .gte('created_at', startDateStr)
+          .lte('created_at', endDateStr);
+
             
           if (validOrders) {
             const totalValidRevenue = validOrders.reduce((sum, order) => sum + order.total_sgd, 0);
