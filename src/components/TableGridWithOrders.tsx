@@ -193,9 +193,9 @@ export function TableGridWithOrders({
       if (sessionsError) throw sessionsError;
       const enhancedTables = tables.map(table => {
         const tableSession = sessions?.find(session => session.table_id === table.id);
-        const activeOrders = tableSession?.orders || [];
         const associatedBooking = bookings.find(booking =>
           booking.table_id === table.id && ['confirmed', 'seated'].includes(booking.status));
+        const activeOrders = (tableSession?.orders || []).filter(order => order.status !== 'declined');
         const totalOrderValue = activeOrders.reduce((sum, order) => sum + order.total_sgd, 0);
         const orderCount = activeOrders.length;
         return {
