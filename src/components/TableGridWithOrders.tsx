@@ -24,154 +24,32 @@ interface TableWithOrders extends RestaurantTable {
 }
 
 
-// ----------- Helper UI Components -----------
-
-function StatusPill({ status }) {
-  let color = '';
-  let label = '';
-  switch (status) {
-    case 'pending':
-      color = 'bg-yellow-100 text-yellow-700'; label = 'Pending'; break;
-    case 'confirmed':
-      color = 'bg-blue-100 text-blue-700'; label = 'Confirmed'; break;
-    case 'completed':
-      color = 'bg-green-100 text-green-700'; label = 'Completed'; break;
-    default:
-      color = 'bg-gray-100 text-gray-600'; label = status;
-  }
-  return <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mr-2 ${color}`}>{label}</span>;
-}
-function PaymentStatusPill({ payment_status }) {
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
-      ${payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-      <CreditCard className="w-3 h-3 mr-1" />
-      {payment_status === "paid" ? "Paid" : "Unpaid"}
-    </span>
-  );
-}
-function Timeline({ status }) {
-  const steps = ['pending', 'confirmed', 'completed'];
-  return (
-    <div className="text-xs text-gray-500 flex items-center space-x-4">
-      {steps.map((s, idx) => (
-        <React.Fragment key={s}>
-          <span
-            className={`
-              px-3 py-1 rounded-full
-              ${status === s
-                ? s === "pending"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : s === "confirmed"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-green-100 text-green-800"
-                : "bg-gray-100 text-gray-600"
-              }
-            `}
-          >
-            {s.charAt(0).toUpperCase() + s.slice(1)}
-          </span>
-          {idx < steps.length - 1 && <span>→</span>}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
-function formatPrice(price) {
-  return `S$${price.toFixed(2)}`;
-}
-
-function OrderCard({ order }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div className="border border-gray-200 rounded-xl p-6 bg-gray-50 mb-3 transition-all duration-150">
-      <div className="flex justify-between items-center">
-        <div>
-          <span className="font-bold">#{order.order_number}</span>
-          <StatusPill status={order.status} />
-          <PaymentStatusPill payment_status={order.payment_status} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-green-600 text-lg">{formatPrice(order.total_sgd)}</span>
-          <button
-            onClick={() => setExpanded(x => !x)}
-            className="ml-2 text-blue-900 border border-blue-200 rounded-full px-3 py-1 text-sm bg-blue-50 hover:bg-blue-100"
-            aria-label={expanded ? "Minimize" : "Expand"}
-            type="button"
-          >
-            {expanded ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}
-          </button>
-        </div>
-      </div>
-      {expanded && (
-        <div className="mt-4 animate-fade-in">
-          <div className="space-y-3 mb-4">
-            {order.items?.map((item) => (
-              <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg">
-                <span className="font-medium">{item.quantity}x {item.menu_item?.name}</span>
-                <span className="font-semibold text-green-600">{formatPrice(item.total_price_sgd)}</span>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-gray-300 pt-3">
-            <div className="flex justify-between text-sm">
-              <span>Subtotal</span>
-              <span className="font-medium">{formatPrice(order.subtotal_sgd)}</span>
-            </div>
-            {order.discount_sgd > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
-                <span>Loyalty Discount</span>
-                <span className="font-medium">-{formatPrice(order.discount_sgd)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-bold text-lg mt-2">
-              <span>Total</span>
-              <span className="text-green-600">{formatPrice(order.total_sgd)}</span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-200">
-            <Timeline status={order.status} />
-            <div className="mt-2">
-              <PaymentStatusPill payment_status={order.payment_status} />
-            </div>
-          </div>
-          {order.notes && (
-            <div className="mt-2 text-sm text-gray-600">
-              <strong>Notes:</strong> {order.notes}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ----------- Main TableGridWithOrders Component -----------
-
-export function TableGridWithOrders({
+export function TableGridWithOrders({ 
   restaurant,
-  tables,
+  tables, 
   bookings = [],
-  onTableClick,
+  onTableClick, 
   onMarkOccupied,
   onMarkAvailable,
-  selectedTable,
+  selectedTable, 
   showOccupiedButton = false,
-  onMarkPaid,
-}) {
-  const [tablesWithOrders, setTablesWithOrders] = useState([]);
-  const [selectedTableDetails, setSelectedTableDetails] = useState(null);
+  onMarkPaid
+}: TableGridWithOrdersProps) {
+  const [tablesWithOrders, setTablesWithOrders] = useState<TableWithOrders[]>([]);
+  const [selectedTableDetails, setSelectedTableDetails] = useState<TableWithOrders | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTablesWithOrders();
-    const interval = setInterval(fetchTablesWithOrders, 30000); // refresh every 30 sec
+    const interval = setInterval(fetchTablesWithOrders, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, [tables, restaurant.id]);
 
   const fetchTablesWithOrders = async () => {
     try {
       setLoading(true);
+      
+      // Get all active order sessions for this restaurant
       const { data: sessions, error: sessionsError } = await supabase
         .from('order_sessions')
         .select(`
@@ -189,22 +67,28 @@ export function TableGridWithOrders({
 
       if (sessionsError) throw sessionsError;
 
-      const enhancedTables = tables.map(table => {
+      // Map tables with their order information
+      const enhancedTables: TableWithOrders[] = tables.map(table => {
         const tableSession = sessions?.find(session => session.table_id === table.id);
         const activeOrders = tableSession?.orders || [];
-        const associatedBooking = bookings.find(booking =>
-          booking.table_id === table.id && ['confirmed', 'seated'].includes(booking.status));
+        const associatedBooking = bookings.find(booking => 
+          booking.table_id === table.id && 
+          ['confirmed', 'seated'].includes(booking.status)
+        );
+        
         const totalOrderValue = activeOrders.reduce((sum, order) => sum + order.total_sgd, 0);
         const orderCount = activeOrders.length;
+
         return {
           ...table,
           activeOrders,
           totalOrderValue,
           orderCount,
           sessionToken: tableSession?.session_token,
-          associatedBooking,
+          associatedBooking
         };
       });
+
       setTablesWithOrders(enhancedTables);
     } catch (error) {
       console.error('Error fetching tables with orders:', error);
@@ -214,7 +98,7 @@ export function TableGridWithOrders({
     }
   };
 
-  const handleTableAction = (table) => {
+  const handleTableAction = (table: TableWithOrders) => {
     if (showOccupiedButton && table.status === 'available' && onMarkOccupied) {
       onMarkOccupied(table);
     } else if (onTableClick) {
@@ -222,12 +106,62 @@ export function TableGridWithOrders({
     }
   };
 
-  const openQROrderingPage = (sessionToken) => {
+  const openQROrderingPage = (sessionToken: string) => {
     const url = `${window.location.origin}/order/${sessionToken}`;
     window.open(url, '_blank');
   };
 
-  // -------- Template Below ---------
+  const formatPrice = (price: number) => {
+    return `S$${price.toFixed(2)}`;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'available':
+        return 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md';
+      case 'occupied':
+        return 'bg-orange-50 border-orange-200';
+      case 'reserved':
+        return 'bg-blue-50 border-blue-200';
+      case 'maintenance':
+        return 'bg-gray-50 border-gray-300';
+      default:
+        return 'bg-white border-gray-200';
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'available':
+        return 'bg-green-100 text-green-700';
+      case 'occupied':
+        return 'bg-orange-100 text-orange-700';
+      case 'reserved':
+        return 'bg-blue-100 text-blue-700';
+      case 'maintenance':
+        return 'bg-gray-100 text-gray-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const getOrderStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-800';
+      case 'preparing':
+        return 'bg-orange-100 text-orange-800';
+      case 'ready':
+        return 'bg-green-100 text-green-800';
+      case 'served':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -242,7 +176,6 @@ export function TableGridWithOrders({
     );
   }
 
-  // --- BEGIN RENDER
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -251,11 +184,7 @@ export function TableGridWithOrders({
             key={table.id}
             className={`
               relative p-6 rounded-xl border-2 transition-all duration-300 cursor-pointer shadow-sm
-              ${table.status === 'available' ? 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md'
-                : table.status === 'occupied' ? 'bg-orange-50 border-orange-200'
-                  : table.status === 'reserved' ? 'bg-blue-50 border-blue-200'
-                    : table.status === 'maintenance' ? 'bg-gray-50 border-gray-300'
-                      : 'bg-white border-gray-200'}
+              ${getStatusColor(table.status)}
               ${selectedTable?.id === table.id ? 'ring-2 ring-blue-500' : ''}
               ${(onTableClick || onMarkOccupied) ? 'hover:shadow-lg transform hover:-translate-y-1' : ''}
             `}
@@ -284,19 +213,14 @@ export function TableGridWithOrders({
                 )}
               </div>
             </div>
+            
             {/* Status Badge */}
             <div className="mb-4">
-              <span className={`
-                inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-                ${table.status === 'available' ? 'bg-green-100 text-green-700'
-                  : table.status === 'occupied' ? 'bg-orange-100 text-orange-700'
-                    : table.status === 'reserved' ? 'bg-blue-100 text-blue-700'
-                      : table.status === 'maintenance' ? 'bg-gray-100 text-gray-700'
-                        : 'bg-gray-100 text-gray-700'}
-              `}>
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(table.status)}`}>
                 {table.status.charAt(0).toUpperCase() + table.status.slice(1)}
               </span>
             </div>
+            
             {/* Table Info */}
             <div className="space-y-2 mb-4">
               <div className="flex items-center text-sm text-gray-600">
@@ -310,8 +234,9 @@ export function TableGridWithOrders({
                 </div>
               )}
             </div>
+
             {/* Order Information */}
-            {table.orderCount > 0 && (
+            {table.orderCount! > 0 && (
               <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center text-sm text-gray-600">
@@ -320,23 +245,17 @@ export function TableGridWithOrders({
                   </div>
                   <div className="flex items-center text-sm font-semibold text-green-600">
                     <DollarSign className="w-4 h-4 mr-1" />
-                    <span>{formatPrice(table.totalOrderValue || 0)}</span>
+                    <span>{formatPrice(table.totalOrderValue!)}</span>
                   </div>
                 </div>
+                
+                {/* Order Status Pills */}
                 <div className="flex flex-wrap gap-1">
-                  {table.activeOrders && table.activeOrders
-                    .filter(order => ['pending', 'confirmed', 'completed'].includes(order.status))
-                    .slice(0, 2)
-                    .map(order => (
-                      <span key={order.id} className={`
-                        text-xs px-2 py-1 rounded-full 
-                        ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800'
-                          : order.status === 'confirmed' ? 'bg-blue-100 text-blue-800'
-                            : 'bg-green-100 text-green-800'}
-                      `}>
-                        #{order.order_number}
-                      </span>
-                    ))}
+                  {table.activeOrders && table.activeOrders.slice(0, 2).map((order, index) => (
+                    <span key={order.id} className={`text-xs px-2 py-1 rounded-full ${getOrderStatusColor(order.status)}`}>
+                      #{order.order_number}
+                    </span>
+                  ))}
                   {table.activeOrders && table.activeOrders.length > 2 && (
                     <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
                       +{table.activeOrders.length - 2}
@@ -345,6 +264,7 @@ export function TableGridWithOrders({
                 </div>
               </div>
             )}
+
             {/* Action Buttons */}
             {table.activeOrders && table.activeOrders.length > 0 ? (
               <div className="flex justify-center">
@@ -406,7 +326,7 @@ export function TableGridWithOrders({
                 {table.sessionToken ? (
                   <div className="flex items-center justify-between">
                     <span className="text-green-600 font-medium">
-                      {table.associatedBooking
+                      {table.associatedBooking 
                         ? (table.associatedBooking.is_walk_in ? 'Walk-in + QR' : 'Booking + QR')
                         : 'QR Active'
                       }
@@ -424,7 +344,7 @@ export function TableGridWithOrders({
                   </div>
                 ) : (
                   <span className="text-red-600 font-medium">
-                    {table.associatedBooking
+                    {table.associatedBooking 
                       ? (table.associatedBooking.is_walk_in ? 'Walk-in Active' : 'Booking Active')
                       : 'Occupied'
                     }
@@ -436,7 +356,7 @@ export function TableGridWithOrders({
         ))}
       </div>
 
-      {/* ---- MODAL (Order Details for Table) ---- */}
+      {/* Table Details Modal */}
       {selectedTableDetails && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-90vh overflow-y-auto">
@@ -458,6 +378,7 @@ export function TableGridWithOrders({
                     )}
                   </div>
                 </div>
+                
                 <button
                   onClick={() => setSelectedTableDetails(null)}
                   className="text-gray-400 hover:text-gray-600 transition-colors text-3xl font-light"
@@ -465,6 +386,8 @@ export function TableGridWithOrders({
                   ×
                 </button>
               </div>
+
+              {/* QR Code Access */}
               {selectedTableDetails.sessionToken && (
                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                   <div className="flex items-center justify-between">
@@ -482,24 +405,131 @@ export function TableGridWithOrders({
                   </div>
                 </div>
               )}
-              {/* --- MIN/MAXIMIZE ORDER CARDS, filtering only allowed statuses --- */}
-              <div className="space-y-4">
-                <h3 className="text-xl font-bold text-gray-900">Order History</h3>
-                {(() => {
-                  const ordersToShow = (selectedTableDetails.activeOrders ?? [])
-                    .filter(order => ['pending', 'confirmed', 'completed'].includes(order.status));
-                  if (ordersToShow.length === 0) {
-                    return (
-                      <div className="text-center py-8 text-gray-400">
-                        No orders to display for this table.
+
+              {/* Active Orders */}
+              {selectedTableDetails.activeOrders && selectedTableDetails.activeOrders.length > 0 ? (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-bold text-gray-900">Order History ({selectedTableDetails.activeOrders.length})</h3>
+                  
+                  {selectedTableDetails.activeOrders.map((order) => (
+                    <div key={order.id} className="border border-gray-200 rounded-xl p-6 bg-gray-50">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-bold text-lg">Order #{order.order_number}</h4>
+                          <div className="flex items-center text-sm text-gray-600 mt-1">
+                            <Clock className="w-4 h-4 mr-1" />
+                            Ordered: {new Date(order.created_at).toLocaleTimeString()}
+                          </div>
+                          {order.updated_at !== order.created_at && (
+                            <div className="flex items-center text-sm text-gray-500 mt-1">
+                              <Clock className="w-3 h-3 mr-1" />
+                              Updated: {new Date(order.updated_at).toLocaleTimeString()}
+                            </div>
+                          )}
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getOrderStatusColor(order.status)}`}>
+                          {order.status}
+                        </span>
                       </div>
-                    );
-                  }
-                  return ordersToShow.map(order => (
-                    <OrderCard key={order.id} order={order} />
-                  ));
-                })()}
-              </div>
+
+                      {/* Order Items */}
+                      <div className="space-y-3 mb-4">
+                        {order.items?.map((item) => (
+                          <div key={item.id} className="flex justify-between items-center p-3 bg-white rounded-lg">
+                            <span className="font-medium">{item.quantity}x {item.menu_item?.name}</span>
+                            <span className="font-semibold text-green-600">{formatPrice(item.total_price_sgd)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Order Total */}
+                      <div className="border-t border-gray-300 pt-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Subtotal</span>
+                          <span className="font-medium">{formatPrice(order.subtotal_sgd)}</span>
+                        </div>
+                        {order.discount_sgd > 0 && (
+                          <div className="flex justify-between text-sm text-green-600">
+                            <span>Loyalty Discount</span>
+                            <span className="font-medium">-{formatPrice(order.discount_sgd)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg mt-2">
+                          <span>Total</span>
+                          <span className="text-green-600">{formatPrice(order.total_sgd)}</span>
+                        </div>
+                      </div>
+
+                      {order.notes && (
+                        <div className="mt-2 text-sm text-gray-600">
+                          <strong>Notes:</strong> {order.notes}
+                        </div>
+                      )}
+
+                      {/* Order Timeline */}
+                      <div className="mt-4 pt-3 border-t border-gray-200">
+                        <div className="text-xs text-gray-500">
+                          <div className="flex items-center space-x-4">
+                            <span className={`px-3 py-1 rounded-full ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
+                              Pending
+                            </span>
+                            {order.status !== 'pending' && (
+                              <>
+                                <span>→</span>
+                                <span className={`px-3 py-1 rounded-full ${order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                                  Confirmed
+                                </span>
+                              </>
+                            )}
+                            {order.status === 'paid' && (
+                              <>
+                                <span>→</span>
+                                <span className="px-3 py-1 rounded-full bg-green-100 text-green-800">
+                                  Paid
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Summary */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-lg">Total Table Bill</span>
+                        <span className="text-2xl font-bold text-green-600">
+                          {formatPrice(selectedTableDetails.totalOrderValue!)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-green-700 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Pending Orders:</span>
+                          <span className="font-medium">{selectedTableDetails.activeOrders?.filter(o => o.status === 'pending').length || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Confirmed Orders:</span>
+                          <span className="font-medium">{selectedTableDetails.activeOrders?.filter(o => o.status === 'confirmed').length || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Paid Orders:</span>
+                          <span className="font-medium">{selectedTableDetails.activeOrders?.filter(o => o.status === 'paid').length || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ShoppingCart className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">No Orders Yet</h3>
+                  <p className="text-gray-600">This table hasn't placed any orders</p>
+                </div>
+              )}
+
               <div className="mt-8 flex justify-end">
                 <button
                   onClick={() => setSelectedTableDetails(null)}
