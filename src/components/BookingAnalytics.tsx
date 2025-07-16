@@ -176,9 +176,10 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
         }),
         supabase
           .from('orders')
-          .select('id, restaurant_id, created_at, status')
+          .select('id, restaurant_id, created_at, status, payment_status')
           .eq('restaurant_id', restaurant.id)
-          .in('status', ['completed', 'paid']) // Only include completed or paid orders
+          .eq('status', 'completed')                 // Only 'completed' orders
+          .eq('payment_status', 'paid')              // Only where payment_status is 'paid'
           .gte('created_at', startDateStr)
           .lte('created_at', endDateStr)
           .then(async (result) => {
