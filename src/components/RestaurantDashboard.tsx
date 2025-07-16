@@ -358,7 +358,7 @@ export function RestaurantDashboard() {
     if (sessions && sessions.length > 0) {
       const { error } = await supabase
         .from('orders')
-        .update({ status: 'paid' })
+        .update({ payment_status: 'paid' })
         .eq('session_id', sessions[0].id)
         .neq('payment_status', 'paid');
 
