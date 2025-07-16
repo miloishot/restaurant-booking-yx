@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant } from '../types/database';
-import { CreditCard, Save, X, DollarSign, ShoppingCart, AlertCircle, Info, CheckCircle, Lock } from 'lucide-react';
+import { CreditCard, Save, X, DollarSign, ShoppingCart, AlertCircle, Info, CheckCircle, Lock, Eye, EyeOff } from 'lucide-react';
 
 interface StripeApiConfigurationProps {
   restaurant: Restaurant;
@@ -13,12 +13,14 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
   const { employeeProfile } = useAuth();
   const [apiConfig, setApiConfig] = useState({
     publishableKey: restaurant.stripe_publishable_key || '',
-    secretKey: restaurant.stripe_secret_key || ''
+    secretKey: restaurant.stripe_secret_key || '',
+    webhook: restaurant.stripe_webhook || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
+  const [showWebhook, setShowWebhook] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -31,21 +33,21 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
         .update({
           stripe_publishable_key: apiConfig.publishableKey || null,
           stripe_secret_key: apiConfig.secretKey || null,
+          stripe_webhook: apiConfig.webhook || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', restaurant.id);
 
       if (error) throw error;
-      
       setSuccess(true);
       onUpdate();
-      
-      // Show success notification
+
+      // Show success notification (ephemeral, optional)
       const notification = document.createElement('div');
       notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
       notification.textContent = 'Stripe API configuration saved successfully!';
       document.body.appendChild(notification);
-      
+
       setTimeout(() => {
         if (document.body.contains(notification)) {
           document.body.removeChild(notification);
@@ -59,7 +61,6 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
     }
   };
 
-  // Check if user has permission to configure Stripe API
   const canConfigureStripe = employeeProfile?.role === 'owner';
 
   if (!canConfigureStripe) {
@@ -114,7 +115,17 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
           <Info className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
           <div className="text-blue-700 text-sm">
             <p className="font-medium mb-2">Stripe API Keys</p>
-            <p className="mb-2">These keys are used to process payments through Stripe. You can find your API keys in your <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Stripe Dashboard</a>.</p>
+            <p className="mb-2">
+              These keys are used to process payments through Stripe. You can find your API keys in your{' '}
+              <a
+                href="https://dashboard.stripe.com/apikeys"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                Stripe Dashboard
+              </a>.
+            </p>
             <p>For security reasons, we recommend using environment variables for your secret key in production.</p>
           </div>
         </div>
@@ -154,7 +165,7 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
               onClick={() => setShowSecretKey(!showSecretKey)}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              {showSecretKey ? <X className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              {showSecretKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-1">
@@ -162,6 +173,34 @@ export function StripeApiConfiguration({ restaurant, onUpdate }: StripeApiConfig
           </p>
           <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
             <strong>Warning:</strong> Store your secret key securely. In production, consider using environment variables instead of storing in the database.
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Webhook Secret
+          </label>
+          <div className="relative">
+            <input
+              type={showWebhook ? "text" : "password"}
+              value={apiConfig.webhook}
+              onChange={e => setApiConfig(prev => ({ ...prev, webhook: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="whsec_..."
+            />
+            <button
+              type="button"
+              onClick={() => setShowWebhook(!showWebhook)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              {showWebhook ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Your Stripe webhook signing secret (<code>whsec_...</code>)
+          </p>
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+            <strong>Warning:</strong> Never share your webhook secret. Keep it safe!
           </div>
         </div>
 
