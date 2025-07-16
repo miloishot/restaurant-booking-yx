@@ -797,6 +797,13 @@ export function RestaurantDashboard() {
       {showPinPrompt && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+            <button
+              onClick={() => setShowPinPrompt(false)}
+              className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Lock className="w-8 h-8 text-blue-600" />

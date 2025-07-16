@@ -647,13 +647,6 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                             </div>
                           )}
                           
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Payment Status:</span>
-                            <span className={order.status === 'paid' ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
-                              {order.status === 'paid' ? 'Paid' : 'Not Paid'}
-                            </span>
-                          </div>
-                          
                           <div className="flex justify-between font-bold text-gray-800 mt-1">
                             <span>Total</span>
                             <span>{formatPrice(order.total_sgd)}</span>
@@ -677,13 +670,6 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                             <span>-{formatPrice(orderHistory.reduce((sum, order) => sum + order.discount_sgd, 0))}</span>
                           </div>
                         )}
-                        
-                        <div className="flex justify-between text-gray-600 mt-2">
-                          <span>Payment Status:</span>
-                          <span className={orderHistory.every(order => order.status === 'paid') ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
-                            {orderHistory.every(order => order.status === 'paid') ? 'All Paid' : 'Some Not Paid'}
-                          </span>
-                        </div>
                         
                         <div className="flex justify-between font-bold text-lg border-t border-blue-200 pt-2 mt-2">
                           <span>Total</span>
