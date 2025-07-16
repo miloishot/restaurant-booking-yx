@@ -628,8 +628,12 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <div className="space-y-2 mb-3">
                           {order.items?.map((item) => (
                             <div key={item.id} className="flex justify-between items-center">
-                              <span className="text-sm">{item.quantity}x {item.menu_item?.name}</span>
-                              <span className="text-sm font-medium">{formatPrice(item.total_price_sgd)}</span>
+                              <span className={`text-sm ${order.status === 'cancelled' ? 'line-through text-gray-400' : ''}`}>
+                                {item.quantity}x {item.menu_item?.name}
+                              </span>
+                              <span className={`text-sm font-medium ${order.status === 'cancelled' ? 'line-through text-gray-400' : ''}`}>
+                                {order.status === 'cancelled' ? '$0.00' : formatPrice(item.total_price_sgd)}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -637,19 +641,19 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <div className="border-t pt-2 mt-2">
                           <div className="flex justify-between text-sm text-gray-600">
                             <span>Subtotal</span>
-                            <span>{formatPrice(order.subtotal_sgd)}</span>
+                            <span>{order.status === 'cancelled' ? '$0.00' : formatPrice(order.subtotal_sgd)}</span>
                           </div>
                           
                           {order.discount_sgd > 0 && (
                             <div className="flex justify-between text-sm text-green-600">
                               <span>Discount</span>
-                              <span>-{formatPrice(order.discount_sgd)}</span>
+                              <span>-{order.status === 'cancelled' ? '$0.00' : formatPrice(order.discount_sgd)}</span>
                             </div>
                           )}
                           
                           <div className="flex justify-between font-bold text-gray-800 mt-1">
                             <span>Total</span>
-                            <span>{formatPrice(order.total_sgd)}</span>
+                            <span>{order.status === 'cancelled' ? '$0.00' : formatPrice(order.total_sgd)}</span>
                           </div>
                         </div>
                       </div>
@@ -662,19 +666,22 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <div className="flex justify-between text-gray-600">
                           <span>Subtotal</span>
                           <span>{formatPrice(orderHistory.reduce((sum, order) => sum + order.subtotal_sgd, 0))}</span>
-                        </div>
+                        <span>{formatPrice(orderHistory.reduce((sum, order) => 
+                          order.status === 'cancelled' ? sum : sum + order.subtotal_sgd, 0))}</span>
                         
                         {orderHistory.some(order => order.discount_sgd > 0) && (
                           <div className="flex justify-between text-green-600">
                             <span>Total Discounts</span>
                             <span>-{formatPrice(orderHistory.reduce((sum, order) => sum + order.discount_sgd, 0))}</span>
-                          </div>
+                          <span>-{formatPrice(orderHistory.reduce((sum, order) => 
+                            order.status === 'cancelled' ? sum : sum + order.discount_sgd, 0))}</span>
                         )}
                         
                         <div className="flex justify-between font-bold text-lg border-t border-blue-200 pt-2 mt-2">
                           <span>Total</span>
                           <span>{formatPrice(orderHistory.reduce((sum, order) => sum + order.total_sgd, 0))}</span>
-                        </div>
+                        <span>{formatPrice(orderHistory.reduce((sum, order) => 
+                          order.status === 'cancelled' ? sum : sum + order.total_sgd, 0))}</span>
                       </div>
                     </div>
                   </div>
