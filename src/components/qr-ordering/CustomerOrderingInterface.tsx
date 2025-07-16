@@ -556,7 +556,7 @@ export function CustomerOrderingInterface({ sessionToken }: CustomerOrderingInte
                 </div>
               ) : (
                 <button
-                  onClick={() => setShowCustomerAuth(true)}
+        </div>
                   className="flex items-center px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   <User className="w-4 h-4 mr-2" />
