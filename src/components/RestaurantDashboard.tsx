@@ -360,7 +360,7 @@ export function RestaurantDashboard() {
         .from('orders')
         .update({ status: 'paid' })
         .eq('session_id', sessions[0].id)
-        .neq('status', 'paid');
+        .neq('payment_status', 'paid');
 
       if (error) throw error;
     }
