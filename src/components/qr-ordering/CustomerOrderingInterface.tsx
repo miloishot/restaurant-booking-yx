@@ -591,7 +591,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <div 
                           key={item.id} 
                           className={`flex justify-between ${
-                            order.status === 'cancelled' ? 'text-gray-400 line-through opacity-70' : ''
+                            order.status === 'cancelled' || order.status === 'declined' ? 'text-gray-400 line-through opacity-70' : ''
                           }`}
                         >
                           <span>
@@ -603,7 +603,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                             )}
                           </span>
                           <span className="font-medium">
-                            {order.status === 'cancelled' 
+                            {order.status === 'cancelled' || order.status === 'declined'
                               ? formatPrice(0) 
                               : formatPrice(item.total_price_sgd)
                             }
@@ -616,7 +616,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
                         <span className="font-medium">
-                          {order.status === 'cancelled' 
+                          {order.status === 'cancelled' || order.status === 'declined'
                             ? formatPrice(0) 
                             : formatPrice(order.subtotal_sgd)
                           }
@@ -636,7 +636,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                       <div className="flex justify-between font-bold mt-2">
                         <span>Total</span>
                         <span className={order.status === 'cancelled' ? 'text-gray-400' : 'text-green-600'}>
-                          {order.status === 'cancelled' 
+                          {order.status === 'cancelled' || order.status === 'declined'
                             ? formatPrice(0) 
                             : formatPrice(order.total_sgd)
                           }

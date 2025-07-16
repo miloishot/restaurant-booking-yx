@@ -124,7 +124,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
           )
         `)
         .eq('restaurant_id', restaurant.id)
-        .eq('status', 'cancelled')
+        .in('status', ['cancelled', 'declined'])
         .gte('created_at', today)
         .order('updated_at', { ascending: false });
 
@@ -429,7 +429,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                    Cancelled
+                    {order.status === 'cancelled' ? 'Cancelled' : 'Declined'}
                   </span>
                 </div>
                 
