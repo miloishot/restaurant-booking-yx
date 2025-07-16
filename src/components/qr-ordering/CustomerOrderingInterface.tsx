@@ -575,9 +575,8 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-800">
-                          Order #{order.order_number}
-                          {order.status === 'cancelled' && (
-                            <span className="ml-2 text-red-600">(Cancelled)</span>
+                          Order #{order.order_number} {(order.status === 'cancelled' || order.status === 'declined') && (
+                            <span className="text-red-600">(Cancelled)</span>
                           )}
                         </h3>
                         <p className="text-sm text-gray-600">
@@ -616,30 +615,27 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                       <div className="flex justify-between text-sm">
                         <span>Subtotal</span>
                         <span className="font-medium">
-                          {order.status === 'cancelled' || order.status === 'declined'
-                            ? formatPrice(0) 
-                            : formatPrice(order.subtotal_sgd)
-                          }
+                          {(order.status === 'cancelled' || order.status === 'declined')
+                            ? '$0.00'
+                            : formatPrice(order.subtotal_sgd)}
                         </span>
                       </div>
                       {order.discount_sgd > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
                           <span>Loyalty Discount</span>
                           <span className="font-medium">
-                            {order.status === 'cancelled' 
-                              ? formatPrice(0) 
-                              : `-${formatPrice(order.discount_sgd)}`
-                            }
+                            {(order.status === 'cancelled' || order.status === 'declined')
+                              ? '$0.00'
+                              : `-${formatPrice(order.discount_sgd)}`}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between font-bold mt-2">
                         <span>Total</span>
-                        <span className={order.status === 'cancelled' ? 'text-gray-400' : 'text-green-600'}>
-                          {order.status === 'cancelled' || order.status === 'declined'
-                            ? formatPrice(0) 
-                            : formatPrice(order.total_sgd)
-                          }
+                        <span className={(order.status === 'cancelled' || order.status === 'declined') ? 'text-gray-400' : 'text-green-600'}>
+                          {(order.status === 'cancelled' || order.status === 'declined')
+                            ? '$0.00'
+                            : formatPrice(order.total_sgd)}
                         </span>
                       </div>
                     </div>
