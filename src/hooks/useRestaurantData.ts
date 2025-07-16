@@ -851,7 +851,7 @@ export function useRestaurantData(restaurantSlug?: string) {
       if (error) throw error;
 
       // If order is marked as paid, check if we should update table status
-      if (status === 'paid') {
+      if (payment_status === 'paid') {
         // Force refresh to get updated data
         await fetchRestaurantData(restaurantSlug);
       }
