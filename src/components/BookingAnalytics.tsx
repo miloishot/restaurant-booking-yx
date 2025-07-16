@@ -229,7 +229,24 @@ export function BookingAnalytics({ restaurant }: BookingAnalyticsProps) {
         console.error('Error fetching revenue analytics:', revenueResult.error);
         setRevenueAnalytics(null);
       } else {
-        setRevenueAnalytics(revenueResult.data?.[0] || null);
+        // Filter out cancelled orders from revenue analytics
+        const filteredRevenueData = revenueResult.data?.[0] || null;
+        if (filteredRevenueData) {
+          // Only include completed and paid orders in revenue calculation
+          const { data: validOrders } = await supabase
+            .from('orders')
+            .select('total_sgd')
+            .eq('restaurant_id', restaurant.id)
+            .in('status', ['completed', 'paid'])
+            .gte('created_at', startDateStr)
+            .lte('created_at', endDateStr);
+            
+          if (validOrders) {
+            const totalValidRevenue = validOrders.reduce((sum, order) => sum + order.total_sgd, 0);
+            filteredRevenueData.total_revenue = totalValidRevenue;
+          }
+        }
+        setRevenueAnalytics(filteredRevenueData);
       }
 
       if (categoryResult.error) {

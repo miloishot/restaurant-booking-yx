@@ -336,7 +336,8 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
           total_sgd: taxes.total,
           discount_applied: loyaltyDiscount?.discount_eligible || false,
           triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
-          status: 'pending'
+          status: 'pending',
+          payment_status: 'not_paid'
         })
         .select()
         .single();
@@ -376,6 +377,9 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
       
       // Close cart sidebar
       setShowCart(false);
+      
+      // Fetch updated order history
+      await fetchOrderHistory();
       
       // Show success notification
       const notification = document.createElement('div');
@@ -417,6 +421,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
         cart_items: cart,
         table_id: session.table_id,
         session_id: session.id,
+        payment_status: 'paid',
         loyalty_user_ids: loyaltyUserIds.length > 0 ? loyaltyUserIds : undefined,
         discount_applied: loyaltyDiscount?.discount_eligible || false,
         triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
@@ -476,7 +481,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-30">
+      <header className="bg-white shadow-lg sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
@@ -535,7 +540,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
       </header>
 
       {/* Loyalty Input */}
-      <div className="max-w-4xl mx-auto px-4 py-4">
+      <div className="max-w-4xl mx-auto px-4 pt-4">
         <LoyaltyInput
           loyaltyUserIds={loyaltyUserIds}
           onLoyaltyUserIdsChange={setLoyaltyUserIds}
@@ -545,7 +550,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
       </div>
 
       {/* Menu Display */}
-      <div className="max-w-4xl mx-auto px-4 pb-8">
+      <div className="max-w-4xl mx-auto px-4 pb-16">
         <MenuDisplay
           categories={categories}
           menuItems={menuItems}
@@ -644,6 +649,13 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                             </div>
                           )}
                           
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Payment Status:</span>
+                            <span className={order.status === 'paid' ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
+                              {order.status === 'paid' ? 'Paid' : 'Not Paid'}
+                            </span>
+                          </div>
+                          
                           <div className="flex justify-between font-bold text-gray-800 mt-1">
                             <span>Total</span>
                             <span>{formatPrice(order.total_sgd)}</span>
@@ -668,6 +680,13 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                           </div>
                         )}
                         
+                        <div className="flex justify-between text-gray-600 mt-2">
+                          <span>Payment Status:</span>
+                          <span className={orderHistory.every(order => order.status === 'paid') ? 'text-green-600 font-medium' : 'text-orange-600 font-medium'}>
+                            {orderHistory.every(order => order.status === 'paid') ? 'All Paid' : 'Some Not Paid'}
+                          </span>
+                        </div>
+                        
                         <div className="flex justify-between font-bold text-lg border-t border-blue-200 pt-2 mt-2">
                           <span>Total</span>
                           <span>{formatPrice(orderHistory.reduce((sum, order) => sum + order.total_sgd, 0))}</span>
@@ -681,7 +700,13 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
               {/* Actions */}
               <div className="border-t p-4 bg-white">
                 <button
-                  onClick={() => setShowOrderHistory(false)}
+                  onClick={() => {
+                    setShowOrderHistory(false);
+                    if (cart.length === 0) {
+                      // If cart is empty, fetch menu to ensure categories are loaded
+                      fetchMenu();
+                    }
+                  }}
                   className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Continue Ordering

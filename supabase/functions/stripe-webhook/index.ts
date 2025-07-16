@@ -133,7 +133,8 @@ async function handleEvent(event: Stripe.Event) {
             total_sgd: session.amount_total ? session.amount_total / 100 : 0,
             discount_applied: discountApplied,
             triggering_user_id: triggeringUserId,
-            status: 'confirmed',
+            status: 'confirmed', 
+            payment_status: 'paid',
             notes: 'Payment completed via Stripe'
           })
           .select()

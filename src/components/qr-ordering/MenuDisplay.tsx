@@ -12,12 +12,18 @@ interface MenuDisplayProps {
 }
 
 export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdateCartItem, onRemoveCartItem }: MenuDisplayProps) {
-  const [activeCategory, setActiveCategory] = useState<string | null>(
-    categories.length > 0 ? categories[0].id : null
-  );
+  // Always set the first category as active when categories change
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [specialInstructions, setSpecialInstructions] = useState('');
+
+  // Set the first category as active when categories are loaded
+  useEffect(() => {
+    if (categories.length > 0 && !activeCategory) {
+      setActiveCategory(categories[0].id);
+    }
+  }, [categories, activeCategory]);
 
   const getItemsByCategory = (categoryId: string) => {
     return menuItems.filter(item => item.category_id === categoryId);
@@ -94,7 +100,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
   return (
     <div className="flex flex-col lg:flex-row gap-8">
       {/* Category Sidebar */}
-      <div className="lg:w-64 flex-shrink-0">
+      <div className="lg:w-64 flex-shrink-0 mb-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-24">
           <h3 className="font-bold text-lg text-gray-900 mb-6">Categories</h3>
           <nav className="space-y-3">
@@ -123,7 +129,7 @@ export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdate
         {categories.map(category => (
           <div
             key={category.id}
-            className={`${activeCategory === category.id ? 'block' : 'hidden'} space-y-6`}
+            className={`${activeCategory === category.id ? 'block' : 'hidden'} space-y-6 mb-8`}
           >
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-3">{category.name}</h2>
