@@ -515,10 +515,10 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setShowOrderHistory(!showOrderHistory)}
-                className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                className="flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors" 
               >
                 <Receipt className="w-5 h-5 mr-2" />
-                View Bill
+                {showOrderHistory ? 'View Menu' : 'View Bill'}
               </button>
               
               <button
@@ -591,7 +591,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <div 
                           key={item.id} 
                           className={`flex justify-between ${
-                            order.status === 'cancelled' ? 'text-gray-400 line-through' : ''
+                            order.status === 'cancelled' ? 'text-gray-400 line-through opacity-70' : ''
                           }`}
                         >
                           <span>
@@ -604,7 +604,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                           </span>
                           <span className="font-medium">
                             {order.status === 'cancelled' 
-                              ? '$0.00' 
+                              ? formatPrice(0) 
                               : formatPrice(item.total_price_sgd)
                             }
                           </span>
@@ -617,7 +617,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <span>Subtotal</span>
                         <span className="font-medium">
                           {order.status === 'cancelled' 
-                            ? '$0.00' 
+                            ? formatPrice(0) 
                             : formatPrice(order.subtotal_sgd)
                           }
                         </span>
@@ -627,7 +627,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                           <span>Loyalty Discount</span>
                           <span className="font-medium">
                             {order.status === 'cancelled' 
-                              ? '$0.00' 
+                              ? formatPrice(0) 
                               : `-${formatPrice(order.discount_sgd)}`
                             }
                           </span>
@@ -637,7 +637,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <span>Total</span>
                         <span className={order.status === 'cancelled' ? 'text-gray-400' : 'text-green-600'}>
                           {order.status === 'cancelled' 
-                            ? '$0.00' 
+                            ? formatPrice(0) 
                             : formatPrice(order.total_sgd)
                           }
                         </span>
@@ -654,34 +654,31 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                     <div className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-gray-700">Subtotal</span>
-                        <span className="font-medium">
-                          {formatPrice(orderHistory
-                            .filter(order => order.status !== 'cancelled')
-                            .reduce((sum, order) => sum + order.subtotal_sgd, 0)
-                          )}
-                        </span>
+                        <span className="font-medium">{formatPrice(
+                          orderHistory
+                          .filter(order => order.status !== 'cancelled')
+                          .reduce((sum, order) => sum + order.subtotal_sgd, 0)
+                        )}</span>
                       </div>
                       
                       {orderHistory.some(order => order.discount_sgd > 0) && (
                         <div className="flex justify-between text-green-600">
                           <span>Loyalty Discount</span>
-                          <span className="font-medium">
-                            -{formatPrice(orderHistory
-                              .filter(order => order.status !== 'cancelled')
-                              .reduce((sum, order) => sum + order.discount_sgd, 0)
-                            )}
-                          </span>
+                          <span className="font-medium">-{formatPrice(
+                            orderHistory
+                            .filter(order => order.status !== 'cancelled')
+                            .reduce((sum, order) => sum + order.discount_sgd, 0)
+                          )}</span>
                         </div>
                       )}
                       
                       <div className="flex justify-between text-xl font-bold border-t border-gray-300 pt-3 mt-3">
                         <span>Total</span>
-                        <span className="text-green-600">
-                          {formatPrice(orderHistory
-                            .filter(order => order.status !== 'cancelled')
-                            .reduce((sum, order) => sum + order.total_sgd, 0)
-                          )}
-                        </span>
+                        <span className="text-green-600">{formatPrice(
+                          orderHistory
+                          .filter(order => order.status !== 'cancelled')
+                          .reduce((sum, order) => sum + order.total_sgd, 0)
+                        )}</span>
                       </div>
                     </div>
                   </div>
