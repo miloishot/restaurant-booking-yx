@@ -656,7 +656,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <span className="text-gray-700">Subtotal</span>
                         <span className="font-medium">{formatPrice(
                           orderHistory
-                          .filter(order => order.status !== 'cancelled')
+                         .filter(order => order.status !== 'cancelled' && order.status !== 'declined')
                           .reduce((sum, order) => sum + order.subtotal_sgd, 0)
                         )}</span>
                       </div>
@@ -666,7 +666,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                           <span>Loyalty Discount</span>
                           <span className="font-medium">-{formatPrice(
                             orderHistory
-                            .filter(order => order.status !== 'cancelled')
+                           .filter(order => order.status !== 'cancelled' && order.status !== 'declined')
                             .reduce((sum, order) => sum + order.discount_sgd, 0)
                           )}</span>
                         </div>
@@ -676,7 +676,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
                         <span>Total</span>
                         <span className="text-green-600">{formatPrice(
                           orderHistory
-                          .filter(order => order.status !== 'cancelled')
+                         .filter(order => order.status !== 'cancelled' && order.status !== 'declined')
                           .reduce((sum, order) => sum + order.total_sgd, 0)
                         )}</span>
                       </div>
