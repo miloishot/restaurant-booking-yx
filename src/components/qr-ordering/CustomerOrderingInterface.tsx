@@ -376,7 +376,7 @@ export function CustomerOrderingInterface({}: CustomerOrderingInterfaceProps) {
           total_sgd: calculateTotal(),
           discount_applied: loyaltyDiscount?.discount_eligible || false,
           triggering_user_id: loyaltyDiscount?.triggering_user_id || null,
-          status: 'pending'
+          status: 'pending',
           payment_status: 'unpaid'
         })
         .select()
