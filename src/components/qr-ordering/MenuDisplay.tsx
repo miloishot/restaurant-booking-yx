@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MenuCategory, MenuItem } from '../../types/database';
 import { Plus, Minus, Info, Leaf, AlertTriangle, ShoppingCart, Star } from 'lucide-react';
 
@@ -9,6 +9,12 @@ interface MenuDisplayProps {
   onAddToCart: (item: MenuItem, quantity: number, specialInstructions?: string) => void;
   onUpdateCartItem: (itemId: string, quantity: number) => void;
   onRemoveCartItem: (itemId: string) => void;
+}
+
+interface CartItem {
+  menu_item: MenuItem;
+  quantity: number;
+  special_instructions?: string;
 }
 
 export function MenuDisplay({ categories, menuItems, cart, onAddToCart, onUpdateCartItem, onRemoveCartItem }: MenuDisplayProps) {
