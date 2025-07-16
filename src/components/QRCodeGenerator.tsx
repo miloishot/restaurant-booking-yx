@@ -397,7 +397,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
         )
       `)
       .eq('session_id', sessions[0].id)
-      .neq('status', 'paid');
+      .neq('payment_status', 'paid');
       
     if (!orders || orders.length === 0) {
       alert('No unpaid orders found for this table');
