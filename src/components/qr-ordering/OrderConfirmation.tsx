@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle, Clock, ChefHat, CreditCard } from 'lucide-react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 
 interface OrderConfirmationProps {
   onContinue: () => void;
@@ -10,9 +10,20 @@ interface OrderConfirmationProps {
 export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirmationProps) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const token = searchParams.get('token');
   const paymentSuccess = searchParams.get('payment_success');
   const isSuccess = isPaymentSuccess || location.pathname.includes('/success') || paymentSuccess === 'true';
+  
+  const handleContinue = () => {
+    if (token) {
+      // Redirect back to the ordering page with the token
+      navigate(`/order/${token}`);
+    } else {
+      // If no token, use the provided onContinue function
+      onContinue();
+    }
+  };
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
@@ -72,7 +83,7 @@ export function OrderConfirmation({ onContinue, isPaymentSuccess }: OrderConfirm
           
           <div className="space-y-3">
             <button
-              onClick={onContinue}
+              onClick={handleContinue}
               className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Continue Ordering
