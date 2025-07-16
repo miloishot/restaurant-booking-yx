@@ -20,7 +20,8 @@
     "react-dom": "^18.3.1",
     "react-image-file-resizer": "^0.4.8",
     "react-router-dom": "^7.6.3",
-    "stripe": "^18.3.0"
+    "stripe": "^18.3.0",
+    "supabase": "^2.31.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
