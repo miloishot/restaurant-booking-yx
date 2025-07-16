@@ -13,7 +13,8 @@ import {
   MapPin,
   Tag,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 
 interface StaffOrderManagementProps {
@@ -24,6 +25,7 @@ interface StaffOrderManagementProps {
 export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOrderManagementProps) {
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
   const [completedOrders, setCompletedOrders] = useState<OrderWithDetails[]>([]);
+  const [cancelledOrders, setCancelledOrders] = useState<OrderWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
@@ -38,6 +40,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
   useEffect(() => {
     fetchOrders();
     fetchCompletedOrders();
+    fetchCancelledOrders();
     subscribeToOrders();
   }, [restaurant.id]);
 
@@ -61,7 +64,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
         `)
         .eq('restaurant_id', restaurant.id)
         .in('status', ['pending', 'confirmed'])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       setOrders(data || []);
@@ -102,6 +105,36 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
     }
   };
 
+  const fetchCancelledOrders = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          session:order_sessions(
+            *,
+            table:restaurant_tables(*),
+            booking:bookings(*)
+          ),
+          items:order_items(
+            *,
+            menu_item:menu_items(*)
+          )
+        `)
+        .eq('restaurant_id', restaurant.id)
+        .eq('status', 'cancelled')
+        .gte('created_at', today)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      setCancelledOrders(data || []);
+    } catch (err) {
+      console.error('Error fetching cancelled orders:', err);
+    }
+  };
+
   const subscribeToOrders = () => {
     const channel = supabase
       .channel('orders_changes')
@@ -113,6 +146,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       }, () => {
         console.log('Order changed, refreshing...');
         fetchOrders();
+        fetchCompletedOrders();
       })
       .subscribe();
 
@@ -124,6 +158,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchOrders();
+    await fetchCancelledOrders();
     setRefreshing(false);
   };
 
@@ -156,7 +191,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       await fetchOrders();
       if (status === 'completed' || status === 'paid') {
         await fetchCompletedOrders();
-      }
+      } 
     } catch (err) {
       console.error('Error updating order status:', err);
       alert('Failed to update order status. Please try again.');
@@ -170,9 +205,9 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
     
     try {
       const { error } = await supabase
-        .from('orders')
+        .from('orders') 
         .update({ 
-          status: 'completed',
+          status: 'cancelled',
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
@@ -180,7 +215,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       if (error) throw error;
       
       const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50'; 
       notification.textContent = 'Order declined';
       document.body.appendChild(notification);
       
@@ -191,6 +226,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       }, 3000);
 
       await fetchOrders();
+      await fetchCancelledOrders();
     } catch (err) {
       console.error('Error declining order:', err);
       alert('Failed to decline order. Please try again.');
@@ -305,7 +341,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
       </div>
 
       {/* New Orders Section */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-6"> 
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           New Orders ({orders.filter(o => o.status === 'pending').length})
         </h3>
@@ -317,8 +353,8 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {orders.filter(o => o.status === 'pending').map((order) => (
-              <div key={order.id} className="border-2 border-yellow-200 rounded-xl p-6 bg-yellow-50">
+            {orders.filter(o => o.status === 'pending').map((order) => ( 
+              <div key={order.id} className="border-2 border-gray-200 rounded-xl p-6 bg-white">
                 {/* Order card content */}
                 <div className="flex justify-between items-start mb-3">
                   <div>
@@ -330,7 +366,7 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                   </div>
                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
                     New Order
-                  </span>
+                  </span> 
                 </div>
                 
                 {/* Order items */}
@@ -346,8 +382,8 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                 <div className="flex space-x-2">
                   <button
                     onClick={() => updateOrderStatus(order.id, 'confirmed')}
-                    disabled={processingOrder === order.id}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    disabled={processingOrder === order.id} 
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     Accept
                   </button>
@@ -358,6 +394,57 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
                   >
                     Decline
                   </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Cancelled Orders Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Cancelled Orders ({cancelledOrders.length})
+        </h3>
+        
+        {cancelledOrders.length === 0 ? (
+          <div className="text-center py-8">
+            <XCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No cancelled orders today</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {cancelledOrders.map((order) => (
+              <div key={order.id} className="border border-red-200 rounded-xl p-6 bg-red-50">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="font-bold text-lg">#{order.order_number}</h4>
+                    <div className="flex items-center text-sm text-gray-600 mt-2">
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Table {order.session?.table?.table_number}
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                    Cancelled
+                  </span>
+                </div>
+                
+                <div className="space-y-2 mb-4">
+                  {order.items?.slice(0, 3).map((item) => (
+                    <div key={item.id} className="flex justify-between items-center">
+                      <span className="text-sm">{item.quantity}x {item.menu_item?.name}</span>
+                      <span className="text-sm font-medium">{formatPrice(item.total_price_sgd)}</span>
+                    </div>
+                  ))}
+                  {order.items && order.items.length > 3 && (
+                    <div className="text-sm text-gray-500">
+                      +{order.items.length - 3} more items
+                    </div>
+                  )}
+                </div>
+                
+                <div className="text-sm text-gray-600">
+                  Cancelled: {format(new Date(order.updated_at), 'MMM d, h:mm a')}
                 </div>
               </div>
             ))}
