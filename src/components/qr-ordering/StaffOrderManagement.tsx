@@ -204,20 +204,20 @@ export function StaffOrderManagement({ restaurant, onOrderCountChange }: StaffOr
     setProcessingOrder(orderId);
     
     try {
-      // First check what statuses are allowed
-      const { data: orderData } = await supabase
-        .from('orders') 
-        .select('status')
-        .eq('id', orderId)
-        .single();
-        
-      // Update the order status to 'cancelled' if it exists
-      const { error } = await supabase.rpc('update_order_status', {
+      // Call the RPC function to update the order status
+      const { data, error } = await supabase.rpc('update_order_status', {
         p_order_id: orderId,
         p_status: 'cancelled'
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        throw new Error('Order not found or could not be updated');
+      }
       
       const notification = document.createElement('div');
       notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50'; 
