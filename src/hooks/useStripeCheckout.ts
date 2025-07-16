@@ -153,6 +153,7 @@ export function useStripeCheckout() {
       console.log('Stripe checkout response:', responseData);
       
       if (responseData.url) {
+      }
       if (responseData.url) {
         console.log('Redirecting to Stripe checkout:', url);
         window.location.href = responseData.url;
