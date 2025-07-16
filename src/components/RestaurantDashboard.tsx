@@ -15,8 +15,7 @@ import { LoyaltyManagement } from './LoyaltyManagement';
 import { RestaurantSetup } from './RestaurantSetup';
 import { StaffTimeTracking } from './StaffTimeTracking';
 import { RestaurantTable } from '../types/database';
-import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown } from 'lucide-react';
-import { Lock } from 'lucide-react';
+import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown, Lock, ChevronLeft } from 'lucide-react';
 import { StaffManagement } from './StaffManagement';
 
 export function RestaurantDashboard() {
