@@ -61,12 +61,16 @@ Deno.serve(async (req) => {
 
 async function handleEvent(event: Stripe.Event) {
   const stripeData = event?.data?.object ?? {};
+  
+  console.log(`Processing Stripe event: ${event.type}`);
 
   if (!stripeData) {
+    console.log('No stripe data in event, skipping');
     return;
   }
 
   if (!('customer' in stripeData)) {
+    console.log('No customer in stripe data, skipping');
     return;
   }
   
@@ -216,12 +220,12 @@ async function handleEvent(event: Stripe.Event) {
         }
         
         return;
-      } else {
-        console.log('Not a restaurant order payment - missing table_id or session_id in metadata');
       } catch (error) {
         console.error('Error processing restaurant order payment:', error);
         return;
       }
+    } else {
+      console.log('Not a restaurant order payment - missing table_id or session_id in metadata');
     }
   }
 
