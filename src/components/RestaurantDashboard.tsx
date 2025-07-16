@@ -16,6 +16,7 @@ import { RestaurantSetup } from './RestaurantSetup';
 import { StaffTimeTracking } from './StaffTimeTracking';
 import { RestaurantTable } from '../types/database';
 import { Settings, Users, Calendar, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, QrCode, Crown } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { StaffManagement } from './StaffManagement';
 
 export function RestaurantDashboard() {
@@ -43,6 +44,9 @@ export function RestaurantDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [newOrderCount, setNewOrderCount] = useState<number>(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ table: RestaurantTable; action: 'occupied' | 'available' } | null>(null);
+  const [showPinPrompt, setShowPinPrompt] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
 
   // Subscribe to real-time order updates
   useEffect(() => {
@@ -121,6 +125,20 @@ export function RestaurantDashboard() {
       alert('Failed to update table status. Please try again.');
     } finally {
       setShowConfirmDialog(null);
+    }
+  };
+
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const savedPin = localStorage.getItem('setup_pin') || '123456';
+    
+    if (pin === savedPin) {
+      setShowPinPrompt(false);
+      setPinError(null);
+      setPin('');
+      setActiveTab('setup');
+    } else {
+      setPinError('Incorrect PIN. Please try again.');
     }
   };
 
@@ -575,9 +593,7 @@ export function RestaurantDashboard() {
               }`}
               disabled={employeeProfile?.role !== 'owner'}
               onClick={() => {
-                if (employeeProfile?.role === 'owner') {
-                  setShowPinPrompt(true);
-                }
+                employeeProfile?.role === 'owner' && setShowPinPrompt(true);
               }}
             >
               <Building className="w-4 h-4 inline mr-1" />
@@ -776,6 +792,51 @@ export function RestaurantDashboard() {
           />
         )}
       </div>
+
+      {/* PIN Prompt Modal */}
+      {showPinPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800">Setup Access</h2>
+              <p className="text-gray-600 mt-2">Enter your 6-digit PIN to access setup</p>
+            </div>
+            
+            {pinError && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                <p className="text-sm text-red-700">{pinError}</p>
+              </div>
+            )}
+            
+            <form onSubmit={handlePinSubmit}>
+              <div className="mb-6">
+                <input
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  maxLength={6}
+                  pattern="\d{6}"
+                  className="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="******"
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center">Default PIN: 123456</p>
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Access Setup
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Dialog */}
       {showConfirmDialog && (
