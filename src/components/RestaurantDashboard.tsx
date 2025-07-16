@@ -833,12 +833,22 @@ export function RestaurantDashboard() {
                 <p className="text-xs text-gray-500 mt-2 text-center">Default PIN: 123456</p>
               </div>
               
-              <button
-                type="submit"
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Access Setup
-              </button>
+              <div className="space-y-3">
+                <button
+                  type="submit"
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Access Setup
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setShowPinPrompt(false)}
+                  className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         </div>
