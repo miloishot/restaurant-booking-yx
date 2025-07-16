@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useRestaurantData } from '../hooks/useRestaurantData';
 import { useAuth } from '../hooks/useAuth';
