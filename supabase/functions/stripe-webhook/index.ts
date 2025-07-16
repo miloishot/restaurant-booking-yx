@@ -80,6 +80,7 @@ async function handleEvent(event: Stripe.Event) {
     if (session.metadata?.table_id && session.metadata?.session_id) {
       try {
         console.log(`Processing restaurant order payment for table ${session.metadata.table_id}`);
+        console.log('Session metadata:', session.metadata);
         
         // Generate order number
         const { data: orderNumber, error: orderNumberError } = await supabase.rpc('generate_order_number');
@@ -90,11 +91,33 @@ async function handleEvent(event: Stripe.Event) {
         }
         
         // Parse metadata
-        const loyaltyUserIds = session.metadata.loyalty_user_ids ? 
-          JSON.parse(session.metadata.loyalty_user_ids) : null;
+        let loyaltyUserIds = null;
+        try {
+          if (session.metadata.loyalty_user_ids) {
+            loyaltyUserIds = JSON.parse(session.metadata.loyalty_user_ids);
+            console.log('Parsed loyalty user IDs:', loyaltyUserIds);
+          }
+        } catch (e) {
+          console.error('Error parsing loyalty_user_ids:', e);
+          // Continue with null loyaltyUserIds
+        }
+        
         const discountApplied = session.metadata.discount_applied === 'true';
         const triggeringUserId = session.metadata.triggering_user_id || null;
         const discountAmount = parseFloat(session.metadata.discount_amount || '0');
+        
+        console.log('Creating order with data:', {
+          restaurant_id: session.metadata.restaurant_id,
+          session_id: session.metadata.session_id,
+          order_number: orderNumber,
+          loyalty_user_ids: loyaltyUserIds,
+          subtotal_sgd: session.amount_subtotal ? session.amount_subtotal / 100 : 0,
+          discount_sgd: discountAmount,
+          total_sgd: session.amount_total ? session.amount_total / 100 : 0,
+          discount_applied: discountApplied,
+          triggering_user_id: triggeringUserId,
+          status: 'confirmed'
+        });
         
         // Create the order now that payment is confirmed
         const { data: orderData, error: orderError } = await supabase
@@ -120,8 +143,38 @@ async function handleEvent(event: Stripe.Event) {
           throw orderError;
         }
         
+        console.log('Order created successfully:', orderData);
+        
         // Create order items from line items
-        if (session.line_items) {
+        if (session.metadata.cart_items) {
+          try {
+            const cartItems = JSON.parse(session.metadata.cart_items);
+            console.log('Parsed cart items:', cartItems);
+            
+            // Map cart items to order items
+            const orderItems = cartItems.map(item => ({
+              order_id: orderData.id,
+              menu_item_id: item.menu_item.id,
+              quantity: item.quantity,
+              unit_price_sgd: item.menu_item.price_sgd,
+              total_price_sgd: item.menu_item.price_sgd * item.quantity,
+              special_instructions: item.special_instructions || null
+            }));
+            
+            // Insert order items
+            const { error: itemsError } = await supabase
+              .from('order_items')
+              .insert(orderItems);
+              
+            if (itemsError) {
+              console.error('Error creating order items from cart:', itemsError);
+            } else {
+              console.log('Order items created successfully from cart');
+            }
+          } catch (e) {
+            console.error('Error processing cart items:', e);
+          }
+        } else if (session.line_items) {
           // Fetch line items from Stripe
           const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
           
@@ -144,7 +197,11 @@ async function handleEvent(event: Stripe.Event) {
             if (itemsError) {
               console.error('Error creating order items:', itemsError);
             }
+          } else {
+            console.log('No line items found in Stripe session');
           }
+        } else {
+          console.log('No cart items or line items found for order');
         }
         
         console.log(`Successfully created order for table ${session.metadata.table_id}, session ${session.metadata.session_id}`);
@@ -159,6 +216,8 @@ async function handleEvent(event: Stripe.Event) {
         }
         
         return;
+      } else {
+        console.log('Not a restaurant order payment - missing table_id or session_id in metadata');
       } catch (error) {
         console.error('Error processing restaurant order payment:', error);
         return;

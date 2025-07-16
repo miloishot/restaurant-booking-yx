@@ -168,6 +168,24 @@ Deno.serve(async (req) => {
 
       console.log('Created line items for checkout');
       
+      // Stringify cart items for metadata
+      const cartItemsString = JSON.stringify(cart_items);
+      console.log('Cart items string length:', cartItemsString.length);
+      
+      // Check if cart items string is too long for metadata
+      const simplifiedCartItems = cart_items.map((item: any) => ({
+        menu_item: {
+          id: item.menu_item.id,
+          name: item.menu_item.name,
+          price_sgd: item.menu_item.price_sgd
+        },
+        quantity: item.quantity,
+        special_instructions: item.special_instructions
+      }));
+      
+      const simplifiedCartItemsString = JSON.stringify(simplifiedCartItems);
+      console.log('Simplified cart items string length:', simplifiedCartItemsString.length);
+      
       // Create checkout session for restaurant order
       const session = await stripe.checkout.sessions.create({
         customer: newCustomer.id,
@@ -192,6 +210,7 @@ Deno.serve(async (req) => {
           discount_applied: requestBody.discount_applied ? 'true' : 'false',
           triggering_user_id: requestBody.triggering_user_id || null,
           discount_amount: requestBody.discount_amount || 0,
+          cart_items: simplifiedCartItemsString.length <= 500 ? simplifiedCartItemsString : null
         },
       });
 

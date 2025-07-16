@@ -57,13 +57,30 @@ export function useStripeCheckout() {
       console.log('Calling Stripe checkout at:', apiUrl);
       console.log('Calling Stripe checkout API:', apiUrl);
       
+      // For cart items, we need to stringify them to include in metadata
+      const requestParams = { ...params };
+      if (params.mode === 'payment' && params.cart_items) {
+        // Create a simplified version of cart items to avoid circular references
+        const simplifiedCartItems = params.cart_items.map(item => ({
+          menu_item: {
+            id: item.menu_item.id,
+            name: item.menu_item.name,
+            price_sgd: item.menu_item.price_sgd
+          },
+          quantity: item.quantity,
+          special_instructions: item.special_instructions
+        }));
+        
+        requestParams.cart_items = simplifiedCartItems;
+      }
+      
       const response = await fetch(apiUrl, {
         method: 'POST', 
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(params),
+        body: JSON.stringify(requestParams),
       });
 
       console.log('Response status:', response.status);
