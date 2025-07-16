@@ -580,20 +580,22 @@ export function RestaurantDashboard() {
               Loyalty
             </button>
             <button
-              onClick={() => setActiveTab('setup')}
+              onClick={() => {
+                setActiveTab('setup');
+                if (employeeProfile?.role === 'owner') {
+                  setShowPinPrompt(true);
+                }
+              }}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'setup'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               } ${
                 employeeProfile?.role !== 'owner'
-                  ? 'opacity-50 cursor-not-allowed' 
+                  ? 'opacity-50 cursor-not-allowed'
                   : ''
               }`}
               disabled={employeeProfile?.role !== 'owner'}
-              onClick={() => {
-                employeeProfile?.role === 'owner' && setShowPinPrompt(true);
-              }}
             >
               <Building className="w-4 h-4 inline mr-1" />
               Setup
