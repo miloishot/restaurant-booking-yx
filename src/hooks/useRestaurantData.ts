@@ -64,7 +64,7 @@ export function useRestaurantData(restaurantSlug?: string) {
         // If we have an employee profile with a restaurant_id, use that
         if (employeeProfile?.restaurant_id) {
           console.log('Using restaurant_id from employee profile:', employeeProfile.restaurant_id);
-          restaurantQuery = restaurantQuery.eq('id', employeeProfile.restaurant_id);
+          restaurantQuery = restaurantQuery.eq('employee_id', employeeProfile.restaurant_id);
           isRestaurantQueryFiltered = true;
         } else {
           console.log('No employee profile with restaurant_id, checking if user is restaurant owner');
