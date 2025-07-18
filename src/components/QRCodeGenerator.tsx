@@ -497,58 +497,69 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
           Refresh
         </button>
       </div>
-
-      {/* Printer Role Management */}
+      
       {printerConfigs.length > 0 && (
-        <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-300">
-          <h3 className="font-semibold text-yellow-800 mb-4">Assign Printer Roles</h3>
-          <div className="space-y-3">
-            {printerConfigs.map((printer) => (
-              <div key={printer.id} className="flex items-center justify-between py-2">
-                <span className="font-medium">{printer.printer_name}</span>
-                <select
-                  value={editedJobs[printer.id] ?? (printer.print_job_type ?? '')}
-                  onChange={e =>
-                    setEditedJobs(jobs => ({
-                      ...jobs,
-                      [printer.id]: e.target.value
-                    }))
+        <div className="mb-6 bg-yellow-50 rounded-lg border border-yellow-300">
+          {/* Toggle Button */}
+          <button
+            className="w-full flex items-center justify-between px-4 py-3 font-semibold text-yellow-800 bg-yellow-100 rounded-t-lg focus:outline-none"
+            onClick={() => setShowPrinterRoleDropdown(show => !show)}
+          >
+            <span>Assign Printer Roles</span>
+            <span className={`transform transition-transform ${showPrinterRoleDropdown ? 'rotate-90' : ''}`}>
+              ▶
+            </span>
+          </button>
+      
+          {/* Dropdown Content */}
+          {showPrinterRoleDropdown && (
+            <div className="p-4 space-y-3">
+              {printerConfigs.map((printer) => (
+                <div key={printer.id} className="flex items-center justify-between py-2">
+                  <span className="font-medium">{printer.printer_name}</span>
+                  <select
+                    value={editedJobs[printer.id] ?? (printer.print_job_type ?? '')}
+                    onChange={e =>
+                      setEditedJobs(jobs => ({
+                        ...jobs,
+                        [printer.id]: e.target.value
+                      }))
+                    }
+                    className="border border-gray-300 rounded px-2 py-1"
+                  >
+                    <option value="">[No Role]</option>
+                    <option value="QR">QR</option>
+                    <option value="BILL">BILL</option>
+                  </select>
+                </div>
+              ))}
+              <button
+                className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+                onClick={async () => {
+                  setSavingJobs(true);
+                  try {
+                    for (const [printerId, role] of Object.entries(editedJobs)) {
+                      await supabase
+                        .from('printer_configs')
+                        .update({ print_job_type: role || null })
+                        .eq('id', printerId);
+                    }
+                    await fetchPrinterConfigs();
+                    setEditedJobs({});
+                  } catch (err) {
+                    alert("Failed to save printer roles.");
+                  } finally {
+                    setSavingJobs(false);
                   }
-                  className="border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="">[No Role]</option>
-                  <option value="QR">QR</option>
-                  <option value="BILL">BILL</option>
-                </select>
-              </div>
-            ))}
-            <button
-              className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
-              onClick={async () => {
-                setSavingJobs(true);
-                try {
-                  for (const [printerId, role] of Object.entries(editedJobs)) {
-                    await supabase
-                      .from('printer_configs')
-                      .update({ print_job_type: role || null })
-                      .eq('id', printerId);
-                  }
-                  await fetchPrinterConfigs();
-                  setEditedJobs({});
-                } catch (err) {
-                  alert("Failed to save printer roles.");
-                } finally {
-                  setSavingJobs(false);
-                }
-              }}
-              disabled={savingJobs || Object.keys(editedJobs).length === 0}
-            >
-              {savingJobs ? "Saving..." : "Save Printer Roles"}
-            </button>
-          </div>
+                }}
+                disabled={savingJobs || Object.keys(editedJobs).length === 0}
+              >
+                {savingJobs ? "Saving..." : "Save Printer Roles"}
+              </button>
+            </div>
+          )}
         </div>
       )}
-
 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
