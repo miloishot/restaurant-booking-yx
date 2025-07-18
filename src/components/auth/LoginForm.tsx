@@ -43,7 +43,7 @@ export function LoginForm({ onSuccess, onSwitchToSignup }: LoginFormProps) {
       const { data: employee, error: employeeError } = await supabase
         .from('employees')
         .select('employee_id, restaurant_id, role, name, is_active')
-        .eq('id', data.user.id)
+        .eq('employee_id', data.user.id)
         .maybeSingle();
 
       if (employeeError) {
