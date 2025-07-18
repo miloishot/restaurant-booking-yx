@@ -488,7 +488,7 @@ export function RestaurantDashboard() {
               }`}
             >
               <Clock className="w-4 h-4 inline mr-1" />
-              Staff Time
+              Staff
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
