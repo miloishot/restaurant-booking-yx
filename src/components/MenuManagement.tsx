@@ -24,7 +24,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
   const [itemSearch, setItemSearch] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [isMenuOpen, setIsMenuOpen] = useState(true); // Collapsible dropdown state
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // Collapsible dropdown state
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
