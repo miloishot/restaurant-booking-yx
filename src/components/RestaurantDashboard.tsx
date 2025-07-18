@@ -429,6 +429,16 @@ export function RestaurantDashboard() {
               Orders ({newOrderCount})
             </button>
             <button
+              onClick={() => setActiveTab('tables')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'tables'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Table Management
+            </button>
+            <button
               onClick={() => setActiveTab('menu')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'menu'
@@ -438,7 +448,17 @@ export function RestaurantDashboard() {
             >
               Menu & QR Codes
             </button>
-
+            {/* <button
+              onClick={() => setActiveTab('loyalty')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'loyalty'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Crown className="w-4 h-4 inline mr-1" />
+              Loyalty
+            </button> */}
             <button
               onClick={() => {
                 if (employeeProfile?.role === 'owner') {
@@ -503,16 +523,6 @@ export function RestaurantDashboard() {
             >
               <BarChart3 className="w-4 h-4 inline mr-1" />
               Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab('tables')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'tables'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Table Management
             </button>
             <button
               onClick={() => setActiveTab('hours')}
