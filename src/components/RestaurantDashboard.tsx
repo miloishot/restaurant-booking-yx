@@ -15,7 +15,7 @@ import { LoyaltyManagement } from './LoyaltyManagement';
 import { RestaurantSetup } from './RestaurantSetup';
 import { StaffTimeTracking } from './StaffTimeTracking';
 import { RestaurantTable } from '../types/database';
-import { Settings, Users, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, Crown, Lock, ChevronLeft } from 'lucide-react';
+import { Settings, Users, Clock, RefreshCw, Building, AlertCircle, BarChart3, ChefHat, Crown, Lock, ChevronLeft, Menu as MenuIcon, X as CloseIcon } from 'lucide-react';
 import { StaffManagement } from './StaffManagement';
 
 export function RestaurantDashboard() {
@@ -49,6 +49,9 @@ export function RestaurantDashboard() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
   const [ownerPin, setOwnerPin] = useState<string | null>(null);
+
+  // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Fetch owner PIN from database
   useEffect(() => {
@@ -298,313 +301,271 @@ export function RestaurantDashboard() {
     );
   }
 
+  // Sidebar navigation items
+  const navItems = [
+    { label: `Bookings (${activeBookings.length})`, tab: 'bookings', icon: Users, show: true },
+    { label: `Orders (${newOrderCount})`, tab: 'orders', icon: ChefHat, show: true },
+    { label: 'Table Management', tab: 'tables', icon: Users, show: true },
+    { label: 'Menu & QR Codes', tab: 'menu', icon: ChefHat, show: true },
+    // { label: 'Loyalty', tab: 'loyalty', icon: Crown, show: true },
+    { label: 'Setup', tab: 'setup', icon: Building, show: true, ownerOnly: true },
+    { label: 'Staff', tab: 'staff', icon: Clock, show: true },
+    { label: 'Analytics', tab: 'analytics', icon: BarChart3, show: true, staffNot: true },
+    { label: 'Operating Hours', tab: 'hours', icon: Settings, show: true },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" key={restaurant?.id || 'no-restaurant'}>
-          <div className="flex justify-between items-center h-16">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">{restaurant?.name || 'Loading...'}</h1>
-              <p className="text-sm text-gray-600">Restaurant Management Dashboard</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={handleManualRefresh}
-                disabled={refreshing}
-                className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-              <span className="text-sm text-gray-600">{new Date().toLocaleDateString()}</span>
-              <Settings className="w-5 h-5 text-gray-400" />
-            </div>
-          </div>
+    <div className="bg-gray-50 min-h-screen flex">
+      {/* Sidebar! */}
+      <aside
+        className={`
+          fixed z-40 inset-y-0 left-0 w-64 bg-white border-r flex flex-col transition-transform
+          transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0 md:static md:inset-0
+        `}
+        style={{ transitionProperty: 'transform' }}
+      >
+        <div className="flex items-center h-16 px-6 border-b">
+          <span className="font-bold text-xl text-blue-600">{restaurant?.name}</span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="ml-auto md:hidden p-2 text-gray-500 hover:text-blue-600"
+          >
+            <CloseIcon className="w-6 h-6" />
+          </button>
         </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <Users className="w-6 h-6 text-blue-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Total Tables</p>
-                <p className="text-xl font-bold text-gray-900">{stats.totalTables}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-600 font-bold text-sm">✓</span>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Available</p>
-                <p className="text-xl font-bold text-green-600">{stats.availableTables}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
-                <span className="text-red-600 font-bold text-sm">●</span>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Occupied</p>
-                <p className="text-xl font-bold text-red-600">{stats.occupiedTables}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <Clock className="w-6 h-6 text-yellow-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Pending</p>
-                <p className="text-xl font-bold text-yellow-600">{stats.pendingBookings}</p>
-              </div>
-            </div>
-          </div>
-        
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                <AlertCircle className="w-4 h-4 text-purple-600" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">Waiting</p>
-                <p className="text-xl font-bold text-purple-600">{stats.waitingCustomers}</p>
-              </div>
-            </div>
-          </div>
-        
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
-                <span className="text-indigo-600 font-bold text-sm">W</span>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600">From Waitlist</p>
-                <p className="text-xl font-bold text-indigo-600">{stats.waitlistBookings}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* Navigation Tabs */}
-        <div className="mb-6">
-          <nav className="flex space-x-8">
+        <nav className="flex-1 flex flex-col py-4 px-2 space-y-2">
+          {navItems.filter(item => !item.ownerOnly || employeeProfile?.role === 'owner')
+                   .filter(item => !item.staffNot || employeeProfile?.role !== 'staff')
+                   .map(({ label, tab, icon: Icon, ...rest }) => (
             <button
-              onClick={() => setActiveTab('bookings')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'bookings'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Bookings ({activeBookings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'orders'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <ChefHat className="w-4 h-4 inline mr-1" />
-              Orders ({newOrderCount})
-            </button>
-            <button
-              onClick={() => setActiveTab('tables')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'tables'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Table Management
-            </button>
-            <button
-              onClick={() => setActiveTab('menu')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'menu'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Menu & QR Codes
-            </button>
-            {/* <button
-              onClick={() => setActiveTab('loyalty')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'loyalty'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Crown className="w-4 h-4 inline mr-1" />
-              Loyalty
-            </button> */}
-            <button
+              key={tab}
               onClick={() => {
-                if (employeeProfile?.role === 'owner') {
-                  setShowPinPrompt(true);
+                if (tab === 'setup') {
+                  if (employeeProfile?.role === 'owner') setShowPinPrompt(true);
+                  return;
                 }
+                setActiveTab(tab);
+                setSidebarOpen(false); // close sidebar on mobile
               }}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'setup'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${
-                employeeProfile?.role !== 'owner'
-                  ? 'opacity-50 cursor-not-allowed'
-                  : ''
-              }`}
-              disabled={employeeProfile?.role !== 'owner'}
+              className={`flex items-center px-4 py-2 rounded-lg text-left font-medium text-sm transition 
+                ${activeTab === tab 
+                  ? 'bg-blue-50 text-blue-700 font-semibold'
+                  : 'text-gray-700 hover:bg-gray-100'} 
+                ${rest.ownerOnly && employeeProfile?.role !== 'owner' ? 'opacity-50 cursor-not-allowed' : ''}
+                ${rest.staffNot && employeeProfile?.role === 'staff' ? 'opacity-50 cursor-not-allowed' : ''}
+              `}
+              disabled={rest.ownerOnly && employeeProfile?.role !== 'owner'}
             >
-              <Building className="w-4 h-4 inline mr-1" />
-              Setup
+              <Icon className="w-5 h-5 mr-3" />
+              {label}
             </button>
-            <button
-              onClick={() => setActiveTab('staff')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'staff'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Clock className="w-4 h-4 inline mr-1" />
-              Staff
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'analytics'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } ${
-                employeeProfile?.role === 'staff'
-                  ? 'opacity-50 cursor-not-allowed'
-                  : ''
-              }`}
-              disabled={employeeProfile?.role === 'staff'}
-            >
-              <BarChart3 className="w-4 h-4 inline mr-1" />
-              Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab('hours')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'hours'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Operating Hours
-            </button>
-          </nav>
+          ))}
+        </nav>
+        <div className="px-4 pb-4 mt-auto">
+          <span className="text-xs text-gray-400">{new Date().toLocaleDateString()}</span>
         </div>
+      </aside>
 
-        {/* Content for each tab */}
-        {activeTab === 'bookings' && (
-          <BookingList bookings={activeBookings} tables={tables} onUpdateBooking={handleBookingStatusUpdate} onAssignTable={handleTableAssignment} />
-        )}
-        {activeTab === 'waiting' && (
-          <WaitingListManager waitingList={waitingList} onPromoteCustomer={handlePromoteFromWaitingList} onCancelWaiting={handleCancelWaiting} />
-        )}
-        {activeTab === 'orders' && (
-          <StaffOrderManagement restaurant={restaurant} onOrderCountChange={setNewOrderCount} />
-        )}
-        {activeTab === 'menu' && (
-          <div className="space-y-6">
-            {employeeProfile?.role === 'staff' ? (
-              <div className="bg-white rounded-lg shadow-md p-6 text-center">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <ChefHat className="w-8 h-8 text-red-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
-                <p className="text-gray-600">
-                  Only restaurant owners and managers can access menu management and QR code settings.
-                </p>
-              </div>
-            ) : (
-              <>
-                <MenuManagement restaurant={restaurant} />
-                <QRCodeGenerator restaurant={restaurant} tables={tables} />
-              </>
-            )}
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black bg-opacity-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        <header className="bg-white shadow-sm border-b h-16 flex items-center pl-4 pr-8">
+          {/* Hamburger */}
+          <button
+            className="md:hidden p-2 mr-4"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <MenuIcon className="w-6 h-6 text-gray-500" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{restaurant?.name || 'Loading...'}</h1>
+            <p className="text-sm text-gray-600">Restaurant Management Dashboard</p>
           </div>
-        )}
-        {activeTab === 'loyalty' && (
-          <>
-            {employeeProfile?.role === 'staff' ? (
-              <div className="bg-white rounded-lg shadow-md p-6 text-center">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Crown className="w-8 h-8 text-red-600" />
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <Settings className="w-5 h-5 text-gray-400" />
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-x-auto py-8 px-2 md:px-8">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8">
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center">
+                <Users className="w-6 h-6 text-blue-600" />
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-600">Total Tables</p>
+                  <p className="text-xl font-bold text-gray-900">{stats.totalTables}</p>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-green-600 font-bold text-sm">✓</span>
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-600">Available</p>
+                  <p className="text-xl font-bold text-green-600">{stats.availableTables}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                  <span className="text-red-600 font-bold text-sm">●</span>
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-600">Occupied</p>
+                  <p className="text-xl font-bold text-red-600">{stats.occupiedTables}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center">
+                <Clock className="w-6 h-6 text-yellow-600" />
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-600">Pending</p>
+                  <p className="text-xl font-bold text-yellow-600">{stats.pendingBookings}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-600">Waiting</p>
+                  <p className="text-xl font-bold text-purple-600">{stats.waitingCustomers}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center">
+                <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <span className="text-indigo-600 font-bold text-sm">W</span>
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-gray-600">From Waitlist</p>
+                  <p className="text-xl font-bold text-indigo-600">{stats.waitlistBookings}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'bookings' && (
+            <BookingList bookings={activeBookings} tables={tables} onUpdateBooking={handleBookingStatusUpdate} onAssignTable={handleTableAssignment} />
+          )}
+          {activeTab === 'waiting' && (
+            <WaitingListManager waitingList={waitingList} onPromoteCustomer={handlePromoteFromWaitingList} onCancelWaiting={handleCancelWaiting} />
+          )}
+          {activeTab === 'orders' && (
+            <StaffOrderManagement restaurant={restaurant} onOrderCountChange={setNewOrderCount} />
+          )}
+          {activeTab === 'menu' && (
+            <div className="space-y-6">
+              {employeeProfile?.role === 'staff' ? (
+                <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ChefHat className="w-8 h-8 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+                  <p className="text-gray-600">
+                    Only restaurant owners and managers can access menu management and QR code settings.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <MenuManagement restaurant={restaurant} />
+                  <QRCodeGenerator restaurant={restaurant} tables={tables} />
+                </>
+              )}
+            </div>
+          )}
+          {activeTab === 'loyalty' && (
+            <>
+              {employeeProfile?.role === 'staff' ? (
+                <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Crown className="w-8 h-8 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
+                  <p className="text-gray-600">
+                    Only restaurant owners and managers can access loyalty program settings and discount codes.
+                  </p>
+                </div>
+              ) : (
+                <LoyaltyManagement restaurant={restaurant} />
+              )}
+            </>
+          )}
+          {activeTab === 'setup' && employeeProfile?.role === 'owner' && (
+            <RestaurantSetup />
+          )}
+          {activeTab === 'staff' && (
+            <StaffTimeTracking restaurant={restaurant} />
+          )}
+          {activeTab === 'staffManagement' && (
+            <StaffManagement restaurant={restaurant} />
+          )}
+          {activeTab === 'analytics' && (
+            <BookingAnalytics restaurant={restaurant} />
+          )}
+          {activeTab === 'tables' && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">Table Layout, Walk-In Management & QR Ordering</h2>
                 <p className="text-gray-600">
-                  Only restaurant owners and managers can access loyalty program settings and discount codes.
+                  Click "Mark Occupied" on available tables to instantly log walk-ins and enable QR ordering. View active orders and manage table sessions.
                 </p>
               </div>
-            ) : (
-              <LoyaltyManagement restaurant={restaurant} />
-            )}
-          </>
-        )}
-        {activeTab === 'setup' && employeeProfile?.role === 'owner' && (
-          <RestaurantSetup />
-        )}
-        {activeTab === 'staff' && (
-          <StaffTimeTracking restaurant={restaurant} />
-        )}
-        {activeTab === 'staffManagement' && (
-          <StaffManagement restaurant={restaurant} />
-        )}
-        {activeTab === 'analytics' && (
-          <BookingAnalytics restaurant={restaurant} />
-        )}
-        {activeTab === 'tables' && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">Table Layout, Walk-In Management & QR Ordering</h2>
-              <p className="text-gray-600">
-                Click "Mark Occupied" on available tables to instantly log walk-ins and enable QR ordering. View active orders and manage table sessions.
-              </p>
+              <TableGridWithOrders
+                restaurant={restaurant}
+                tables={tables}
+                bookings={bookings}
+                onMarkOccupied={table => handleTableStatusToggle(table, 'occupied')}
+                onMarkAvailable={table => handleTableStatusToggle(table, 'available')}
+                onMarkPaid={handleMarkPaid}
+                showOccupiedButton={true}
+              />
+              <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <h4 className="font-semibold text-orange-800 mb-2">Walk-In Management & QR Ordering</h4>
+                <ul className="text-sm text-orange-700 space-y-1">
+                  <li>• Click "Mark Occupied" on available tables for walk-in customers</li>
+                  <li>• QR ordering is automatically enabled for occupied tables</li>
+                  <li>• View real-time order information directly on table cards</li>
+                  <li>• Click QR icon or "Details" to access ordering interface</li>
+                  <li>• Tables are excluded from auto-assignment when occupied</li>
+                  <li>• Use "Complete" action in bookings to free up tables when customers leave</li>
+                </ul>
+              </div>
             </div>
-            <TableGridWithOrders
+          )}
+          {activeTab === 'hours' && (
+            <OperatingHoursManager
               restaurant={restaurant}
-              tables={tables}
-              bookings={bookings}
-              onMarkOccupied={table => handleTableStatusToggle(table, 'occupied')}
-              onMarkAvailable={table => handleTableStatusToggle(table, 'available')}
-              onMarkPaid={handleMarkPaid}
-              showOccupiedButton={true}
+              operatingHours={operatingHours}
+              onUpdate={refetch}
             />
-            <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-              <h4 className="font-semibold text-orange-800 mb-2">Walk-In Management & QR Ordering</h4>
-              <ul className="text-sm text-orange-700 space-y-1">
-                <li>• Click "Mark Occupied" on available tables for walk-in customers</li>
-                <li>• QR ordering is automatically enabled for occupied tables</li>
-                <li>• View real-time order information directly on table cards</li>
-                <li>• Click QR icon or "Details" to access ordering interface</li>
-                <li>• Tables are excluded from auto-assignment when occupied</li>
-                <li>• Use "Complete" action in bookings to free up tables when customers leave</li>
-              </ul>
-            </div>
-          </div>
-        )}
-        {activeTab === 'hours' && (
-          <OperatingHoursManager
-            restaurant={restaurant}
-            operatingHours={operatingHours}
-            onUpdate={refetch}
-          />
-        )}
+          )}
+        </main>
       </div>
 
       {/* PIN Prompt Modal */}
@@ -717,6 +678,7 @@ export function RestaurantDashboard() {
           }}
         />
       )}
+
     </div>
   );
 }
