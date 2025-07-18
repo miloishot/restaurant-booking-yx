@@ -497,21 +497,35 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
           Refresh
         </button>
       </div>
-      
+
+
       {printerConfigs.length > 0 && (
         <div className="mb-6 bg-yellow-50 rounded-lg border border-yellow-300">
-          {/* Toggle Button */}
           <button
             className="w-full flex items-center justify-between px-4 py-3 font-semibold text-yellow-800 bg-yellow-100 rounded-t-lg focus:outline-none"
             onClick={() => setShowPrinterRoleDropdown(show => !show)}
+            aria-expanded={showPrinterRoleDropdown}
           >
             <span>Assign Printer Roles</span>
-            <span className={`transform transition-transform ${showPrinterRoleDropdown ? 'rotate-90' : ''}`}>
-              ▶
+            <span
+              className={`transform transition-transform duration-200 ${showPrinterRoleDropdown ? 'rotate-90' : ''}`}
+              aria-hidden="true"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-yellow-800"
+              >
+                <polyline points="6 8 10 12 14 8" />
+              </svg>
             </span>
           </button>
-      
-          {/* Dropdown Content */}
           {showPrinterRoleDropdown && (
             <div className="p-4 space-y-3">
               {printerConfigs.map((printer) => (
