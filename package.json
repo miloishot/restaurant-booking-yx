@@ -12,6 +12,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.4",
     "@supabase/supabase-js": "^2.50.3",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
