@@ -326,9 +326,74 @@ export function RestaurantDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-8">
-          {/* ...stat cards as in your full code, unchanged... */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <Users className="w-6 h-6 text-blue-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Total Tables</p>
+                <p className="text-xl font-bold text-gray-900">{stats.totalTables}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 font-bold text-sm">✓</span>
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Available</p>
+                <p className="text-xl font-bold text-green-600">{stats.availableTables}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
+                <span className="text-red-600 font-bold text-sm">●</span>
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Occupied</p>
+                <p className="text-xl font-bold text-red-600">{stats.occupiedTables}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <Clock className="w-6 h-6 text-yellow-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Pending</p>
+                <p className="text-xl font-bold text-yellow-600">{stats.pendingBookings}</p>
+              </div>
+            </div>
+          </div>
+        
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-4 h-4 text-purple-600" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">Waiting</p>
+                <p className="text-xl font-bold text-purple-600">{stats.waitingCustomers}</p>
+              </div>
+            </div>
+          </div>
+        
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center">
+              <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
+                <span className="text-indigo-600 font-bold text-sm">W</span>
+              </div>
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-600">From Waitlist</p>
+                <p className="text-xl font-bold text-indigo-600">{stats.waitlistBookings}</p>
+              </div>
+            </div>
+          </div>
         </div>
-
         {/* Navigation Tabs */}
         <div className="mb-6">
           <nav className="flex space-x-8">
