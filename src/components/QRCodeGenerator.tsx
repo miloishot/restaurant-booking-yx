@@ -541,7 +541,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                     }
                     className="border border-gray-300 rounded px-2 py-1"
                   >
-                    <option value="">[No Role]</option>
+                    <option value="">None</option>
                     <option value="QR">QR</option>
                     <option value="BILL">BILL</option>
                   </select>
