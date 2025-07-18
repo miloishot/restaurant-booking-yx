@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, MenuCategory, MenuItem } from '../types/database';
 import { Plus, Edit2, Trash2, Save, X, Upload, Eye, EyeOff, ChefHat, Tag, DollarSign, CreditCard, RefreshCw } from 'lucide-react';
 
+// --- INTERFACE ---
 interface MenuManagementProps {
   restaurant: Restaurant;
 }
 
+// --- COMPONENT ---
 export function MenuManagement({ restaurant }: MenuManagementProps) {
   const { employeeProfile } = useAuth();
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -19,6 +21,10 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [syncingMenu, setSyncingMenu] = useState(false);
+
+  // NEW STATE: Search
+  const [itemSearch, setItemSearch] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
@@ -44,17 +50,24 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
     fetchMenuData();
   }, [restaurant.id]);
 
+  useEffect(() => {
+    // Autofocus the search bar on tab switch
+    if (activeTab === 'items' && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [activeTab]);
+
   const fetchMenuData = async () => {
     try {
       setLoading(true);
-      
+
       const [categoriesResult, itemsResult] = await Promise.all([
         supabase
           .from('menu_categories')
           .select('*')
           .eq('restaurant_id', restaurant.id)
           .order('display_order'),
-        
+
         supabase
           .from('menu_items')
           .select(`
@@ -84,7 +97,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
     }`;
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
       if (document.body.contains(notification)) {
         document.body.removeChild(notification);
@@ -94,7 +107,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       if (editingCategory) {
         const { error } = await supabase
@@ -133,7 +146,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
 
   const handleItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       if (editingItem) {
         const { error } = await supabase
@@ -182,25 +195,25 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
 
   const handleSyncMenuToStripe = async () => {
     if (!restaurant.id) return;
-    
+
     try {
       setSyncingMenu(true);
-      
+
       // Get Supabase URL
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) {
         throw new Error('Supabase URL not configured. Please check your environment variables.');
       }
-      
+
       // Get current session for authorization
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('You must be logged in to sync menu items to Stripe');
       }
-      
+
       // Count of successfully synced items
       let syncedCount = 0;
-      
+
       // Process each menu item
       for (const item of menuItems) {
         try {
@@ -220,23 +233,23 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
               stripe_price_id: item.stripe_price_id
             }),
           });
-          
+
           if (!response.ok) {
             const errorText = await response.text();
             console.error(`Failed to sync menu item ${item.name}:`, errorText);
             continue;
           }
-          
+
           syncedCount++;
         } catch (itemError) {
           console.error(`Error syncing menu item ${item.name}:`, itemError);
           // Continue with next item
         }
       }
-      
+
       // Refresh menu data to get updated Stripe IDs
       await fetchMenuData();
-      
+
       showNotification(`Successfully synced ${syncedCount} of ${menuItems.length} menu items to Stripe`);
     } catch (error) {
       console.error('Error syncing menu to Stripe:', error);
@@ -254,7 +267,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
         .eq('id', item.id);
 
       if (error) throw error;
-      
+
       showNotification(`${item.name} ${!item.is_available ? 'enabled' : 'disabled'}`);
       fetchMenuData();
     } catch (error) {
@@ -275,7 +288,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
         .eq('id', category.id);
 
       if (error) throw error;
-      
+
       showNotification('Category deleted successfully!');
       fetchMenuData();
     } catch (error) {
@@ -296,7 +309,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
         .eq('id', item.id);
 
       if (error) throw error;
-      
+
       showNotification('Menu item deleted successfully!');
       fetchMenuData();
     } catch (error) {
@@ -332,10 +345,10 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
     // In production, you would upload to your preferred storage service
     const formData = new FormData();
     formData.append('file', file);
-    
+
     // Simulate upload delay
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     // Return a placeholder URL (in production, return the actual uploaded URL)
     return `https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop&crop=center`;
   };
@@ -388,6 +401,13 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
 
   const formatPrice = (price: number) => `S$${price.toFixed(2)}`;
 
+  // --- SEARCH LOGIC ---
+  const filteredMenuItems = menuItems.filter(item =>
+    item.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
+    (item.description && item.description.toLowerCase().includes(itemSearch.toLowerCase()))
+  );
+
+  // --- RENDER ---
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -401,7 +421,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
       </div>
     );
   }
-  
+
   if (!canManageMenu) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -418,7 +438,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0">
         <div>
           <h2 className="text-xl font-semibold text-gray-800 flex items-center">
             <ChefHat className="w-5 h-5 mr-2" />
@@ -426,12 +446,12 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
           </h2>
           <p className="text-gray-600">Manage your restaurant's menu categories and items</p>
         </div>
-        
         {canManageMenu && (
           <button
             onClick={handleSyncMenuToStripe}
             disabled={syncingMenu || menuItems.length === 0}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50 mr-4"
+            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50"
+            title="Sync menu items to Stripe"
           >
             {syncingMenu ? (
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -443,8 +463,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
         )}
       </div>
 
-      {/* Tab Navigation */}
-      <div className="mb-6">
+      <div className="bg-gray-50 px-4 py-2 rounded-md mb-6 sticky top-0 z-10">
         <nav className="flex space-x-8">
           <button
             onClick={() => setActiveTab('categories')}
@@ -498,12 +517,14 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                       <button
                         onClick={() => editCategory(category)}
                         className="text-blue-600 hover:text-blue-800"
+                        title="Edit category"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => deleteCategory(category)}
                         className="text-red-600 hover:text-red-800"
+                        title="Delete category"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -526,42 +547,56 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
       {/* Menu Items Tab */}
       {activeTab === 'items' && (
         <div>
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-2 md:space-y-0">
             <h3 className="text-lg font-medium">Menu Items</h3>
-            <button
-              onClick={() => setShowItemForm(true)}
-              disabled={categories.length === 0}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Menu Item
-            </button>
+            <div className="flex items-center space-x-3">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={itemSearch}
+                onChange={e => setItemSearch(e.target.value)}
+                placeholder="Search menu items…"
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                aria-label="Search menu items"
+              />
+              <button
+                onClick={() => setShowItemForm(true)}
+                disabled={categories.length === 0}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Menu Item
+              </button>
+            </div>
           </div>
 
           {categories.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-600">Create categories first before adding menu items.</p>
             </div>
-          ) : menuItems.length === 0 ? (
+          ) : filteredMenuItems.length === 0 ? (
             <div className="text-center py-8">
               <ChefHat className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No menu items yet. Add your first dish to get started.</p>
+              <p className="text-gray-600">No menu items found{itemSearch ? ` for "${itemSearch}"` : ''}.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {categories.map((category) => {
-                const categoryItems = menuItems.filter(item => item.category_id === category.id);
+                const categoryItems = filteredMenuItems.filter(item => item.category_id === category.id);
                 if (categoryItems.length === 0) return null;
 
                 return (
                   <div key={category.id} className="border border-gray-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-gray-800 mb-3">{category.name}</h4>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-semibold text-gray-800 mb-0">{category.name}</h4>
+                      <span className="text-xs text-gray-400">{categoryItems.length} item{categoryItems.length > 1 ? "s" : ""}</span>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categoryItems.map((item) => (
                         <div key={item.id} className="border border-gray-100 rounded p-3">
                           <div className="flex justify-between items-start mb-2">
-                            <div className="flex-1">
-                              <h5 className="font-medium text-gray-800">{item.name}</h5>
+                            <div className="flex-1 min-w-0">
+                              <h5 className="font-medium text-gray-800 truncate">{item.name}</h5>
                               <p className="text-lg font-bold text-green-600">{formatPrice(item.price_sgd)}</p>
                             </div>
                             <div className="flex items-center space-x-1">
@@ -577,19 +612,21 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                               <button
                                 onClick={() => editItem(item)}
                                 className="text-blue-600 hover:text-blue-800"
+                                title="Edit menu item"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => deleteItem(item)}
                                 className="text-red-600 hover:text-red-800"
+                                title="Delete menu item"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
                           {item.description && (
-                            <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">{item.description}</p>
                           )}
                           <div className="flex flex-wrap gap-1">
                             {item.dietary_info?.map((info) => (
@@ -603,6 +640,13 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                               </span>
                             ))}
                           </div>
+                          {item.image_url && (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="mt-2 w-32 h-24 object-cover rounded-lg border border-gray-200"
+                            />
+                          )}
                         </div>
                       ))}
                     </div>
@@ -614,7 +658,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
         </div>
       )}
 
-      {/* Category Form Modal */}
+      {/* Category Form Modal (unchanged from your code) */}
       {showCategoryForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -622,7 +666,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
               <h3 className="text-lg font-semibold mb-4">
                 {editingCategory ? 'Edit Category' : 'Add New Category'}
               </h3>
-              
+
               <form onSubmit={handleCategorySubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -685,7 +729,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
         </div>
       )}
 
-      {/* Menu Item Form Modal */}
+      {/* Menu Item Form Modal (unchanged from your code) */}
       {showItemForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-90vh overflow-y-auto">
@@ -693,7 +737,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
               <h3 className="text-lg font-semibold mb-4">
                 {editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}
               </h3>
-              
+
               <form onSubmit={handleItemSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -763,7 +807,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Product Image
                   </label>
-                  
+
                   {/* Image Preview */}
                   {itemForm.image_url && (
                     <div className="mb-3">
@@ -774,7 +818,7 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                       />
                     </div>
                   )}
-                  
+
                   {/* Upload Options */}
                   <div className="space-y-3">
                     <div>
@@ -795,9 +839,9 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="text-center text-gray-500 text-sm">or</div>
-                    
+
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Image URL
@@ -821,9 +865,9 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                     <input
                       type="text"
                       value={itemForm.dietary_info.join(', ')}
-                      onChange={(e) => setItemForm({ 
-                        ...itemForm, 
-                        dietary_info: e.target.value.split(',').map(s => s.trim()).filter(s => s) 
+                      onChange={(e) => setItemForm({
+                        ...itemForm,
+                        dietary_info: e.target.value.split(',').map(s => s.trim()).filter(s => s)
                       })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="vegetarian, vegan, gluten-free"
@@ -837,9 +881,9 @@ export function MenuManagement({ restaurant }: MenuManagementProps) {
                     <input
                       type="text"
                       value={itemForm.allergens.join(', ')}
-                      onChange={(e) => setItemForm({ 
-                        ...itemForm, 
-                        allergens: e.target.value.split(',').map(s => s.trim()).filter(s => s) 
+                      onChange={(e) => setItemForm({
+                        ...itemForm,
+                        allergens: e.target.value.split(',').map(s => s.trim()).filter(s => s)
                       })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="nuts, dairy, shellfish"
