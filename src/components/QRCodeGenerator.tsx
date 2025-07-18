@@ -448,6 +448,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   };
 
   const canManageQRCodes = employeeProfile?.role === 'owner' || employeeProfile?.role === 'manager';
+  const [showPrinterRoleDropdown, setShowPrinterRoleDropdown] = useState(false);
 
   if (!canManageQRCodes) {
     return (
