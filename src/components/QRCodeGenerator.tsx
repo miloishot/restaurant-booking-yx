@@ -21,7 +21,9 @@ interface PrinterConfig {
   device_id: string;
   printer_id: string;
   is_default: boolean;
+  print_job_type: string | null; // NEW: fetch this column
 }
+
 
 export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const { employeeProfile } = useAuth();
