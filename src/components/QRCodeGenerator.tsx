@@ -44,11 +44,38 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     fetchPrinterConfigs();
   }, [restaurant.id]);
 
+  // const fetchPrinterConfigs = async () => {
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('printer_configs')
+  //       .select('id, printer_name, device_id, printer_id, is_default')
+  //       .eq('restaurant_id', restaurant.id)
+  //       .eq('is_active', true)
+  //       .not('device_id', 'is', null)
+  //       .not('printer_id', 'is', null);
+
+  //     if (error) throw error;
+      
+  //     setPrinterConfigs(data || []);
+      
+  //     // Set default printer if available
+  //     const defaultPrinter = data?.find(p => p.is_default);
+  //     if (defaultPrinter) {
+  //       setSelectedQrPrinter(defaultPrinter.id);
+  //       setSelectedBillPrinter(defaultPrinter.id);
+  //     } else if (data && data.length > 0) {
+  //       setSelectedQrPrinter(data[0].id);
+  //       setSelectedBillPrinter(data[0].id);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching printer configs:', error);
+  //   }
+  // };
   const fetchPrinterConfigs = async () => {
     try {
       const { data, error } = await supabase
         .from('printer_configs')
-        .select('id, printer_name, device_id, printer_id, is_default')
+        .select('id, printer_name, device_id, printer_id, is_default, print_job_type') // Add print_job_type
         .eq('restaurant_id', restaurant.id)
         .eq('is_active', true)
         .not('device_id', 'is', null)
@@ -57,21 +84,13 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
       if (error) throw error;
       
       setPrinterConfigs(data || []);
-      
-      // Set default printer if available
-      const defaultPrinter = data?.find(p => p.is_default);
-      if (defaultPrinter) {
-        setSelectedQrPrinter(defaultPrinter.id);
-        setSelectedBillPrinter(defaultPrinter.id);
-      } else if (data && data.length > 0) {
-        setSelectedQrPrinter(data[0].id);
-        setSelectedBillPrinter(data[0].id);
-      }
+      // Set selected printers based on job type
+      setSelectedQrPrinter(data?.find(p => p.print_job_type === 'QR')?.id ?? null);
+      setSelectedBillPrinter(data?.find(p => p.print_job_type === 'BILL')?.id ?? null);
     } catch (error) {
       console.error('Error fetching printer configs:', error);
     }
   };
-
   const fetchTableSessions = async () => {
     try {
       setLoading(true);
