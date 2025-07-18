@@ -216,9 +216,8 @@ export function RestaurantSetup() {
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const savedPin = localStorage.getItem('setup_pin') || '123456';
-    
-    if (pin === savedPin) {
+  
+    if (pin === ownerPin) {
       setShowPinPrompt(false);
       setPinError(null);
       setPin('');
