@@ -689,7 +689,55 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
           Refresh
         </button>
       </div>
-      
+      {printerConfigs.length > 0 && (
+        <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-300">
+          <h3 className="font-semibold text-yellow-800 mb-4">Assign Printer Roles</h3>
+          <div className="space-y-3">
+            {printerConfigs.map((printer) => (
+              <div key={printer.id} className="flex items-center justify-between py-2">
+                <span className="font-medium">{printer.printer_name}</span>
+                <select
+                  value={editedJobs[printer.id] ?? (printer.print_job_type ?? '')}
+                  onChange={e =>
+                    setEditedJobs(jobs => ({
+                      ...jobs,
+                      [printer.id]: e.target.value
+                    }))
+                  }
+                  className="border border-gray-300 rounded px-2 py-1"
+                >
+                  <option value="">[No Role]</option>
+                  <option value="QR">QR</option>
+                  <option value="BILL">BILL</option>
+                </select>
+              </div>
+            ))}
+            <button
+              className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+              onClick={async () => {
+                setSavingJobs(true);
+                try {
+                  for (const [printerId, role] of Object.entries(editedJobs)) {
+                    await supabase
+                      .from('printer_configs')
+                      .update({ print_job_type: role || null })
+                      .eq('id', printerId);
+                  }
+                  await fetchPrinterConfigs();
+                  setEditedJobs({});
+                } catch (err) {
+                  alert("Failed to save printer roles.");
+                } finally {
+                  setSavingJobs(false);
+                }
+              }}
+              disabled={savingJobs || Object.keys(editedJobs).length === 0}
+            >
+              {savingJobs ? "Saving..." : "Save Printer Roles"}
+            </button>
+          </div>
+        </div>
+      )}
       {/* Printer Selection */}
       {printerConfigs.length > 0 && (
         <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
