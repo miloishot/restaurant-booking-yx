@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { Restaurant, RestaurantTable, OrderSession } from '../types/database';
-import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer, Receipt, CreditCard } from 'lucide-react';
+import { QrCode, Download, ExternalLink, RefreshCw, Copy, Check, Printer, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface QRCodeGeneratorProps {
   restaurant: Restaurant;
@@ -12,7 +12,6 @@ interface QRCodeGeneratorProps {
 interface TableWithSession extends RestaurantTable {
   session?: OrderSession;
   qrCodeUrl?: string;
-  qrCodeHtml?: string;
 }
 
 interface PrinterConfig {
@@ -21,7 +20,7 @@ interface PrinterConfig {
   device_id: string;
   printer_id: string;
   is_default: boolean;
-  print_job_type?: string | null; // for selection
+  print_job_type?: string | null;
 }
 
 export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
@@ -32,13 +31,11 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [printerConfigs, setPrinterConfigs] = useState<PrinterConfig[]>([]);
   const [selectedQrPrinter, setSelectedQrPrinter] = useState<string | null>(null);
-  const [selectedBillPrinter, setSelectedBillPrinter] = useState<string | null>(null);
   const [printing, setPrinting] = useState<string | null>(null);
-  const [printingReceipt, setPrintingReceipt] = useState<string | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
-  const [printReceiptError, setPrintReceiptError] = useState<Record<string, string>>({});
   const [editedJobs, setEditedJobs] = useState<Record<string, string>>({});
   const [savingJobs, setSavingJobs] = useState(false);
+  const [printerSectionOpen, setPrinterSectionOpen] = useState(false);
 
   useEffect(() => {
     fetchTableSessions();
@@ -59,7 +56,6 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
 
       setPrinterConfigs(data || []);
       setSelectedQrPrinter(data?.find(p => p.print_job_type === 'QR')?.id ?? null);
-      setSelectedBillPrinter(data?.find(p => p.print_job_type === 'BILL')?.id ?? null);
     } catch (error) {
       console.error('Error fetching printer configs:', error);
     }
@@ -205,41 +201,22 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
             .container {
               padding: 10px;
             }
-  </style>
-</head>
-<body>
-  <div class="receipt">
-    <div class="header">
-      ${restaurant.name}
-    </div>
-    
-    <div class="table-info">
-      TABLE ${tableNumber}
-    </div>
-    
-    <div class="qr-code">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}" alt="QR Code for Table ${tableNumber}" width="200" height="200" />
-    </div>
-    
-    <div class="instructions">
-      SCAN THIS CODE TO ORDER
-      FOOD & DRINKS DIRECTLY
-      FROM YOUR PHONE
-    </div>
-    
-    <div class="divider"></div>
-    
-    <div class="instructions">
-      No app download required
-      Just scan and browse our menu
-    </div>
-    
-    <div class="timestamp">
-      Printed: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-    </div>
-  </div>
-</body>
-</html>
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <div class="header">${restaurant.name}</div>
+            <div class="table-info">TABLE ${tableNumber}</div>
+            <div class="qr-code">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCodeUrl)}" alt="QR Code for Table ${tableNumber}" width="200" height="200" />
+            </div>
+            <div class="instructions">SCAN THIS CODE TO ORDER FOOD & DRINKS DIRECTLY FROM YOUR PHONE</div>
+            <div class="divider"></div>
+            <div class="instructions">No app download required. Just scan and browse our menu</div>
+            <div class="timestamp">Printed: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
+          </div>
+        </body>
+      </html>
     `;
   };
 
@@ -298,151 +275,6 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
     }
   };
 
-  const printReceipt = async (table: TableWithSession) => {
-    const { data: sessions } = await supabase
-      .from('order_sessions')
-      .select('id')
-      .eq('table_id', table.id)
-      .eq('is_active', true);
-
-    if (!sessions || sessions.length === 0) {
-      alert('No active session found for this table');
-      return;
-    }
-
-    const { data: orders } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        items:order_items(
-          *,
-          menu_item:menu_items(*)
-        )
-      `)
-      .eq('session_id', sessions[0].id)
-      .neq('payment_status', 'paid');
-
-    if (!orders || orders.length === 0) {
-      alert('No unpaid orders found for this table');
-      return;
-    }
-
-    try {
-      setPrintingReceipt(table.id);
-      setPrintReceiptError(prev => ({ ...prev, [table.id]: '' }));
-
-      const printer = printerConfigs.find(p => p.id === selectedBillPrinter);
-      if (!printer) throw new Error('Selected printer not found');
-
-      const subtotal = orders.reduce((sum, order) => sum + order.subtotal_sgd, 0);
-      const discount = orders.reduce((sum, order) => sum + order.discount_sgd, 0);
-      const netSubtotal = subtotal - discount;
-      const gst = netSubtotal * 0.09;
-      const total = netSubtotal + gst;
-
-      const receiptHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <title>Receipt - Table ${table.table_number}</title>
-        <style>
-          body { font-family: monospace; margin: 0; padding: 10px; width: 100%; font-size: 12px; }
-          .receipt { width: 100%; max-width: 300px; margin: 0 auto;}
-          .header {text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 10px;}
-          .table-info {text-align: center; font-size: 14px; font-weight: bold; margin: 10px 0;}
-          .datetime {text-align: center; font-size: 10px; margin-bottom: 15px;}
-          .items { margin: 15px 0;}
-          .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 11px;}
-          .item-name { flex: 1; padding-right: 10px;}
-          .item-price { text-align: right; min-width: 60px;}
-          .divider { border-top: 1px dashed #000; margin: 10px 0;}
-          .totals { margin: 10px 0;}
-          .total-line { display: flex; justify-content: space-between; margin: 3px 0; font-size: 11px;}
-          .total-line.final { font-weight: bold; font-size: 12px; border-top: 1px solid #000; padding-top: 5px; margin-top: 8px;}
-          .footer { text-align: center; font-size: 10px; margin-top: 15px; border-top: 1px dashed #000; padding-top: 10px;}
-        </style>
-        </head>
-        <body>
-          <div class="receipt">
-            <div class="header">${restaurant.name}</div>
-            <div class="table-info">TABLE ${table.table_number}</div>
-            <div class="datetime">${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
-            <div class="items">
-              ${orders.map(order =>
-                order.items?.map(item => `
-                  <div class="item">
-                    <div class="item-name">${item.quantity}x ${item.menu_item?.name}</div>
-                    <div class="item-price">$${item.total_price_sgd.toFixed(2)}</div>
-                  </div>
-                `).join('') || ''
-              ).join('')}
-            </div>
-            <div class="divider"></div>
-            <div class="totals">
-              <div class="total-line"><span>Subtotal:</span><span>$${subtotal.toFixed(2)}</span></div>
-              ${discount > 0 ? `
-                <div class="total-line"><span>Discount:</span><span>-$${discount.toFixed(2)}</span></div>
-                <div class="total-line"><span>Net Subtotal:</span><span>$${netSubtotal.toFixed(2)}</span></div>
-              ` : ''}
-              <div class="total-line"><span>GST (9%):</span><span>$${gst.toFixed(2)}</span></div>
-              <div class="total-line final"><span>TOTAL:</span><span>$${total.toFixed(2)}</span></div>
-            </div>
-            <div class="footer">
-              Thank you for dining with us!<br>
-              Please pay at the counter
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      const base64Content = btoa(receiptHtml);
-
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/print-proxy/print`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          restaurantId: restaurant.id,
-          deviceId: printer.device_id,
-          printerId: printer.printer_id,
-          content: base64Content,
-          options: {
-            mimeType: 'text/html',
-            copies: 1
-          },
-          jobName: `Receipt - Table ${table.table_number}`
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to print receipt');
-      }
-
-      const notification = document.createElement('div');
-      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      notification.textContent = `Receipt printed for Table ${table.table_number}!`;
-      document.body.appendChild(notification);
-
-      setTimeout(() => {
-        if (document.body.contains(notification)) {
-          document.body.removeChild(notification);
-        }
-      }, 3000);
-    } catch (error) {
-      console.error('Error printing receipt:', error);
-      setPrintReceiptError(prev => ({
-        ...prev,
-        [table.id]: error instanceof Error ? error.message : 'Failed to print receipt'
-      }));
-    } finally {
-      setPrintingReceipt(null);
-    }
-  };
-
   const openOrderingPage = (url: string) => {
     window.open(url, '_blank');
   };
@@ -455,9 +287,7 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
         <div className="text-center py-8">
           <QrCode className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h3>
-          <p className="text-gray-600">
-            Only restaurant owners and managers can manage QR codes.
-          </p>
+          <p className="text-gray-600">Only restaurant owners and managers can manage QR codes.</p>
         </div>
       </div>
     );
@@ -497,96 +327,84 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
         </button>
       </div>
 
-      {/* Printer Role Management */}
+      {/* Printer Role Management - Collapsible */}
       {printerConfigs.length > 0 && (
         <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-300">
-          <h3 className="font-semibold text-yellow-800 mb-4">Assign Printer Roles</h3>
-          <div className="space-y-3">
-            {printerConfigs.map((printer) => (
-              <div key={printer.id} className="flex items-center justify-between py-2">
-                <span className="font-medium">{printer.printer_name}</span>
-                <select
-                  value={editedJobs[printer.id] ?? (printer.print_job_type ?? '')}
-                  onChange={e =>
-                    setEditedJobs(jobs => ({
-                      ...jobs,
-                      [printer.id]: e.target.value
-                    }))
-                  }
-                  className="border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="">[No Role]</option>
-                  <option value="QR">QR</option>
-                  <option value="BILL">BILL</option>
-                </select>
-              </div>
-            ))}
-            <button
-              className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
-              onClick={async () => {
-                setSavingJobs(true);
-                try {
-                  for (const [printerId, role] of Object.entries(editedJobs)) {
-                    await supabase
-                      .from('printer_configs')
-                      .update({ print_job_type: role || null })
-                      .eq('id', printerId);
-                  }
-                  await fetchPrinterConfigs();
-                  setEditedJobs({});
-                } catch (err) {
-                  alert("Failed to save printer roles.");
-                } finally {
-                  setSavingJobs(false);
-                }
-              }}
-              disabled={savingJobs || Object.keys(editedJobs).length === 0}
-            >
-              {savingJobs ? "Saving..." : "Save Printer Roles"}
-            </button>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setPrinterSectionOpen(open => !open)}>
+            <h3 className="font-semibold text-yellow-800 mb-0">Printer Configuration</h3>
+            {printerSectionOpen ? (
+              <ChevronUp className="w-5 h-5 text-yellow-800" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-yellow-800" />
+            )}
           </div>
+          {printerSectionOpen && (
+            <div className="mt-4 space-y-3">
+              {printerConfigs.map((printer) => (
+                <div key={printer.id} className="flex items-center justify-between py-2">
+                  <span className="font-medium">{printer.printer_name}</span>
+                  <select
+                    value={editedJobs[printer.id] ?? (printer.print_job_type ?? '')}
+                    onChange={e =>
+                      setEditedJobs(jobs => ({
+                        ...jobs,
+                        [printer.id]: e.target.value
+                      }))
+                    }
+                    className="border border-gray-300 rounded px-2 py-1"
+                  >
+                    <option value="">[No Role]</option>
+                    <option value="QR">QR</option>
+                  </select>
+                </div>
+              ))}
+              <button
+                className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+                onClick={async () => {
+                  setSavingJobs(true);
+                  try {
+                    for (const [printerId, role] of Object.entries(editedJobs)) {
+                      await supabase
+                        .from('printer_configs')
+                        .update({ print_job_type: role || null })
+                        .eq('id', printerId);
+                    }
+                    await fetchPrinterConfigs();
+                    setEditedJobs({});
+                  } catch (err) {
+                    alert("Failed to save printer roles.");
+                  } finally {
+                    setSavingJobs(false);
+                  }
+                }}
+                disabled={savingJobs || Object.keys(editedJobs).length === 0}
+              >
+                {savingJobs ? "Saving..." : "Save Printer Roles"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Printer Selection */}
+      {/* Printer Selection Dropdown */}
       {printerConfigs.length > 0 && (
-        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="font-semibold text-blue-800 mb-4">Printer Configuration</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <QrCode className="w-5 h-5 text-blue-600 mr-2" />
-                <span className="text-blue-800">QR Code Printer:</span>
-              </div>
-              <select
-                value={selectedQrPrinter || ''}
-                onChange={(e) => setSelectedQrPrinter(e.target.value)}
-                className="px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {printerConfigs
-                  .filter(printer => printer.print_job_type === 'QR')
-                  .map(printer => (
-                    <option key={printer.id} value={printer.id}>{printer.printer_name} {printer.is_default ? '(Default)' : ''}</option>
-                  ))}
-              </select>
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <QrCode className="w-5 h-5 text-blue-600 mr-2" />
+              <span className="text-blue-800">QR Code Printer:</span>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <Receipt className="w-5 h-5 text-green-600 mr-2" />
-                <span className="text-green-800">Bill Printer:</span>
-              </div>
-              <select
-                value={selectedBillPrinter || ''}
-                onChange={(e) => setSelectedBillPrinter(e.target.value)}
-                className="px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-              >
-                {printerConfigs
-                  .filter(printer => printer.print_job_type === 'BILL')
-                  .map(printer => (
-                    <option key={printer.id} value={printer.id}>{printer.printer_name} {printer.is_default ? '(Default)' : ''}</option>
-                  ))}
-              </select>
-            </div>
+            <select
+              value={selectedQrPrinter || ''}
+              onChange={(e) => setSelectedQrPrinter(e.target.value)}
+              className="px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {printerConfigs
+                .filter(printer => printer.print_job_type === 'QR')
+                .map(printer => (
+                  <option key={printer.id} value={printer.id}>{printer.printer_name} {printer.is_default ? '(Default)' : ''}</option>
+                ))}
+            </select>
           </div>
         </div>
       )}
@@ -664,16 +482,6 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
                       {printing === table.id ? 'Printing...' : 'Print'}
                     </button>
                   )}
-                  {printerConfigs.length > 0 && selectedBillPrinter && (
-                    <button
-                      onClick={() => printReceipt(table)}
-                      disabled={printingReceipt === table.id}
-                      className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors disabled:opacity-50"
-                    >
-                      <Receipt className="w-4 h-4 mr-1" />
-                      {printingReceipt === table.id ? 'Printing...' : 'Print Bill'}
-                    </button>
-                  )}
                 </div>
                 <button
                   onClick={() => deactivateSession(table.session!)}
@@ -704,10 +512,10 @@ export function QRCodeGenerator({ restaurant, tables }: QRCodeGeneratorProps) {
         ))}
       </div>
 
-      {(printError || Object.values(printReceiptError).some(e => e)) && (
+      {printError && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <h4 className="font-semibold text-red-800 mb-2">Print Error</h4>
-          <p className="text-red-700 text-sm">{printError || Object.values(printReceiptError).find(e => e)}</p>
+          <p className="text-red-700 text-sm">{printError}</p>
           <p className="text-sm text-red-600 mt-2">Please check that your printer is properly configured and the Electron client is running.</p>
         </div>
       )}
