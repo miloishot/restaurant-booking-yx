@@ -47,6 +47,43 @@ export function RestaurantDashboard() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
 
+
+  const [ownerPin, setOwnerPin] = useState<string | null>(null);
+  
+  const fetchRestaurant = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('*')
+        .eq('owner_id', user.id)
+        .maybeSingle();
+  
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+  
+      if (data) {
+        setRestaurant(data);
+        setOwnerPin(data.owner_pin || null); // Load the PIN here
+        setFormData({
+          name: data.name,
+          slug: data.slug || '',
+          address: data.address || '',
+          phone: data.phone || '',
+          email: data.email || '',
+          time_slot_duration_minutes: data.time_slot_duration_minutes
+        });
+  
+        // Fetch tables for this restaurant
+        await fetchTables(data.id);
+      }
+    } catch (error) {
+      console.error('Error fetching restaurant:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   // Subscribe to real-time order updates
   useEffect(() => {
     if (!restaurant) return;
