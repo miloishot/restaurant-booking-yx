@@ -262,38 +262,51 @@ export function RestaurantSetup() {
     }
   };
 
-  const handleChangePinSubmit = (e: React.FormEvent) => {
+  
+  const handleChangePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const savedPin = localStorage.getItem('setup_pin') || '123456';
-    
-    if (currentPin !== savedPin) {
+  
+    // Make sure restaurant is loaded
+    if (!restaurant) {
+      setPinError('Restaurant details not loaded.');
+      return;
+    }
+    if (currentPin !== ownerPin) {
       setPinError('Current PIN is incorrect.');
       return;
     }
-    
     if (newPin !== confirmNewPin) {
       setPinError('New PINs do not match.');
       return;
     }
-    
     if (newPin.length !== 6 || !/^\d+$/.test(newPin)) {
       setPinError('PIN must be 6 digits.');
       return;
     }
-    
-    localStorage.setItem('setup_pin', newPin);
+  
+    // Update pin in DB
+    const { error } = await supabase
+      .from('restaurants')
+      .update({ owner_pin: newPin })
+      .eq('id', restaurant.id);
+  
+    if (error) {
+      setPinError('Could not update PIN. Try again.');
+      return;
+    }
+  
+    setOwnerPin(newPin);
     setShowChangePinForm(false);
     setPinError(null);
     setNewPin('');
     setConfirmNewPin('');
     setCurrentPin('');
-    
+  
     // Show success notification
     const notification = document.createElement('div');
     notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
     notification.textContent = 'PIN changed successfully!';
     document.body.appendChild(notification);
-    
     setTimeout(() => {
       if (document.body.contains(notification)) {
         document.body.removeChild(notification);
