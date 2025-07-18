@@ -407,7 +407,6 @@ export function RestaurantDashboard() {
             >
               Bookings ({activeBookings.length})
             </button>
-
             <button
               onClick={() => setActiveTab('orders')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
