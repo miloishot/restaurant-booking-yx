@@ -406,8 +406,6 @@ export function RestaurantDashboard() {
               }`}
             >
               Bookings ({activeBookings.length})
-              \n\n
-              Waiting List ({waitingList.length})
             </button>
             <button
               onClick={() => setActiveTab('orders')}
